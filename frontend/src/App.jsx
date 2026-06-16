@@ -37,13 +37,13 @@ function AppRoutes() {
       />
 
       <Route
-        path="/teacher"
-        element={
-          <ProtectedRoute allowedRoles={["teacher"]}>
-            <TeacherDashboard />
-          </ProtectedRoute>
-        }
-      />
+  path="/teacher"
+  element={
+    <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+      <TeacherDashboard />
+    </ProtectedRoute>
+  }
+/>
 
       <Route
         path="/student"
