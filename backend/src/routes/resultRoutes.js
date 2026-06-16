@@ -5,6 +5,7 @@ import {
   getAllResults,
   calculateExamAnalytics,
   detectWeakStudents,
+  getAnalyticsSummary,
 } from "../controllers/resultController.js";
 
 import {
@@ -40,4 +41,11 @@ router.put(
   authorizeRoles("admin", "teacher"),
   detectWeakStudents
 );
+router.get(
+  "/analytics-summary",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  getAnalyticsSummary
+);
+
 export default router;

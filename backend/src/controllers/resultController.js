@@ -1,5 +1,7 @@
 import Result from "../models/Result.js";
 import StudentProfile from "../models/StudentProfile.js";
+import Attendance from "../models/Attendance.js";
+
 
 const calculateGrade = (marks) => {
   if (marks >= 75) return "A";
@@ -148,6 +150,61 @@ export const detectWeakStudents = async (req, res) => {
     res.status(200).json({
       message: "Weak student detection completed",
       weakStudents,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const getAnalyticsSummary = async (req, res) => {
+  try {
+    const totalStudents = await StudentProfile.countDocuments();
+
+    const results = await Result.find();
+
+    const totalResults = results.length;
+
+    const averageMarks =
+      totalResults > 0
+        ? (
+            results.reduce((sum, result) => sum + result.marks, 0) /
+            totalResults
+          ).toFixed(2)
+        : 0;
+
+    const passCount = results.filter(
+      (result) => result.marks >= 35
+    ).length;
+
+    const failCount = results.filter(
+      (result) => result.marks < 35
+    ).length;
+
+    const highRiskStudents = await StudentProfile.countDocuments({
+      riskStatus: "High",
+    });
+
+    const studentProfiles = await StudentProfile.find();
+
+    const averageAttendance =
+      studentProfiles.length > 0
+        ? (
+            studentProfiles.reduce(
+              (sum, student) => sum + student.attendancePercentage,
+              0
+            ) / studentProfiles.length
+          ).toFixed(2)
+        : 0;
+
+    res.status(200).json({
+      totalStudents,
+      averageMarks,
+      passCount,
+      failCount,
+      highRiskStudents,
+      averageAttendance,
     });
   } catch (error) {
     res.status(500).json({
