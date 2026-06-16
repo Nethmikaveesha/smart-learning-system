@@ -12,6 +12,9 @@ import userRoutes from "./routes/userRoutes.js";
 import classRoutes from "./routes/classRoutes.js";
 import subjectRoutes from "./routes/subjectRoutes.js";
 import studentProfileRoutes from "./routes/studentProfileRoutes.js";
+import attendanceRoutes from "./routes/attendanceRoutes.js";
+import examRoutes from "./routes/examRoutes.js";
+import resultRoutes from "./routes/resultRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -60,3 +63,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
 app.use("/api/student-profiles", studentProfileRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/exams", examRoutes);
+app.use("/api/results", resultRoutes);
