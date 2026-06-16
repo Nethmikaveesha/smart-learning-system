@@ -8,6 +8,10 @@ import {
   protect,
   authorizeRoles,
 } from "./middleware/authMiddleware.js";
+import userRoutes from "./routes/userRoutes.js";
+import classRoutes from "./routes/classRoutes.js";
+import subjectRoutes from "./routes/subjectRoutes.js";
+import studentProfileRoutes from "./routes/studentProfileRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -52,3 +56,7 @@ app.get(
     res.json({ message: "Teacher route access granted" });
   }
 );
+app.use("/api/users", userRoutes);
+app.use("/api/classes", classRoutes);
+app.use("/api/subjects", subjectRoutes);
+app.use("/api/student-profiles", studentProfileRoutes);
