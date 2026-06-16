@@ -124,3 +124,24 @@ export const approveEssaySubmission = async (req, res) => {
     });
   }
 };
+
+export const getAllEssaySubmissions = async (req, res) => {
+  try {
+    const submissions = await EssaySubmission.find()
+      .populate({
+        path: "student",
+        populate: {
+          path: "user",
+          select: "fullName email",
+        },
+      })
+      .populate("question", "question maxMarks")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(submissions);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};

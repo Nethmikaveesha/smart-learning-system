@@ -4,7 +4,9 @@ import {
   createMarkingScheme,
   submitEssay,
   approveEssaySubmission,
+  getAllEssaySubmissions,
 } from "../controllers/essayController.js";
+
 import {
   protect,
   authorizeRoles,
@@ -40,4 +42,12 @@ router.put(
   authorizeRoles("admin", "teacher"),
   approveEssaySubmission
 );
+
+router.get(
+  "/submissions",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  getAllEssaySubmissions
+);
+
 export default router;
