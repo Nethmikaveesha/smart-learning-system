@@ -48,6 +48,7 @@ function AppRoutes() {
       <Route
         path="/student"
         element={
+          // <ProtectedRoute allowedRoles={["student"]}>
           <ProtectedRoute allowedRoles={["student"]}>
             <StudentDashboard />
           </ProtectedRoute>
