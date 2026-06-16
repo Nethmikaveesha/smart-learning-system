@@ -93,3 +93,34 @@ export const submitEssay = async (req, res) => {
     });
   }
 };
+
+export const approveEssaySubmission = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { finalMarks, teacherFeedback } = req.body;
+
+    const submission = await EssaySubmission.findById(submissionId);
+
+    if (!submission) {
+      return res.status(404).json({
+        message: "Essay submission not found",
+      });
+    }
+
+    submission.finalMarks = finalMarks;
+    submission.teacherFeedback = teacherFeedback;
+    submission.status =
+      finalMarks === submission.marks ? "Approved" : "Modified";
+
+    await submission.save();
+
+    res.status(200).json({
+      message: "Essay submission reviewed successfully",
+      submission,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};

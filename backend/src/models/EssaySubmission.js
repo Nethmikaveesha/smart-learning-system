@@ -28,11 +28,30 @@ const essaySubmissionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    finalMarks: {
+  type: Number,
+  default: null,
+},
+
+teacherFeedback: {
+  type: String,
+  default: "",
+},
+
+status: {
+  type: String,
+  enum: ["Pending", "Approved", "Modified"],
+  default: "Pending",
+},
   },
   { timestamps: true }
 );
+
+
 
 export default mongoose.model(
   "EssaySubmission",
   essaySubmissionSchema
 );
+
