@@ -18,6 +18,7 @@ import resultRoutes from "./routes/resultRoutes.js";
 import parentDashboardRoutes from "./routes/parentDashboardRoutes.js";
 import studentDashboardRoutes from "./routes/studentDashboardRoutes.js";
 import teacherDashboardRoutes from "./routes/teacherDashboardRoutes.js";
+import essayRoutes from "./routes/essayRoutes.js";
 dotenv.config();
 connectDB();
 
@@ -71,3 +72,4 @@ app.use("/api/results", resultRoutes);
 app.use("/api/parent-dashboard", parentDashboardRoutes);
 app.use("/api/student-dashboard", studentDashboardRoutes);
 app.use("/api/teacher-dashboard", teacherDashboardRoutes);
+app.use("/api/essays", essayRoutes);
