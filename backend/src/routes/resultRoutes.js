@@ -4,7 +4,9 @@ import {
   addResult,
   getAllResults,
   calculateExamAnalytics,
+  detectWeakStudents,
 } from "../controllers/resultController.js";
+
 import {
   protect,
   authorizeRoles,
@@ -30,5 +32,12 @@ router.get(
   protect,
   authorizeRoles("admin", "teacher"),
   calculateExamAnalytics
+);
+
+router.put(
+  "/detect-weak/:examId",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  detectWeakStudents
 );
 export default router;
