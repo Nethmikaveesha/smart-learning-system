@@ -1,4 +1,15 @@
 import { useEffect, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
+
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -27,6 +38,20 @@ function ParentDashboard() {
 
     if (token) fetchDashboard();
   }, [token]);
+
+  const performanceData =
+    data?.results?.map((result) => ({
+      exam: result.exam?.examName,
+      marks: result.marks,
+      zScore: result.zScore,
+    })) || [];
+
+  const attendanceData = [
+    {
+      name: "Attendance",
+      value: data?.attendancePercentage || 0,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -74,6 +99,42 @@ function ParentDashboard() {
             <p className="mb-2">
               <strong>Class:</strong> {data.student?.class?.className}
             </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow p-5">
+              <h2 className="text-xl font-bold mb-4">
+                Marks Trend
+              </h2>
+
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={performanceData}>
+                  <XAxis dataKey="exam" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="marks"
+                    strokeWidth={3}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-xl shadow p-5">
+              <h2 className="text-xl font-bold mb-4">
+                Attendance Overview
+              </h2>
+
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={attendanceData}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow p-5">
