@@ -15,6 +15,7 @@ function StudentDashboard() {
   const { token, logout } = useAuth();
 
   const [data, setData] = useState(null);
+  const [studyPlan, setStudyPlan] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -27,6 +28,14 @@ function StudentDashboard() {
         });
 
         setData(res.data);
+
+        const plannerRes = await api.get("/study-planner", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setStudyPlan(plannerRes.data.plan);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -76,10 +85,25 @@ function StudentDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card title="Attendance" value={`${data.attendancePercentage}%`} />
-            <Card title="Current Z-Score" value={data.currentZScore} />
-            <Card title="Risk Status" value={data.riskStatus} />
-            <Card title="Latest Grade" value={data.latestResult?.grade || "N/A"} />
+            <Card
+              title="Attendance"
+              value={`${data.attendancePercentage}%`}
+            />
+
+            <Card
+              title="Current Z-Score"
+              value={data.currentZScore}
+            />
+
+            <Card
+              title="Risk Status"
+              value={data.riskStatus}
+            />
+
+            <Card
+              title="Latest Grade"
+              value={data.latestResult?.grade || "N/A"}
+            />
           </div>
 
           <div className="bg-white rounded-xl shadow p-5 mb-8">
@@ -88,19 +112,23 @@ function StudentDashboard() {
             </h2>
 
             <p className="mb-2">
-              <strong>Name:</strong> {data.student?.user?.fullName}
+              <strong>Name:</strong>{" "}
+              {data.student?.user?.fullName}
             </p>
 
             <p className="mb-2">
-              <strong>Email:</strong> {data.student?.user?.email}
+              <strong>Email:</strong>{" "}
+              {data.student?.user?.email}
             </p>
 
             <p className="mb-2">
-              <strong>Student ID:</strong> {data.student?.studentId}
+              <strong>Student ID:</strong>{" "}
+              {data.student?.studentId}
             </p>
 
             <p className="mb-2">
-              <strong>Class:</strong> {data.student?.class?.className}
+              <strong>Class:</strong>{" "}
+              {data.student?.class?.className}
             </p>
           </div>
 
@@ -123,6 +151,45 @@ function StudentDashboard() {
             </ResponsiveContainer>
           </div>
 
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              Smart Study Planner
+            </h2>
+
+            <table className="w-full border">
+              <thead className="bg-slate-200">
+                <tr>
+                  <th className="p-3">Subject</th>
+                  <th className="p-3">Average Marks</th>
+                  <th className="p-3">Priority</th>
+                  <th className="p-3">Study Hours</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {studyPlan.map((item, index) => (
+                  <tr key={index} className="border-t">
+                    <td className="p-3">
+                      {item.subject}
+                    </td>
+
+                    <td className="p-3">
+                      {item.averageMarks}
+                    </td>
+
+                    <td className="p-3">
+                      {item.priority}
+                    </td>
+
+                    <td className="p-3">
+                      {item.recommendedHours} hrs/day
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           <div className="bg-white rounded-xl shadow p-5">
             <h2 className="text-xl font-bold mb-4">
               Exam Results
@@ -141,7 +208,10 @@ function StudentDashboard() {
 
               <tbody>
                 {data.results?.map((result) => (
-                  <tr key={result._id} className="border-t">
+                  <tr
+                    key={result._id}
+                    className="border-t"
+                  >
                     <td className="p-3">
                       {result.exam?.examName}
                     </td>
