@@ -24,6 +24,7 @@ import studyPlannerRoutes from "./routes/studyPlannerRoutes.js";
 dotenv.config();
 connectDB();
 import reportRoutes from "./routes/reportRoutes.js";
+import chatbotRoutes from "./routes/chatbotRoutes.js";
 
 const app = express();
 
@@ -78,3 +79,4 @@ app.use("/api/teacher-dashboard", teacherDashboardRoutes);
 app.use("/api/essays", essayRoutes);
 app.use("/api/study-planner", studyPlannerRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/chatbot", chatbotRoutes);

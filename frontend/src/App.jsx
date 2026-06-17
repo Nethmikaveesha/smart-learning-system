@@ -7,6 +7,7 @@ import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
 import EssayGrader from "./pages/EssayGrader";
+import Chatbot from "./pages/Chatbot";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -70,6 +71,17 @@ function AppRoutes() {
   element={
     <ProtectedRoute allowedRoles={["student"]}>
       <EssayGrader />
+    </ProtectedRoute>
+  }
+/>
+
+      <Route
+  path="/chatbot"
+  element={
+    <ProtectedRoute
+      allowedRoles={["student", "teacher", "admin"]}
+    >
+      <Chatbot />
     </ProtectedRoute>
   }
 />
