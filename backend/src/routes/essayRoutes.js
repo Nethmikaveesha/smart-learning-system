@@ -5,6 +5,7 @@ import {
   submitEssay,
   approveEssaySubmission,
   getAllEssaySubmissions,
+  getEssayQuestions,
 } from "../controllers/essayController.js";
 
 import {
@@ -48,6 +49,12 @@ router.get(
   protect,
   authorizeRoles("admin", "teacher"),
   getAllEssaySubmissions
+);
+
+router.get(
+  "/questions",
+  protect,
+  getEssayQuestions
 );
 
 export default router;

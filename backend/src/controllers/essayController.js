@@ -1,6 +1,7 @@
 import EssayQuestion from "../models/EssayQuestion.js";
 import MarkingScheme from "../models/MarkingScheme.js";
 import EssaySubmission from "../models/EssaySubmission.js";
+import { evaluateEssayWithGemini } from "../services/geminiService.js";
 
 export const createEssayQuestion = async (req, res) => {
   try {
@@ -44,6 +45,14 @@ export const submitEssay = async (req, res) => {
   try {
     const { studentId, questionId, answer } = req.body;
 
+    const essayQuestion = await EssayQuestion.findById(questionId);
+
+    if (!essayQuestion) {
+      return res.status(404).json({
+        message: "Essay question not found",
+      });
+    }
+
     const markingScheme = await MarkingScheme.findOne({
       question: questionId,
     });
@@ -57,34 +66,55 @@ export const submitEssay = async (req, res) => {
     let score = 0;
 
     markingScheme.keywords.forEach((keyword) => {
-      if (
-        answer.toLowerCase().includes(keyword.toLowerCase())
-      ) {
+      if (answer.toLowerCase().includes(keyword.toLowerCase())) {
         score++;
       }
     });
 
-    const marks = Math.round(
-      (score / markingScheme.keywords.length) * 10
+    const keywordMarks = Math.round(
+      (score / markingScheme.keywords.length) * essayQuestion.maxMarks
     );
 
-    const feedback =
-      marks >= 8
+    const keywordFeedback =
+      keywordMarks >= 8
         ? "Excellent answer"
-        : marks >= 5
+        : keywordMarks >= 5
         ? "Good answer, but needs improvement"
         : "Weak answer. Add more key points.";
+
+    const geminiEvaluation = await evaluateEssayWithGemini(
+      essayQuestion.question,
+      answer,
+      essayQuestion.maxMarks
+    );
+
+    const finalAiMarks =
+      geminiEvaluation.marks && geminiEvaluation.marks > 0
+        ? geminiEvaluation.marks
+        : keywordMarks;
+
+    const finalAiFeedback =
+      geminiEvaluation.feedback &&
+      geminiEvaluation.feedback !== "Gemini evaluation failed. Please use teacher review."
+        ? geminiEvaluation.feedback
+        : keywordFeedback;
 
     const submission = await EssaySubmission.create({
       student: studentId,
       question: questionId,
       answer,
-      marks,
-      feedback,
+      marks: finalAiMarks,
+      feedback: finalAiFeedback,
     });
 
     res.status(201).json({
       message: "Essay graded successfully",
+      keywordEvaluation: {
+        marks: keywordMarks,
+        matchedKeywords: score,
+        totalKeywords: markingScheme.keywords.length,
+      },
+      geminiEvaluation,
       submission,
     });
   } catch (error) {
@@ -139,6 +169,21 @@ export const getAllEssaySubmissions = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.status(200).json(submissions);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const getEssayQuestions = async (req, res) => {
+  try {
+    const questions = await EssayQuestion.find().populate(
+      "subject",
+      "subjectName"
+    );
+
+    res.status(200).json(questions);
   } catch (error) {
     res.status(500).json({
       message: error.message,
