@@ -1,4 +1,13 @@
 import { useEffect, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,8 +25,6 @@ function StudentDashboard() {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        console.log("Student Dashboard:", res.data);
 
         setData(res.data);
       } catch (error) {
@@ -37,6 +44,13 @@ function StudentDashboard() {
       fetchDashboard();
     }
   }, [token]);
+
+  const performanceData =
+    data?.results?.map((result) => ({
+      exam: result.exam?.examName,
+      marks: result.marks,
+      zScore: result.zScore,
+    })) || [];
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -61,57 +75,54 @@ function StudentDashboard() {
         <p>Loading...</p>
       ) : (
         <>
-          {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card
-              title="Attendance"
-              value={`${data.attendancePercentage}%`}
-            />
-
-            <Card
-              title="Current Z-Score"
-              value={data.currentZScore}
-            />
-
-            <Card
-              title="Risk Status"
-              value={data.riskStatus}
-            />
-
-            <Card
-              title="Latest Grade"
-              value={data.latestResult?.grade || "N/A"}
-            />
+            <Card title="Attendance" value={`${data.attendancePercentage}%`} />
+            <Card title="Current Z-Score" value={data.currentZScore} />
+            <Card title="Risk Status" value={data.riskStatus} />
+            <Card title="Latest Grade" value={data.latestResult?.grade || "N/A"} />
           </div>
 
-          {/* Student Information */}
           <div className="bg-white rounded-xl shadow p-5 mb-8">
             <h2 className="text-xl font-bold mb-4">
               Student Information
             </h2>
 
             <p className="mb-2">
-              <strong>Name:</strong>{" "}
-              {data.student?.user?.fullName}
+              <strong>Name:</strong> {data.student?.user?.fullName}
             </p>
 
             <p className="mb-2">
-              <strong>Email:</strong>{" "}
-              {data.student?.user?.email}
+              <strong>Email:</strong> {data.student?.user?.email}
             </p>
 
             <p className="mb-2">
-              <strong>Student ID:</strong>{" "}
-              {data.student?.studentId}
+              <strong>Student ID:</strong> {data.student?.studentId}
             </p>
 
             <p className="mb-2">
-              <strong>Class:</strong>{" "}
-              {data.student?.class?.className}
+              <strong>Class:</strong> {data.student?.class?.className}
             </p>
           </div>
 
-          {/* Exam Results */}
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              Performance Trend
+            </h2>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={performanceData}>
+                <XAxis dataKey="exam" />
+                <YAxis />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="marks"
+                  strokeWidth={3}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
           <div className="bg-white rounded-xl shadow p-5">
             <h2 className="text-xl font-bold mb-4">
               Exam Results
@@ -130,10 +141,7 @@ function StudentDashboard() {
 
               <tbody>
                 {data.results?.map((result) => (
-                  <tr
-                    key={result._id}
-                    className="border-t"
-                  >
+                  <tr key={result._id} className="border-t">
                     <td className="p-3">
                       {result.exam?.examName}
                     </td>

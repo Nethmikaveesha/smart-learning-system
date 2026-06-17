@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import AdminCharts from "../components/AdminCharts";
 
 function AdminDashboard() {
   const { token, logout } = useAuth();
@@ -42,18 +43,20 @@ function AdminDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <Card title="Total Students" value={summary.totalStudents} />
-            <Card title="Average Marks" value={summary.averageMarks} />
-            <Card title="Pass Count" value={summary.passCount} />
-            <Card title="Fail Count" value={summary.failCount} />
-            <Card title="High Risk Students" value={summary.highRiskStudents} />
-            <Card
-              title="Average Attendance"
-              value={`${summary.averageAttendance}%`}
-            />
-          </div>
+  <Card title="Total Students" value={summary.totalStudents} />
+  <Card title="Average Marks" value={summary.averageMarks} />
+  <Card title="Pass Count" value={summary.passCount} />
+  <Card title="Fail Count" value={summary.failCount} />
+  <Card title="High Risk Students" value={summary.highRiskStudents} />
+  <Card
+    title="Average Attendance"
+    value={`${summary.averageAttendance}%`}
+  />
+</div>
 
-          <RecentResultsTable results={teacherData?.recentResults || []} />
+<AdminCharts summary={summary} />
+
+<RecentResultsTable results={teacherData?.recentResults || []} />
         </>
       )}
     </div>
