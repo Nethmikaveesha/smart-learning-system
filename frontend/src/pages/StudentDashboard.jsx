@@ -20,6 +20,7 @@ function StudentDashboard() {
   const [data, setData] = useState(null);
   const [studyPlan, setStudyPlan] = useState([]);
   const [correlationData, setCorrelationData] = useState([]);
+  const [contentRecommendations, setContentRecommendations] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -51,6 +52,14 @@ function StudentDashboard() {
         );
 
         setCorrelationData(correlationRes.data);
+
+        const contentRes = await api.get("/content-recommendations", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setContentRecommendations(contentRes.data);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -100,25 +109,10 @@ function StudentDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card
-              title="Attendance"
-              value={`${data.attendancePercentage}%`}
-            />
-
-            <Card
-              title="Current Z-Score"
-              value={data.currentZScore}
-            />
-
-            <Card
-              title="Risk Status"
-              value={data.riskStatus}
-            />
-
-            <Card
-              title="Latest Grade"
-              value={data.latestResult?.grade || "N/A"}
-            />
+            <Card title="Attendance" value={`${data.attendancePercentage}%`} />
+            <Card title="Current Z-Score" value={data.currentZScore} />
+            <Card title="Risk Status" value={data.riskStatus} />
+            <Card title="Latest Grade" value={data.latestResult?.grade || "N/A"} />
           </div>
 
           <div className="bg-white rounded-xl shadow p-5 mb-8">
@@ -186,12 +180,60 @@ function StudentDashboard() {
                   name="Average Marks"
                 />
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                <Scatter
-                  name="Students"
-                  data={correlationData}
-                />
+                <Scatter name="Students" data={correlationData} />
               </ScatterChart>
             </ResponsiveContainer>
+          </div>
+
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              AI Content Recommendations
+            </h2>
+
+            {contentRecommendations.length === 0 ? (
+              <p>No recommendations available.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {contentRecommendations.map((item) => (
+                  <div
+                    key={item._id}
+                    className="border rounded-lg p-4 bg-slate-50"
+                  >
+                    <h3 className="font-bold text-lg">
+                      {item.noteTitle}
+                    </h3>
+
+                    <p className="text-sm text-slate-600 mb-2">
+                      Subject: {item.subject?.subjectName}
+                    </p>
+
+                    <p className="mb-2">
+                      <strong>Topic:</strong> {item.topic}
+                    </p>
+
+                    <p className="mb-2">
+                      {item.noteDescription}
+                    </p>
+
+                    <p className="mb-2">
+                      <strong>Difficulty:</strong>{" "}
+                      {item.difficultyLevel}
+                    </p>
+
+                    {item.videoLink && (
+                      <a
+                        href={item.videoLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 underline"
+                      >
+                        Watch Video
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl shadow p-5 mb-8">
@@ -212,21 +254,10 @@ function StudentDashboard() {
               <tbody>
                 {studyPlan.map((item, index) => (
                   <tr key={index} className="border-t">
-                    <td className="p-3">
-                      {item.subject}
-                    </td>
-
-                    <td className="p-3">
-                      {item.averageMarks}
-                    </td>
-
-                    <td className="p-3">
-                      {item.priority}
-                    </td>
-
-                    <td className="p-3">
-                      {item.recommendedHours} hrs/day
-                    </td>
+                    <td className="p-3">{item.subject}</td>
+                    <td className="p-3">{item.averageMarks}</td>
+                    <td className="p-3">{item.priority}</td>
+                    <td className="p-3">{item.recommendedHours} hrs/day</td>
                   </tr>
                 ))}
               </tbody>
@@ -251,29 +282,14 @@ function StudentDashboard() {
 
               <tbody>
                 {data.results?.map((result) => (
-                  <tr
-                    key={result._id}
-                    className="border-t"
-                  >
+                  <tr key={result._id} className="border-t">
                     <td className="p-3">
                       {result.exam?.examName}
                     </td>
-
-                    <td className="p-3">
-                      {result.marks}
-                    </td>
-
-                    <td className="p-3">
-                      {result.grade}
-                    </td>
-
-                    <td className="p-3">
-                      {result.zScore}
-                    </td>
-
-                    <td className="p-3">
-                      {result.rank}
-                    </td>
+                    <td className="p-3">{result.marks}</td>
+                    <td className="p-3">{result.grade}</td>
+                    <td className="p-3">{result.zScore}</td>
+                    <td className="p-3">{result.rank}</td>
                   </tr>
                 ))}
               </tbody>
