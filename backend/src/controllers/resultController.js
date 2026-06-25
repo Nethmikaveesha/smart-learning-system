@@ -22,16 +22,31 @@ export const addResult = async (req, res) => {
       grade: calculateGrade(marks),
     });
 
+    const studentProfile = await StudentProfile.findById(student);
+
+    let riskStatus = "Low";
+
+    if (marks < 35 || studentProfile.attendancePercentage < 60) {
+      riskStatus = "High";
+    } else if (marks < 50 || studentProfile.attendancePercentage < 75) {
+      riskStatus = "Medium";
+    }
+
+    await StudentProfile.findByIdAndUpdate(student, {
+      riskStatus,
+    });
+
     await createAuditLog({
       userId: req.user?._id,
       action: "CREATE",
       module: "Results",
-      description: `Result added with ${marks} marks`,
+      description: `Result added with ${marks} marks. Risk status updated to ${riskStatus}`,
     });
 
     res.status(201).json({
       message: "Result added successfully",
       result,
+      riskStatus,
     });
   } catch (error) {
     res.status(500).json({
