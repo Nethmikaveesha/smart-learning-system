@@ -2,6 +2,7 @@ import EssayQuestion from "../models/EssayQuestion.js";
 import MarkingScheme from "../models/MarkingScheme.js";
 import EssaySubmission from "../models/EssaySubmission.js";
 import { evaluateEssayWithGemini } from "../services/geminiService.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
 
 export const createEssayQuestion = async (req, res) => {
   try {
@@ -11,6 +12,13 @@ export const createEssayQuestion = async (req, res) => {
       subject,
       question,
       maxMarks,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Essay Question",
+      description: "New essay question created",
     });
 
     res.status(201).json({
@@ -30,6 +38,13 @@ export const createMarkingScheme = async (req, res) => {
       question,
       keywords,
       modelAnswer,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Marking Scheme",
+      description: "New essay marking scheme created",
     });
 
     res.status(201).json({
@@ -95,7 +110,8 @@ export const submitEssay = async (req, res) => {
 
     const finalAiFeedback =
       geminiEvaluation.feedback &&
-      geminiEvaluation.feedback !== "Gemini evaluation failed. Please use teacher review."
+      geminiEvaluation.feedback !==
+        "Gemini evaluation failed. Please use teacher review."
         ? geminiEvaluation.feedback
         : keywordFeedback;
 
@@ -105,6 +121,13 @@ export const submitEssay = async (req, res) => {
       answer,
       marks: finalAiMarks,
       feedback: finalAiFeedback,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Essay Submission",
+      description: "Essay submitted and automatically graded",
     });
 
     res.status(201).json({
@@ -143,6 +166,13 @@ export const approveEssaySubmission = async (req, res) => {
       finalMarks === submission.marks ? "Approved" : "Modified";
 
     await submission.save();
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Essay Review",
+      description: `Essay submission reviewed by teacher. Status: ${submission.status}`,
+    });
 
     res.status(200).json({
       message: "Essay submission reviewed successfully",

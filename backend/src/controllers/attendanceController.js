@@ -1,5 +1,6 @@
 import Attendance from "../models/Attendance.js";
 import StudentProfile from "../models/StudentProfile.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
 
 export const markAttendance = async (req, res) => {
   try {
@@ -23,6 +24,13 @@ export const markAttendance = async (req, res) => {
 
     await StudentProfile.findByIdAndUpdate(student, {
       attendancePercentage,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Attendance",
+      description: `Attendance marked as ${status}`,
     });
 
     res.status(201).json({
