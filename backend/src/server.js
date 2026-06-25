@@ -26,6 +26,8 @@ connectDB();
 import reportRoutes from "./routes/reportRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import auditLogRoutes from "./routes/auditLogRoutes.js";
+import examTimetableRoutes from "./routes/examTimetableRoutes.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 
 const app = express();
 
@@ -82,3 +84,5 @@ app.use("/api/study-planner", studyPlannerRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
+app.use("/api/exam-timetables", examTimetableRoutes);
+app.use("/api/analytics", analyticsRoutes);

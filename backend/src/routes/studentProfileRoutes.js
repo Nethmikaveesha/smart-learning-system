@@ -3,6 +3,7 @@ import express from "express";
 import {
   createStudentProfile,
   getAllStudentProfiles,
+  updateStudentProfile,
 } from "../controllers/studentProfileController.js";
 
 import {
@@ -24,6 +25,13 @@ router.get(
   protect,
   authorizeRoles("admin", "teacher"),
   getAllStudentProfiles
+);
+
+router.put(
+  "/:id",
+  protect,
+  authorizeRoles("admin"),
+  updateStudentProfile
 );
 
 export default router;
