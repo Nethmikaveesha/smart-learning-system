@@ -21,6 +21,7 @@ function StudentDashboard() {
   const [studyPlan, setStudyPlan] = useState([]);
   const [correlationData, setCorrelationData] = useState([]);
   const [contentRecommendations, setContentRecommendations] = useState([]);
+  const [flashcards, setFlashcards] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -60,6 +61,14 @@ function StudentDashboard() {
         });
 
         setContentRecommendations(contentRes.data);
+
+        const flashcardRes = await api.get("/flashcards", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setFlashcards(flashcardRes.data);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -230,6 +239,41 @@ function StudentDashboard() {
                         Watch Video
                       </a>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              Active Recall Flashcards
+            </h2>
+
+            {flashcards.length === 0 ? (
+              <p>No flashcards available.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {flashcards.map((card) => (
+                  <div
+                    key={card._id}
+                    className="border rounded-lg p-4 bg-slate-50"
+                  >
+                    <p className="text-sm text-slate-600 mb-2">
+                      {card.subject?.subjectName} | {card.topic}
+                    </p>
+
+                    <h3 className="font-bold mb-2">
+                      Q: {card.question}
+                    </h3>
+
+                    <p className="mb-2">
+                      <strong>A:</strong> {card.answer}
+                    </p>
+
+                    <p className="text-sm">
+                      <strong>Difficulty:</strong> {card.difficulty}
+                    </p>
                   </div>
                 ))}
               </div>
