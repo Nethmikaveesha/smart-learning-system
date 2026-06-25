@@ -8,6 +8,9 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  ScatterChart,
+  Scatter,
+  CartesianGrid,
 } from "recharts";
 
 import api from "../services/api";
@@ -17,6 +20,7 @@ function ParentDashboard() {
   const { token, logout } = useAuth();
 
   const [data, setData] = useState(null);
+  const [gradeCorrelationData, setGradeCorrelationData] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -29,6 +33,17 @@ function ParentDashboard() {
         });
 
         setData(res.data);
+
+        const correlationRes = await api.get(
+          "/analytics/attendance-grades",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setGradeCorrelationData(correlationRes.data);
       } catch (error) {
         setError(
           error.response?.data?.message ||
@@ -178,6 +193,58 @@ function ParentDashboard() {
                   <Bar dataKey="value" />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              Attendance vs Grades Correlation
+            </h2>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <ScatterChart>
+                <CartesianGrid />
+                <XAxis
+                  type="number"
+                  dataKey="attendance"
+                  name="Attendance"
+                  unit="%"
+                />
+                <YAxis
+                  type="number"
+                  dataKey="averageMarks"
+                  name="Average Marks"
+                />
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+                <Scatter
+                  name="Grade Correlation"
+                  data={gradeCorrelationData}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+
+            <div className="mt-4">
+              <table className="w-full border">
+                <thead className="bg-slate-200">
+                  <tr>
+                    <th className="p-3">Student ID</th>
+                    <th className="p-3">Attendance</th>
+                    <th className="p-3">Average Marks</th>
+                    <th className="p-3">Grade</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {gradeCorrelationData.map((item, index) => (
+                    <tr key={index} className="border-t">
+                      <td className="p-3">{item.studentId}</td>
+                      <td className="p-3">{item.attendance}%</td>
+                      <td className="p-3">{item.averageMarks}</td>
+                      <td className="p-3">{item.grade}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
