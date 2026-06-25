@@ -6,6 +6,9 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  ScatterChart,
+  Scatter,
+  CartesianGrid,
 } from "recharts";
 
 import api from "../services/api";
@@ -16,6 +19,7 @@ function StudentDashboard() {
 
   const [data, setData] = useState(null);
   const [studyPlan, setStudyPlan] = useState([]);
+  const [correlationData, setCorrelationData] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -36,6 +40,17 @@ function StudentDashboard() {
         });
 
         setStudyPlan(plannerRes.data.plan);
+
+        const correlationRes = await api.get(
+          "/analytics/attendance-marks",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setCorrelationData(correlationRes.data);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -148,6 +163,34 @@ function StudentDashboard() {
                   strokeWidth={3}
                 />
               </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              Attendance vs Marks Correlation
+            </h2>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <ScatterChart>
+                <CartesianGrid />
+                <XAxis
+                  type="number"
+                  dataKey="attendance"
+                  name="Attendance"
+                  unit="%"
+                />
+                <YAxis
+                  type="number"
+                  dataKey="averageMarks"
+                  name="Average Marks"
+                />
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+                <Scatter
+                  name="Students"
+                  data={correlationData}
+                />
+              </ScatterChart>
             </ResponsiveContainer>
           </div>
 
