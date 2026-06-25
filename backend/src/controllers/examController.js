@@ -1,4 +1,5 @@
 import Exam from "../models/Exam.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
 
 export const createExam = async (req, res) => {
   try {
@@ -16,6 +17,13 @@ export const createExam = async (req, res) => {
       subject: subjectId,
       examDate,
       totalMarks,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Exam",
+      description: `Exam created: ${examName}`,
     });
 
     res.status(201).json({

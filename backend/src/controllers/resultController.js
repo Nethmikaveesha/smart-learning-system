@@ -1,7 +1,7 @@
 import Result from "../models/Result.js";
 import StudentProfile from "../models/StudentProfile.js";
 import Attendance from "../models/Attendance.js";
-
+import { createAuditLog } from "../utils/createAuditLog.js";
 
 const calculateGrade = (marks) => {
   if (marks >= 75) return "A";
@@ -20,6 +20,13 @@ export const addResult = async (req, res) => {
       exam,
       marks,
       grade: calculateGrade(marks),
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Results",
+      description: `Result added with ${marks} marks`,
     });
 
     res.status(201).json({
@@ -60,7 +67,9 @@ export const calculateExamAnalytics = async (req, res) => {
     const results = await Result.find({ exam: examId }).sort({ marks: -1 });
 
     if (results.length === 0) {
-      return res.status(404).json({ message: "No results found for this exam" });
+      return res.status(404).json({
+        message: "No results found for this exam",
+      });
     }
 
     const marksArray = results.map((result) => result.marks);
@@ -86,6 +95,13 @@ export const calculateExamAnalytics = async (req, res) => {
       await results[i].save();
     }
 
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Results",
+      description: "Exam analytics calculated including Z-scores and rankings",
+    });
+
     const updatedResults = await Result.find({ exam: examId })
       .populate({
         path: "student",
@@ -106,6 +122,7 @@ export const calculateExamAnalytics = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 export const detectWeakStudents = async (req, res) => {
   try {
     const { examId } = req.params;
@@ -147,6 +164,13 @@ export const detectWeakStudents = async (req, res) => {
       }
     }
 
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Risk Analysis",
+      description: "Weak student detection completed",
+    });
+
     res.status(200).json({
       message: "Weak student detection completed",
       weakStudents,
@@ -174,13 +198,9 @@ export const getAnalyticsSummary = async (req, res) => {
           ).toFixed(2)
         : 0;
 
-    const passCount = results.filter(
-      (result) => result.marks >= 35
-    ).length;
+    const passCount = results.filter((result) => result.marks >= 35).length;
 
-    const failCount = results.filter(
-      (result) => result.marks < 35
-    ).length;
+    const failCount = results.filter((result) => result.marks < 35).length;
 
     const highRiskStudents = await StudentProfile.countDocuments({
       riskStatus: "High",

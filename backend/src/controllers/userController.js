@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
 
 // Get all users
 export const getAllUsers = async (req, res) => {
@@ -43,7 +44,17 @@ export const deleteUser = async (req, res) => {
       });
     }
 
+    const deletedUserName = user.fullName;
+    const deletedUserRole = user.role;
+
     await user.deleteOne();
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "DELETE",
+      module: "User Management",
+      description: `Deleted user: ${deletedUserName} (${deletedUserRole})`,
+    });
 
     res.status(200).json({
       message: "User deleted successfully",
