@@ -44,8 +44,17 @@ status: {
   enum: ["Pending", "Approved", "Modified"],
   default: "Pending",
 },
+
+topicAnalysis: {
+  weakTopics: [String],
+  missingConcepts: [String],
+  strongAreas: [String],
+  improvementSuggestions: [String],
+},
+
   },
   { timestamps: true }
+  
 );
 
 
@@ -54,4 +63,5 @@ export default mongoose.model(
   "EssaySubmission",
   essaySubmissionSchema
 );
+
 

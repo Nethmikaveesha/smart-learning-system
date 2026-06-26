@@ -1,7 +1,10 @@
 import EssayQuestion from "../models/EssayQuestion.js";
 import MarkingScheme from "../models/MarkingScheme.js";
 import EssaySubmission from "../models/EssaySubmission.js";
-import { evaluateEssayWithGemini } from "../services/geminiService.js";
+import {
+  evaluateEssayWithGemini,
+  analyzeEssayTopicsWithGemini,
+} from "../services/geminiService.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 
 export const createEssayQuestion = async (req, res) => {
@@ -103,6 +106,12 @@ export const submitEssay = async (req, res) => {
       essayQuestion.maxMarks
     );
 
+    const topicAnalysis = await analyzeEssayTopicsWithGemini(
+      essayQuestion.question,
+      answer,
+      markingScheme.modelAnswer
+    );
+
     const finalAiMarks =
       geminiEvaluation.marks && geminiEvaluation.marks > 0
         ? geminiEvaluation.marks
@@ -121,13 +130,14 @@ export const submitEssay = async (req, res) => {
       answer,
       marks: finalAiMarks,
       feedback: finalAiFeedback,
+      topicAnalysis,
     });
 
     await createAuditLog({
       userId: req.user?._id,
       action: "CREATE",
       module: "Essay Submission",
-      description: "Essay submitted and automatically graded",
+      description: "Essay submitted, graded, and topic analysis completed",
     });
 
     res.status(201).json({
@@ -138,6 +148,7 @@ export const submitEssay = async (req, res) => {
         totalKeywords: markingScheme.keywords.length,
       },
       geminiEvaluation,
+      topicAnalysis,
       submission,
     });
   } catch (error) {
