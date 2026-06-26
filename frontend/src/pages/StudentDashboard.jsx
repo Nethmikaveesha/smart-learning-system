@@ -20,6 +20,9 @@ function StudentDashboard() {
   const [data, setData] = useState(null);
   const [studyPlan, setStudyPlan] = useState([]);
   const [correlationData, setCorrelationData] = useState([]);
+  const [contentRecommendations, setContentRecommendations] = useState([]);
+  const [flashcards, setFlashcards] = useState([]);
+  const [adaptivePlan, setAdaptivePlan] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -51,6 +54,30 @@ function StudentDashboard() {
         );
 
         setCorrelationData(correlationRes.data);
+
+        const contentRes = await api.get("/content-recommendations", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setContentRecommendations(contentRes.data);
+
+        const flashcardRes = await api.get("/flashcards", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setFlashcards(flashcardRes.data);
+
+        const adaptiveRes = await api.get("/adaptive-learning", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setAdaptivePlan(adaptiveRes.data.adaptivePlan);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -79,9 +106,7 @@ function StudentDashboard() {
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">
-          Student Dashboard
-        </h1>
+        <h1 className="text-3xl font-bold">Student Dashboard</h1>
 
         <button
           onClick={logout}
@@ -100,21 +125,9 @@ function StudentDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card
-              title="Attendance"
-              value={`${data.attendancePercentage}%`}
-            />
-
-            <Card
-              title="Current Z-Score"
-              value={data.currentZScore}
-            />
-
-            <Card
-              title="Risk Status"
-              value={data.riskStatus}
-            />
-
+            <Card title="Attendance" value={`${data.attendancePercentage}%`} />
+            <Card title="Current Z-Score" value={data.currentZScore} />
+            <Card title="Risk Status" value={data.riskStatus} />
             <Card
               title="Latest Grade"
               value={data.latestResult?.grade || "N/A"}
@@ -122,46 +135,34 @@ function StudentDashboard() {
           </div>
 
           <div className="bg-white rounded-xl shadow p-5 mb-8">
-            <h2 className="text-xl font-bold mb-4">
-              Student Information
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Student Information</h2>
 
             <p className="mb-2">
-              <strong>Name:</strong>{" "}
-              {data.student?.user?.fullName}
+              <strong>Name:</strong> {data.student?.user?.fullName}
             </p>
 
             <p className="mb-2">
-              <strong>Email:</strong>{" "}
-              {data.student?.user?.email}
+              <strong>Email:</strong> {data.student?.user?.email}
             </p>
 
             <p className="mb-2">
-              <strong>Student ID:</strong>{" "}
-              {data.student?.studentId}
+              <strong>Student ID:</strong> {data.student?.studentId}
             </p>
 
             <p className="mb-2">
-              <strong>Class:</strong>{" "}
-              {data.student?.class?.className}
+              <strong>Class:</strong> {data.student?.class?.className}
             </p>
           </div>
 
           <div className="bg-white rounded-xl shadow p-5 mb-8">
-            <h2 className="text-xl font-bold mb-4">
-              Performance Trend
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Performance Trend</h2>
 
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={performanceData}>
                 <XAxis dataKey="exam" />
                 <YAxis />
                 <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="marks"
-                  strokeWidth={3}
-                />
+                <Line type="monotone" dataKey="marks" strokeWidth={3} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -186,19 +187,121 @@ function StudentDashboard() {
                   name="Average Marks"
                 />
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                <Scatter
-                  name="Students"
-                  data={correlationData}
-                />
+                <Scatter name="Students" data={correlationData} />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-5 mb-8">
-            <h2 className="text-xl font-bold mb-4">
-              Smart Study Planner
-            </h2>
+          <Section title="AI Content Recommendations">
+            {contentRecommendations.length === 0 ? (
+              <p>No recommendations available.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {contentRecommendations.map((item) => (
+                  <div key={item._id} className="border rounded-lg p-4 bg-slate-50">
+                    <h3 className="font-bold text-lg">{item.noteTitle}</h3>
+                    <p className="text-sm text-slate-600 mb-2">
+                      Subject: {item.subject?.subjectName}
+                    </p>
+                    <p className="mb-2">
+                      <strong>Topic:</strong> {item.topic}
+                    </p>
+                    <p className="mb-2">{item.noteDescription}</p>
+                    <p className="mb-2">
+                      <strong>Difficulty:</strong> {item.difficultyLevel}
+                    </p>
+                    {item.videoLink && (
+                      <a
+                        href={item.videoLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 underline"
+                      >
+                        Watch Video
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
 
+          <Section title="Active Recall Flashcards">
+            {flashcards.length === 0 ? (
+              <p>No flashcards available.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {flashcards.map((card) => (
+                  <div key={card._id} className="border rounded-lg p-4 bg-slate-50">
+                    <p className="text-sm text-slate-600 mb-2">
+                      {card.subject?.subjectName} | {card.topic}
+                    </p>
+                    <h3 className="font-bold mb-2">Q: {card.question}</h3>
+                    <p className="mb-2">
+                      <strong>A:</strong> {card.answer}
+                    </p>
+                    <p className="text-sm">
+                      <strong>Difficulty:</strong> {card.difficulty}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Adaptive Learning Recommendations">
+            {adaptivePlan.length === 0 ? (
+              <p className="text-green-600 font-semibold">
+                No weak subjects detected. Great job!
+              </p>
+            ) : (
+              <div className="space-y-5">
+                {adaptivePlan.map((item, index) => (
+                  <div key={index} className="border rounded-lg p-4 bg-orange-50">
+                    <h3 className="text-lg font-bold mb-2">{item.subject}</h3>
+                    <p>
+                      <strong>Marks:</strong> {item.marks}
+                    </p>
+                    <p className="mb-3">{item.recommendation}</p>
+
+                    <h4 className="font-semibold mb-2">Recommended Notes</h4>
+                    {item.notes?.map((note) => (
+                      <div key={note._id} className="mb-3 p-3 bg-white rounded border">
+                        <strong>{note.noteTitle}</strong>
+                        <p>{note.noteDescription}</p>
+                        {note.videoLink && (
+                          <a
+                            href={note.videoLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 underline"
+                          >
+                            Watch Video
+                          </a>
+                        )}
+                      </div>
+                    ))}
+
+                    <h4 className="font-semibold mt-4 mb-2">
+                      Practice Flashcards
+                    </h4>
+                    {item.flashcards?.map((card) => (
+                      <div key={card._id} className="bg-white rounded border p-3 mb-2">
+                        <p>
+                          <strong>Q:</strong> {card.question}
+                        </p>
+                        <p>
+                          <strong>A:</strong> {card.answer}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Smart Study Planner">
             <table className="w-full border">
               <thead className="bg-slate-200">
                 <tr>
@@ -212,31 +315,18 @@ function StudentDashboard() {
               <tbody>
                 {studyPlan.map((item, index) => (
                   <tr key={index} className="border-t">
-                    <td className="p-3">
-                      {item.subject}
-                    </td>
-
-                    <td className="p-3">
-                      {item.averageMarks}
-                    </td>
-
-                    <td className="p-3">
-                      {item.priority}
-                    </td>
-
-                    <td className="p-3">
-                      {item.recommendedHours} hrs/day
-                    </td>
+                    <td className="p-3">{item.subject}</td>
+                    <td className="p-3">{item.averageMarks}</td>
+                    <td className="p-3">{item.priority}</td>
+                    <td className="p-3">{item.recommendedHours} hrs/day</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Section>
 
           <div className="bg-white rounded-xl shadow p-5">
-            <h2 className="text-xl font-bold mb-4">
-              Exam Results
-            </h2>
+            <h2 className="text-xl font-bold mb-4">Exam Results</h2>
 
             <table className="w-full border">
               <thead className="bg-slate-200">
@@ -251,29 +341,12 @@ function StudentDashboard() {
 
               <tbody>
                 {data.results?.map((result) => (
-                  <tr
-                    key={result._id}
-                    className="border-t"
-                  >
-                    <td className="p-3">
-                      {result.exam?.examName}
-                    </td>
-
-                    <td className="p-3">
-                      {result.marks}
-                    </td>
-
-                    <td className="p-3">
-                      {result.grade}
-                    </td>
-
-                    <td className="p-3">
-                      {result.zScore}
-                    </td>
-
-                    <td className="p-3">
-                      {result.rank}
-                    </td>
+                  <tr key={result._id} className="border-t">
+                    <td className="p-3">{result.exam?.examName}</td>
+                    <td className="p-3">{result.marks}</td>
+                    <td className="p-3">{result.grade}</td>
+                    <td className="p-3">{result.zScore}</td>
+                    <td className="p-3">{result.rank}</td>
                   </tr>
                 ))}
               </tbody>
@@ -289,9 +362,16 @@ function Card({ title, value }) {
   return (
     <div className="bg-white p-5 rounded-xl shadow">
       <p className="text-slate-500">{title}</p>
-      <h2 className="text-3xl font-bold mt-2">
-        {value}
-      </h2>
+      <h2 className="text-3xl font-bold mt-2">{value}</h2>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="bg-white rounded-xl shadow p-5 mb-8">
+      <h2 className="text-xl font-bold mb-4">{title}</h2>
+      {children}
     </div>
   );
 }

@@ -29,6 +29,9 @@ import auditLogRoutes from "./routes/auditLogRoutes.js";
 import examTimetableRoutes from "./routes/examTimetableRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import riskNotificationRoutes from "./routes/riskNotificationRoutes.js";
+import contentRecommendationRoutes from "./routes/contentRecommendationRoutes.js";
+import flashcardRoutes from "./routes/flashcardRoutes.js";
+import adaptiveLearningRoutes from "./routes/adaptiveLearningRoutes.js";
 
 const app = express();
 
@@ -88,3 +91,6 @@ app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/exam-timetables", examTimetableRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/risk-notifications", riskNotificationRoutes);
+app.use("/api/content-recommendations", contentRecommendationRoutes);
+app.use("/api/flashcards", flashcardRoutes);
+app.use("/api/adaptive-learning", adaptiveLearningRoutes);
