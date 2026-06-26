@@ -33,6 +33,7 @@ import contentRecommendationRoutes from "./routes/contentRecommendationRoutes.js
 import flashcardRoutes from "./routes/flashcardRoutes.js";
 import adaptiveLearningRoutes from "./routes/adaptiveLearningRoutes.js";
 import badgeRoutes from "./routes/badgeRoutes.js";
+import backupRoutes from "./routes/backupRoutes.js";
 
 const app = express();
 
@@ -96,3 +97,4 @@ app.use("/api/content-recommendations", contentRecommendationRoutes);
 app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/adaptive-learning", adaptiveLearningRoutes);
 app.use("/api/badges", badgeRoutes);
+app.use("/api/backups", backupRoutes);

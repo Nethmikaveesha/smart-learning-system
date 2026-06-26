@@ -1,0 +1,142 @@
+{
+  "createdAt": "2026-06-26T10:48:23.719Z",
+  "users": [
+    {
+      "_id": "6a2fbd4680f3e91e05f68a43",
+      "fullName": "Admin User",
+      "email": "admin@test.com",
+      "password": "$2b$10$sTP00tbqXXKeC6ESTtuNh.3WkPN0h.0oOCET5Lji4k0mutIYFZoNi",
+      "role": "admin",
+      "isActive": true,
+      "createdAt": "2026-06-15T08:52:22.808Z",
+      "updatedAt": "2026-06-15T08:52:22.808Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a30abca7074f4361997befd",
+      "fullName": "Parent User",
+      "email": "parent@test.com",
+      "password": "$2b$10$qFRmGmGmwdyCCoj8/Z8rQ.C72TqWYqeeW/.S8984SbPPQt3fUzeCK",
+      "role": "parent",
+      "isActive": true,
+      "createdAt": "2026-06-16T01:50:02.113Z",
+      "updatedAt": "2026-06-16T01:50:02.113Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a3cca55488ccbfeea5dcdf8",
+      "fullName": "Nethmi Student",
+      "email": "student@test.com",
+      "password": "$2b$10$76dNBOXJi7aVlpdnjm9HoO1EtAoaUru.9gKObObSesHM83lHKS/o.",
+      "role": "student",
+      "isActive": true,
+      "createdAt": "2026-06-25T06:27:33.193Z",
+      "updatedAt": "2026-06-25T06:27:33.193Z",
+      "__v": 0
+    }
+  ],
+  "students": [
+    {
+      "_id": "6a30afe57074f4361997befe",
+      "user": "6a3cca55488ccbfeea5dcdf8",
+      "studentId": "COM2026001",
+      "class": "6a30a73c8fa6bcaa82a482aa",
+      "parent": "6a30abca7074f4361997befd",
+      "subjects": [
+        "6a30a8c012178c50ce0698f8",
+        "6a30a90712178c50ce0698f9",
+        "6a30a94212178c50ce0698fa"
+      ],
+      "attendancePercentage": 100,
+      "currentZScore": 0,
+      "riskStatus": "High",
+      "createdAt": "2026-06-16T02:07:33.915Z",
+      "updatedAt": "2026-06-25T10:24:14.514Z",
+      "__v": 0
+    }
+  ],
+  "results": [
+    {
+      "_id": "6a30de657497cd7dec1e8b42",
+      "student": "6a30afe57074f4361997befe",
+      "exam": "6a30dd7d50d4dcd35d8477fc",
+      "marks": 82,
+      "grade": "A",
+      "zScore": 0,
+      "rank": 1,
+      "createdAt": "2026-06-16T05:25:57.013Z",
+      "updatedAt": "2026-06-16T05:29:58.108Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a3d01ceefb49d6268a89836",
+      "student": "6a30afe57074f4361997befe",
+      "exam": "6a30dd7d50d4dcd35d8477fc",
+      "marks": 30,
+      "grade": "F",
+      "zScore": 0,
+      "rank": 0,
+      "createdAt": "2026-06-25T10:24:14.505Z",
+      "updatedAt": "2026-06-25T10:24:14.505Z",
+      "__v": 0
+    }
+  ],
+  "attendance": [
+    {
+      "_id": "6a30b185e5ef1f2e26bedf15",
+      "student": "6a30afe57074f4361997befe",
+      "class": "6a30a73c8fa6bcaa82a482aa",
+      "date": "2026-06-16T00:00:00.000Z",
+      "status": "Present",
+      "createdAt": "2026-06-16T02:14:29.434Z",
+      "updatedAt": "2026-06-16T02:14:29.434Z",
+      "__v": 0
+    }
+  ],
+  "subjects": [
+    {
+      "_id": "6a30a8c012178c50ce0698f8",
+      "subjectName": "Accounting",
+      "subjectCode": "ACC101",
+      "classes": [],
+      "isActive": true,
+      "createdAt": "2026-06-16T01:37:04.174Z",
+      "updatedAt": "2026-06-16T01:37:04.174Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a30a90712178c50ce0698f9",
+      "subjectName": "Business Studies",
+      "subjectCode": "BS101",
+      "classes": [],
+      "isActive": true,
+      "createdAt": "2026-06-16T01:38:15.673Z",
+      "updatedAt": "2026-06-16T01:38:15.673Z",
+      "__v": 0
+    },
+    {
+      "_id": "6a30a94212178c50ce0698fa",
+      "subjectName": "Economics",
+      "subjectCode": "ECO101",
+      "classes": [],
+      "isActive": true,
+      "createdAt": "2026-06-16T01:39:14.895Z",
+      "updatedAt": "2026-06-16T01:39:14.895Z",
+      "__v": 0
+    }
+  ],
+  "exams": [
+    {
+      "_id": "6a30dd7d50d4dcd35d8477fc",
+      "examName": "Term Test 1",
+      "class": "6a30a73c8fa6bcaa82a482aa",
+      "subject": "6a30a8c012178c50ce0698f8",
+      "examDate": "2026-07-01T00:00:00.000Z",
+      "totalMarks": 100,
+      "isActive": true,
+      "createdAt": "2026-06-16T05:22:05.626Z",
+      "updatedAt": "2026-06-16T05:22:05.626Z",
+      "__v": 0
+    }
+  ]
+}
