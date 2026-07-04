@@ -101,6 +101,35 @@ function EssayGrader() {
             <strong>Status:</strong>{" "}
             {result.status || "Pending"}
           </p>
+
+          {result.nlpEvaluation && (
+            <div className="mt-4 border-t pt-4">
+              <h3 className="font-semibold mb-2">
+                NLP Analysis
+              </h3>
+
+              <p>
+                <strong>NLP Marks:</strong>{" "}
+                {result.nlpEvaluation.marks}
+              </p>
+
+              <p>
+                <strong>Semantic Similarity:</strong>{" "}
+                {Math.round(
+                  result.nlpEvaluation.semanticSimilarity * 100
+                )}
+                %
+              </p>
+
+              <p>
+                <strong>Keyword Coverage:</strong>{" "}
+                {Math.round(
+                  result.nlpEvaluation.keywordCoverage * 100
+                )}
+                %
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

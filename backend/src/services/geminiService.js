@@ -20,7 +20,7 @@ export const evaluateEssayWithGemini = async (
 ) => {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model:"gemini-2.5-flash",
     });
 
     const prompt = `
@@ -63,6 +63,57 @@ Return ONLY valid JSON:
       feedback:
         "Gemini evaluation failed. Please use teacher review.",
       missingPoints: [],
+    };
+  }
+};
+
+export const analyzeEssayTopicsWithGemini = async (
+  question,
+  answer,
+  modelAnswer
+) => {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+    });
+
+    const prompt = `
+You are an A/L examiner and learning analytics assistant.
+
+Question:
+${question}
+
+Student Answer:
+${answer}
+
+Model Answer:
+${modelAnswer}
+
+Analyze the student's answer and return ONLY valid JSON:
+{
+  "weakTopics": ["topic1", "topic2"],
+  "missingConcepts": ["concept1", "concept2"],
+  "strongAreas": ["area1", "area2"],
+  "improvementSuggestions": ["suggestion1", "suggestion2"]
+}
+`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    const cleanText = text.replace(/```json|```/g, "").trim();
+
+    return JSON.parse(cleanText);
+  } catch (error) {
+    console.log("Gemini Topic Analysis Error:", error.message);
+
+    return {
+      weakTopics: [],
+      missingConcepts: [],
+      strongAreas: [],
+      improvementSuggestions: [
+        "AI topic analysis failed. Please use teacher review.",
+      ],
     };
   }
 };

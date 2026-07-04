@@ -24,6 +24,7 @@ function StudentDashboard() {
   const [flashcards, setFlashcards] = useState([]);
   const [adaptivePlan, setAdaptivePlan] = useState([]);
   const [error, setError] = useState("");
+  const [badges, setBadges] = useState([]);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -78,6 +79,13 @@ function StudentDashboard() {
         });
 
         setAdaptivePlan(adaptiveRes.data.adaptivePlan);
+        const badgeRes = await api.get("/badges/student", {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+
+setBadges(badgeRes.data.badges);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -300,6 +308,32 @@ function StudentDashboard() {
               </div>
             )}
           </Section>
+          <Section title="Academic Achievement Badges">
+  {badges.length === 0 ? (
+    <p>No badges earned yet.</p>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {badges.map((badge, index) => (
+        <div
+          key={index}
+          className="bg-yellow-50 border rounded-lg p-5 text-center shadow"
+        >
+          <div className="text-6xl mb-3">
+            {badge.icon}
+          </div>
+
+          <h3 className="font-bold text-lg">
+            {badge.title}
+          </h3>
+
+          <p className="text-slate-600 mt-2">
+            {badge.description}
+          </p>
+        </div>
+      ))}
+    </div>
+  )}
+</Section>
 
           <Section title="Smart Study Planner">
             <table className="w-full border">

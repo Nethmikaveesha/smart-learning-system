@@ -29,5 +29,6 @@ Database:
 - MongoDB
 
 AI:
+- Gemini
 - NLP
 - Keyword Matching
