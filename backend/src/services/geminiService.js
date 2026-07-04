@@ -24,7 +24,9 @@ export const evaluateEssayWithGemini = async (
     });
 
     const prompt = `
-You are an A/L Commerce examiner.
+You are an A/L Commerce examiner. Evaluate the answer using marking criteria,
+keyword coverage, answer relevance, and essay structure including introduction,
+body, and conclusion.
 
 Question:
 ${question}

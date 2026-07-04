@@ -65,6 +65,32 @@ nlpEvaluation: {
     type: Number,
     default: 0,
   },
+  structureScore: {
+    type: Number,
+    default: 0,
+  },
+  structureAnalysis: {
+    score: {
+      type: Number,
+      default: 0,
+    },
+    introduction: {
+      type: Number,
+      default: 0,
+    },
+    body: {
+      type: Number,
+      default: 0,
+    },
+    conclusion: {
+      type: Number,
+      default: 0,
+    },
+    feedback: {
+      type: String,
+      default: "",
+    },
+  },
   matchedKeywords: [String],
   missingKeywords: [String],
   feedback: {
@@ -84,4 +110,3 @@ export default mongoose.model(
   "EssaySubmission",
   essaySubmissionSchema
 );
-

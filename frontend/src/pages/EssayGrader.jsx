@@ -128,6 +128,43 @@ function EssayGrader() {
                 )}
                 %
               </p>
+
+              <p>
+                <strong>Structure Score:</strong>{" "}
+                {Math.round(
+                  result.nlpEvaluation.structureScore * 100
+                )}
+                %
+              </p>
+
+              {result.nlpEvaluation.structureAnalysis && (
+                <div className="mt-2 text-sm text-gray-700">
+                  <p>
+                    Introduction:{" "}
+                    {Math.round(
+                      result.nlpEvaluation.structureAnalysis
+                        .introduction * 100
+                    )}
+                    %
+                  </p>
+                  <p>
+                    Body:{" "}
+                    {Math.round(
+                      result.nlpEvaluation.structureAnalysis.body *
+                        100
+                    )}
+                    %
+                  </p>
+                  <p>
+                    Conclusion:{" "}
+                    {Math.round(
+                      result.nlpEvaluation.structureAnalysis
+                        .conclusion * 100
+                    )}
+                    %
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
