@@ -8,6 +8,7 @@ import StudentDashboard from "./pages/StudentDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
 import EssayGrader from "./pages/EssayGrader";
 import Chatbot from "./pages/Chatbot";
+import RiskDashboard from "./pages/RiskDashboard";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
@@ -85,6 +86,7 @@ function AppRoutes() {
     </ProtectedRoute>
   }
 />
+<Route path="/risk-dashboard" element={<RiskDashboard />} />
 
     </Routes>
 

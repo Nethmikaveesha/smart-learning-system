@@ -7,3 +7,7 @@ build
 .env
 backend/.env
 frontend/.env
+venv/
+**/node_modules/
+__pycache__/
+*.pyc
