@@ -6,6 +6,7 @@ import {
   approveEssaySubmission,
   getAllEssaySubmissions,
   getEssayQuestions,
+  getTopicErrorAnalytics,
 } from "../controllers/essayController.js";
 
 import {
@@ -56,5 +57,10 @@ router.get(
   protect,
   getEssayQuestions
 );
-
+  router.get(
+  "/topic-error-analytics",
+  protect,
+  authorizeRoles("teacher", "admin"),
+  getTopicErrorAnalytics
+);
 export default router;
