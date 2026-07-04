@@ -5,6 +5,7 @@ import {
   evaluateEssayWithGemini,
   analyzeEssayTopicsWithGemini,
 } from "../services/geminiService.js";
+import { evaluateEssayWithNlp } from "../services/nlpService.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 
 export const createEssayQuestion = async (req, res) => {
@@ -89,9 +90,11 @@ export const submitEssay = async (req, res) => {
       }
     });
 
-    const keywordMarks = Math.round(
-      (score / markingScheme.keywords.length) * essayQuestion.maxMarks
-    );
+    const keywordMarks = markingScheme.keywords.length
+      ? Math.round(
+          (score / markingScheme.keywords.length) * essayQuestion.maxMarks
+        )
+      : 0;
 
     const keywordFeedback =
       keywordMarks >= 8
@@ -106,23 +109,40 @@ export const submitEssay = async (req, res) => {
       essayQuestion.maxMarks
     );
 
+    const nlpEvaluation = evaluateEssayWithNlp({
+      answer,
+      modelAnswer: markingScheme.modelAnswer,
+      keywords: markingScheme.keywords,
+      maxMarks: essayQuestion.maxMarks,
+    });
+
     const topicAnalysis = await analyzeEssayTopicsWithGemini(
       essayQuestion.question,
       answer,
       markingScheme.modelAnswer
     );
 
-    const finalAiMarks =
-      geminiEvaluation.marks && geminiEvaluation.marks > 0
-        ? geminiEvaluation.marks
-        : keywordMarks;
+    const hasGeminiEvaluation =
+      typeof geminiEvaluation.marks === "number" &&
+      geminiEvaluation.feedback !==
+        "Gemini evaluation failed. Please use teacher review.";
+
+    const finalAiMarks = hasGeminiEvaluation
+      ? Math.min(
+          essayQuestion.maxMarks,
+          Math.max(
+            0,
+            Math.round(geminiEvaluation.marks * 0.7 + nlpEvaluation.marks * 0.3)
+          )
+        )
+      : nlpEvaluation.marks || keywordMarks;
 
     const finalAiFeedback =
       geminiEvaluation.feedback &&
       geminiEvaluation.feedback !==
         "Gemini evaluation failed. Please use teacher review."
-        ? geminiEvaluation.feedback
-        : keywordFeedback;
+        ? `${geminiEvaluation.feedback} NLP insight: ${nlpEvaluation.feedback}`
+        : nlpEvaluation.feedback || keywordFeedback;
 
     const submission = await EssaySubmission.create({
       student: studentId,
@@ -130,6 +150,7 @@ export const submitEssay = async (req, res) => {
       answer,
       marks: finalAiMarks,
       feedback: finalAiFeedback,
+      nlpEvaluation,
       topicAnalysis,
     });
 
@@ -148,6 +169,7 @@ export const submitEssay = async (req, res) => {
         totalKeywords: markingScheme.keywords.length,
       },
       geminiEvaluation,
+      nlpEvaluation,
       topicAnalysis,
       submission,
     });

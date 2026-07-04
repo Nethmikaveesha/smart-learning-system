@@ -52,6 +52,27 @@ topicAnalysis: {
   improvementSuggestions: [String],
 },
 
+nlpEvaluation: {
+  marks: {
+    type: Number,
+    default: 0,
+  },
+  semanticSimilarity: {
+    type: Number,
+    default: 0,
+  },
+  keywordCoverage: {
+    type: Number,
+    default: 0,
+  },
+  matchedKeywords: [String],
+  missingKeywords: [String],
+  feedback: {
+    type: String,
+    default: "",
+  },
+},
+
   },
   { timestamps: true }
   
@@ -63,5 +84,4 @@ export default mongoose.model(
   "EssaySubmission",
   essaySubmissionSchema
 );
-
 
