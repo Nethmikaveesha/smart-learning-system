@@ -253,3 +253,79 @@ export const getEssayQuestions = async (req, res) => {
     });
   }
 };
+
+export const getTopicErrorAnalytics = async (req, res) => {
+  try {
+    const submissions = await EssaySubmission.find({
+      "topicAnalysis.missingConcepts": { $exists: true },
+    });
+
+    const weakTopicCounts = {};
+    const missingConceptCounts = {};
+    const strongAreaCounts = {};
+
+    submissions.forEach((submission) => {
+      const analysis = submission.topicAnalysis;
+
+      if (!analysis) return;
+
+      analysis.weakTopics?.forEach((topic) => {
+        const cleanTopic = topic.trim();
+
+        weakTopicCounts[cleanTopic] =
+          (weakTopicCounts[cleanTopic] || 0) + 1;
+      });
+
+      analysis.missingConcepts?.forEach((concept) => {
+        const cleanConcept = concept.trim();
+
+        missingConceptCounts[cleanConcept] =
+          (missingConceptCounts[cleanConcept] || 0) + 1;
+      });
+
+      analysis.strongAreas?.forEach((area) => {
+        const cleanArea = area.trim();
+
+        strongAreaCounts[cleanArea] =
+          (strongAreaCounts[cleanArea] || 0) + 1;
+      });
+    });
+
+    const weakTopics = Object.entries(weakTopicCounts)
+      .map(([topic, count]) => ({
+        topic,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const missingConcepts = Object.entries(
+      missingConceptCounts
+    )
+      .map(([concept, count]) => ({
+        concept,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const strongAreas = Object.entries(strongAreaCounts)
+      .map(([area, count]) => ({
+        area,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    res.status(200).json({
+      success: true,
+      totalSubmissions: submissions.length,
+      weakTopics,
+      missingConcepts,
+      strongAreas,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate topic error analytics",
+      error: error.message,
+    });
+  }
+};

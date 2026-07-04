@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
+import { runMonthlyReportGeneration } from "../jobs/monthlyReportJob.js";
 
 export const generateStudentReport = async (req, res) => {
   try {
@@ -60,5 +61,29 @@ export const generateStudentReport = async (req, res) => {
     doc.end();
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+
+export const testMonthlyReportGeneration = async (req, res) => {
+  try {
+    const result = await runMonthlyReportGeneration();
+
+    return res.status(200).json({
+      success: true,
+      message: "Monthly PDF reports generated successfully",
+      ...result,
+    });
+  } catch (error) {
+    console.error(
+      "Monthly Report Test Error:",
+      error.message
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Monthly PDF report generation failed",
+      error: error.message,
+    });
   }
 };

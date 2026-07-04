@@ -83,11 +83,11 @@ function ParentDashboard() {
     }
   };
 
+  // නව monthlyPerformance අනුව mapping එක වෙනස් කරන ලදී ✅
   const performanceData =
-    data?.results?.map((result) => ({
-      exam: result.exam?.examName,
-      marks: result.marks,
-      zScore: result.zScore,
+    data?.monthlyPerformance?.map((item) => ({
+      month: item.month,
+      averageMarks: item.averageMarks,
     })) || [];
 
   const attendanceData = [
@@ -127,6 +127,7 @@ function ParentDashboard() {
         <p>Loading...</p>
       ) : (
         <>
+          {/* Dashboard Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <Card title="Attendance" value={`${data.attendancePercentage}%`} />
             <Card title="Risk Status" value={data.riskStatus} />
@@ -140,6 +141,15 @@ function ParentDashboard() {
             />
           </div>
 
+          {/* Risk Alert Notification Component */}
+          {data.riskStatus !== "Low" && (
+            <div className="bg-red-100 border border-red-300 text-red-700 p-4 rounded-xl mb-8">
+              <strong>Risk Alert:</strong> Your child is currently marked as{" "}
+              {data.riskStatus}. Please review attendance and recent marks.
+            </div>
+          )}
+
+          {/* Child Profile Information */}
           <div className="bg-white rounded-xl shadow p-5 mb-8">
             <h2 className="text-xl font-bold mb-4">Child Information</h2>
 
@@ -160,20 +170,27 @@ function ParentDashboard() {
             </p>
           </div>
 
+          {/* Analytical Charts Section */}
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <div className="bg-white rounded-xl shadow p-5">
               <h2 className="text-xl font-bold mb-4">
-                Marks Trend
+                Monthly Performance Line Graph
               </h2>
+
+              <p className="text-sm text-slate-500 mb-4">
+                Child's marks trend across monthly/term examinations.
+              </p>
 
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={performanceData}>
-                  <XAxis dataKey="exam" />
+                  {/* dataKey එක "month" ලෙස වෙනස් කරන ලදී ✅ */}
+                  <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
+                  {/* dataKey එක "averageMarks" ලෙස වෙනස් කරන ලදී ✅ */}
                   <Line
                     type="monotone"
-                    dataKey="marks"
+                    dataKey="averageMarks"
                     strokeWidth={3}
                   />
                 </LineChart>
@@ -196,6 +213,7 @@ function ParentDashboard() {
             </div>
           </div>
 
+          {/* Attendance vs Grades Correlation Analytics */}
           <div className="bg-white rounded-xl shadow p-5 mb-8">
             <h2 className="text-xl font-bold mb-4">
               Attendance vs Grades Correlation
@@ -248,6 +266,7 @@ function ParentDashboard() {
             </div>
           </div>
 
+          {/* Detailed Recent Examination Results */}
           <div className="bg-white rounded-xl shadow p-5">
             <h2 className="text-xl font-bold mb-4">Recent Results</h2>
 

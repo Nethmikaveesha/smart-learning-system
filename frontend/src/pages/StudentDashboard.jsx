@@ -25,6 +25,12 @@ function StudentDashboard() {
   const [adaptivePlan, setAdaptivePlan] = useState([]);
   const [error, setError] = useState("");
   const [badges, setBadges] = useState([]);
+  const [revisionTimetable, setRevisionTimetable] = useState([]);
+
+  // Chatbot සඳහා නව States එකතු කරන ලදී ✅
+  const [chatQuestion, setChatQuestion] = useState("");
+  const [chatAnswer, setChatAnswer] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -79,13 +85,24 @@ function StudentDashboard() {
         });
 
         setAdaptivePlan(adaptiveRes.data.adaptivePlan);
-        const badgeRes = await api.get("/badges/student", {
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
-});
 
-setBadges(badgeRes.data.badges);
+        const badgeRes = await api.get("/badges/student", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const revisionRes = await api.get(
+          "/study-planner/revision-timetable",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        setRevisionTimetable(revisionRes.data.timetable || []);
+        setBadges(badgeRes.data.badges);
       } catch (error) {
         console.error(
           "Student Dashboard Error:",
@@ -106,10 +123,41 @@ setBadges(badgeRes.data.badges);
 
   const performanceData =
     data?.results?.map((result) => ({
-      exam: result.exam?.examName,
-      marks: result.marks,
-      zScore: result.zScore,
+      exam: result.exam?.examName || "Unknown Exam",
+      marks: Number(result.marks) || 0,
+      zScore:
+        result.zScore !== null && result.zScore !== undefined
+          ? Number(result.zScore)
+          : null,
     })) || [];
+
+  // Chatbot API එකට ප්‍රශ්න යොමු කරන function එක එකතු කරන ලදී ✅
+  const askChatbot = async () => {
+    try {
+      if (!chatQuestion.trim()) return;
+
+      setChatLoading(true);
+      setChatAnswer("");
+
+      const res = await api.post(
+        "/chatbot/ask",
+        { question: chatQuestion },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setChatAnswer(res.data.answer);
+    } catch (error) {
+      setChatAnswer(
+        error.response?.data?.message || "Failed to get chatbot response"
+      );
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -162,18 +210,59 @@ setBadges(badgeRes.data.badges);
             </p>
           </div>
 
-          <div className="bg-white rounded-xl shadow p-5 mb-8">
-            <h2 className="text-xl font-bold mb-4">Performance Trend</h2>
+          <Section title="Academic Performance Tracker">
+            <p className="text-sm text-slate-500 mb-4">
+              Marks and Z-Score trends across examinations
+            </p>
 
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={performanceData}>
-                <XAxis dataKey="exam" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="marks" strokeWidth={3} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+            {performanceData.length === 0 ? (
+              <p>No examination performance data available.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={performanceData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="exam" />
+
+                  <YAxis
+                    yAxisId="marks"
+                    orientation="left"
+                    domain={[0, 100]}
+                  />
+
+                  <YAxis
+                    yAxisId="zScore"
+                    orientation="right"
+                    domain={["auto", "auto"]}
+                  />
+
+                  <Tooltip />
+
+                  <Line
+                    yAxisId="marks"
+                    type="monotone"
+                    dataKey="marks"
+                    name="Marks"
+                    strokeWidth={3}
+                    connectNulls
+                  />
+
+                  <Line
+                    yAxisId="zScore"
+                    type="monotone"
+                    dataKey="zScore"
+                    name="Z-Score"
+                    strokeWidth={3}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+
+            <div className="flex gap-6 mt-4 text-sm">
+              <span>Marks Trend</span>
+              <span>Z-Score Trend</span>
+            </div>
+          </Section>
 
           <div className="bg-white rounded-xl shadow p-5 mb-8">
             <h2 className="text-xl font-bold mb-4">
@@ -194,11 +283,46 @@ setBadges(badgeRes.data.badges);
                   dataKey="averageMarks"
                   name="Average Marks"
                 />
+                
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} />
+                
                 <Scatter name="Students" data={correlationData} />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
+
+          {/* AI Chatbot Support Section එක මෙතනට ඇතුළත් කරන ලදී ✅ */}
+          <Section title="AI Chatbot Support">
+            <p className="text-sm text-slate-500 mb-4">
+              Ask questions related to Accounting, Business Studies, Economics, study
+              planning, attendance, marks, and exam preparation.
+            </p>
+
+            <div className="flex flex-col md:flex-row gap-3 mb-4">
+              <input
+                type="text"
+                value={chatQuestion}
+                onChange={(e) => setChatQuestion(e.target.value)}
+                placeholder="Type your question here..."
+                className="flex-1 border rounded-lg px-4 py-2"
+              />
+
+              <button
+                onClick={askChatbot}
+                disabled={chatLoading}
+                className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:bg-blue-300"
+              >
+                {chatLoading ? "Thinking..." : "Ask AI"}
+              </button>
+            </div>
+
+            {chatAnswer && (
+              <div className="bg-slate-50 border rounded-lg p-4">
+                <p className="font-semibold mb-2">AI Answer</p>
+                <p className="text-slate-700">{chatAnswer}</p>
+              </div>
+            )}
+          </Section>
 
           <Section title="AI Content Recommendations">
             {contentRecommendations.length === 0 ? (
@@ -308,32 +432,115 @@ setBadges(badgeRes.data.badges);
               </div>
             )}
           </Section>
+
           <Section title="Academic Achievement Badges">
-  {badges.length === 0 ? (
-    <p>No badges earned yet.</p>
-  ) : (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {badges.map((badge, index) => (
-        <div
-          key={index}
-          className="bg-yellow-50 border rounded-lg p-5 text-center shadow"
-        >
-          <div className="text-6xl mb-3">
-            {badge.icon}
-          </div>
+            {badges.length === 0 ? (
+              <p>No badges earned yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {badges.map((badge, index) => (
+                  <div
+                    key={index}
+                    className="bg-yellow-50 border rounded-lg p-5 text-center shadow"
+                  >
+                    <div className="text-6xl mb-3">{badge.icon}</div>
 
-          <h3 className="font-bold text-lg">
-            {badge.title}
-          </h3>
+                    <h3 className="font-bold text-lg">{badge.title}</h3>
 
-          <p className="text-slate-600 mt-2">
-            {badge.description}
-          </p>
-        </div>
-      ))}
-    </div>
-  )}
-</Section>
+                    <p className="text-slate-600 mt-2">
+                      {badge.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Intelligent Revision Timetable">
+            <p className="text-sm text-slate-500 mb-4">
+              Personalized daily revision schedule based on upcoming exams,
+              remaining days, and previous academic performance.
+            </p>
+
+            {revisionTimetable.length === 0 ? (
+              <div className="bg-slate-50 border rounded-lg p-4">
+                <p className="text-slate-500">
+                  No upcoming examination timetable available.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {revisionTimetable.map((item, index) => (
+                  <div
+                    key={`${item.examName}-${item.subject}-${index}`}
+                    className="border rounded-xl p-5 bg-slate-50"
+                  >
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                      <div>
+                        <h3 className="text-lg font-bold">{item.subject}</h3>
+
+                        <p className="text-slate-600">{item.examName}</p>
+                      </div>
+
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                          item.priority === "High"
+                            ? "bg-red-100 text-red-700"
+                            : item.priority === "Medium"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {item.priority} Priority
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+                      <div className="bg-white border rounded-lg p-3">
+                        <p className="text-sm text-slate-500">Exam Date</p>
+
+                        <p className="font-bold mt-1">
+                          {new Date(item.examDate).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      <div className="bg-white border rounded-lg p-3">
+                        <p className="text-sm text-slate-500">
+                          Days Remaining
+                        </p>
+
+                        <p className="font-bold mt-1">
+                          {item.daysRemaining} days
+                        </p>
+                      </div>
+
+                      <div className="bg-white border rounded-lg p-3">
+                        <p className="text-sm text-slate-500">Average Marks</p>
+
+                        <p className="font-bold mt-1">{item.averageMarks}</p>
+                      </div>
+
+                      <div className="bg-white border rounded-lg p-3">
+                        <p className="text-sm text-slate-500">Daily Revision</p>
+
+                        <p className="font-bold mt-1">
+                          {item.dailyStudyHours} hrs/day
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 bg-white border rounded-lg p-4">
+                      <p className="text-sm text-slate-500 mb-1">
+                        Personalized Recommendation
+                      </p>
+
+                      <p className="font-medium">{item.recommendation}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
 
           <Section title="Smart Study Planner">
             <table className="w-full border">
