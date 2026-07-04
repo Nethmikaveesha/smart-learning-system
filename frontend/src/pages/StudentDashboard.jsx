@@ -27,6 +27,11 @@ function StudentDashboard() {
   const [badges, setBadges] = useState([]);
   const [revisionTimetable, setRevisionTimetable] = useState([]);
 
+  // Chatbot සඳහා නව States එකතු කරන ලදී ✅
+  const [chatQuestion, setChatQuestion] = useState("");
+  const [chatAnswer, setChatAnswer] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
@@ -125,6 +130,34 @@ function StudentDashboard() {
           ? Number(result.zScore)
           : null,
     })) || [];
+
+  // Chatbot API එකට ප්‍රශ්න යොමු කරන function එක එකතු කරන ලදී ✅
+  const askChatbot = async () => {
+    try {
+      if (!chatQuestion.trim()) return;
+
+      setChatLoading(true);
+      setChatAnswer("");
+
+      const res = await api.post(
+        "/chatbot/ask",
+        { question: chatQuestion },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setChatAnswer(res.data.answer);
+    } catch (error) {
+      setChatAnswer(
+        error.response?.data?.message || "Failed to get chatbot response"
+      );
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -251,13 +284,45 @@ function StudentDashboard() {
                   name="Average Marks"
                 />
                 
-                {/* මෙතනට cursor එක එකතු කරලා තියෙන්නේ ✅ */}
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} />
                 
                 <Scatter name="Students" data={correlationData} />
               </ScatterChart>
             </ResponsiveContainer>
           </div>
+
+          {/* AI Chatbot Support Section එක මෙතනට ඇතුළත් කරන ලදී ✅ */}
+          <Section title="AI Chatbot Support">
+            <p className="text-sm text-slate-500 mb-4">
+              Ask questions related to Accounting, Business Studies, Economics, study
+              planning, attendance, marks, and exam preparation.
+            </p>
+
+            <div className="flex flex-col md:flex-row gap-3 mb-4">
+              <input
+                type="text"
+                value={chatQuestion}
+                onChange={(e) => setChatQuestion(e.target.value)}
+                placeholder="Type your question here..."
+                className="flex-1 border rounded-lg px-4 py-2"
+              />
+
+              <button
+                onClick={askChatbot}
+                disabled={chatLoading}
+                className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:bg-blue-300"
+              >
+                {chatLoading ? "Thinking..." : "Ask AI"}
+              </button>
+            </div>
+
+            {chatAnswer && (
+              <div className="bg-slate-50 border rounded-lg p-4">
+                <p className="font-semibold mb-2">AI Answer</p>
+                <p className="text-slate-700">{chatAnswer}</p>
+              </div>
+            )}
+          </Section>
 
           <Section title="AI Content Recommendations">
             {contentRecommendations.length === 0 ? (

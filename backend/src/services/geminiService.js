@@ -119,3 +119,42 @@ Analyze the student's answer and return ONLY valid JSON:
     };
   }
 };
+export const askCommerceChatbotWithGemini = async (question) => {
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+    });
+
+    const prompt = `
+You are a helpful Sri Lankan GCE A/L Commerce tutor.
+
+Answer the student's question clearly and briefly.
+Focus only on Accounting, Business Studies, Economics, study planning, attendance, marks, and exam preparation.
+
+Student Question:
+${question}
+
+Return ONLY valid JSON:
+{
+  "answer": "clear student-friendly answer"
+}
+`;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+
+    const cleanText = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    return JSON.parse(cleanText);
+  } catch (error) {
+    console.log("Gemini Chatbot Error:", error.message);
+
+    return {
+      answer:
+        "AI chatbot response failed. Please try again or ask your teacher.",
+    };
+  }
+};

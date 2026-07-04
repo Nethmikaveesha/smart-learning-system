@@ -1,29 +1,61 @@
 import { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import AdminCharts from "../components/AdminCharts";
 
 function AdminDashboard() {
   const { token, logout } = useAuth();
+
+  const [adminData, setAdminData] = useState(null);
   const [summary, setSummary] = useState(null);
   const [teacherData, setTeacherData] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
-      const summaryRes = await api.get("/results/analytics-summary", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const adminRes = await api.get("/admin-dashboard", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const teacherRes = await api.get("/teacher-dashboard", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+        const summaryRes = await api.get("/results/analytics-summary", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      setSummary(summaryRes.data);
-      setTeacherData(teacherRes.data);
+        const teacherRes = await api.get("/teacher-dashboard", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setAdminData(adminRes.data);
+        setSummary(summaryRes.data);
+        setTeacherData(teacherRes.data);
+      } catch (error) {
+        setError(
+          error.response?.data?.message ||
+            "Failed to load admin dashboard"
+        );
+      }
     };
 
-    fetchData();
+    if (token) fetchData();
   }, [token]);
+
+  const subjectDifficultyData =
+    adminData?.subjectDifficulty?.map((item) => ({
+      subject: item.subject,
+      averageMarks: item.averageMarks,
+      failCount: item.failCount,
+    })) || [];
 
   return (
     <div className="min-h-screen bg-slate-100 p-6">
@@ -38,25 +70,85 @@ function AdminDashboard() {
         </button>
       </div>
 
-      {!summary ? (
+      {error ? (
+        <div className="bg-red-100 text-red-700 p-4 rounded">
+          {error}
+        </div>
+      ) : !adminData || !summary ? (
         <p>Loading...</p>
       ) : (
         <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <Card title="Total Users" value={adminData.totalUsers} />
+            <Card title="Total Students" value={adminData.totalStudents} />
+            <Card title="Total Subjects" value={adminData.totalSubjects} />
+            <Card title="Total Exams" value={adminData.totalExams} />
+            <Card title="Total Results" value={adminData.totalResults} />
+            <Card title="Pass Count" value={adminData.passCount} />
+            <Card title="Fail Count" value={adminData.failCount} />
+            <Card
+              title="Pass Percentage"
+              value={`${adminData.passPercentage}%`}
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-  <Card title="Total Students" value={summary.totalStudents} />
-  <Card title="Average Marks" value={summary.averageMarks} />
-  <Card title="Pass Count" value={summary.passCount} />
-  <Card title="Fail Count" value={summary.failCount} />
-  <Card title="High Risk Students" value={summary.highRiskStudents} />
-  <Card
-    title="Average Attendance"
-    value={`${summary.averageAttendance}%`}
-  />
-</div>
+            <Card title="Average Marks" value={summary.averageMarks} />
+            <Card
+              title="High Risk Students"
+              value={summary.highRiskStudents}
+            />
+            <Card
+              title="Average Attendance"
+              value={`${summary.averageAttendance}%`}
+            />
+          </div>
 
-<AdminCharts summary={summary} />
+          <AdminCharts summary={summary} />
 
-<RecentResultsTable results={teacherData?.recentResults || []} />
+          <div className="bg-white rounded-xl shadow p-5 mb-8">
+            <h2 className="text-xl font-bold mb-4">
+              System-Wide Subject Difficulty Analysis
+            </h2>
+
+            {subjectDifficultyData.length === 0 ? (
+              <p>No subject difficulty data available.</p>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={subjectDifficultyData}>
+                    <CartesianGrid />
+                    <XAxis dataKey="subject" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="averageMarks" name="Average Marks" />
+                  </BarChart>
+                </ResponsiveContainer>
+
+                <table className="w-full border mt-6">
+                  <thead className="bg-slate-200">
+                    <tr>
+                      <th className="p-3">Subject</th>
+                      <th className="p-3">Average Marks</th>
+                      <th className="p-3">Fail Count</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {subjectDifficultyData.map((item, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="p-3">{item.subject}</td>
+                        <td className="p-3">{item.averageMarks}</td>
+                        <td className="p-3">{item.failCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+
+          <RecentResultsTable results={teacherData?.recentResults || []} />
         </>
       )}
     </div>

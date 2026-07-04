@@ -35,6 +35,12 @@ import adaptiveLearningRoutes from "./routes/adaptiveLearningRoutes.js";
 import badgeRoutes from "./routes/badgeRoutes.js";
 import backupRoutes from "./routes/backupRoutes.js";
 import riskRoutes from "./routes/riskRoutes.js";
+import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
+import {
+  startMonthlyReportScheduler,
+} from "./jobs/monthlyReportJob.js";
+
+startMonthlyReportScheduler();
 
 const app = express();
 
@@ -100,3 +106,5 @@ app.use("/api/adaptive-learning", adaptiveLearningRoutes);
 app.use("/api/badges", badgeRoutes);
 app.use("/api/backups", backupRoutes);
 app.use("/api/risk", riskRoutes);
+app.use("/api/admin-dashboard", adminDashboardRoutes);
+

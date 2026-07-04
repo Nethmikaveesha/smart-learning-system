@@ -83,11 +83,11 @@ function ParentDashboard() {
     }
   };
 
+  // නව monthlyPerformance අනුව mapping එක වෙනස් කරන ලදී ✅
   const performanceData =
-    data?.results?.map((result) => ({
-      exam: result.exam?.examName,
-      marks: result.marks,
-      zScore: result.zScore,
+    data?.monthlyPerformance?.map((item) => ({
+      month: item.month,
+      averageMarks: item.averageMarks,
     })) || [];
 
   const attendanceData = [
@@ -173,7 +173,6 @@ function ParentDashboard() {
           {/* Analytical Charts Section */}
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             <div className="bg-white rounded-xl shadow p-5">
-              {/* Heading and Description Updated ✅ */}
               <h2 className="text-xl font-bold mb-4">
                 Monthly Performance Line Graph
               </h2>
@@ -184,12 +183,14 @@ function ParentDashboard() {
 
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={performanceData}>
-                  <XAxis dataKey="exam" />
+                  {/* dataKey එක "month" ලෙස වෙනස් කරන ලදී ✅ */}
+                  <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
+                  {/* dataKey එක "averageMarks" ලෙස වෙනස් කරන ලදී ✅ */}
                   <Line
                     type="monotone"
-                    dataKey="marks"
+                    dataKey="averageMarks"
                     strokeWidth={3}
                   />
                 </LineChart>
