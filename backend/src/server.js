@@ -39,8 +39,14 @@ import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
 import {
   startMonthlyReportScheduler,
 } from "./jobs/monthlyReportJob.js";
+import {
+  startDatabaseBackupScheduler,
+} from "./jobs/databaseBackupJob.js";
+
+
 
 startMonthlyReportScheduler();
+startDatabaseBackupScheduler();
 
 const app = express();
 
