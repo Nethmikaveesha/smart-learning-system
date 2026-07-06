@@ -17,7 +17,7 @@ import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 function ParentDashboard() {
-  const { token, logout } = useAuth();
+  const { token } = useAuth();
 
   const [data, setData] = useState(null);
   const [gradeCorrelationData, setGradeCorrelationData] = useState([]);
@@ -98,25 +98,16 @@ function ParentDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-3xl font-bold">Parent Dashboard</h1>
 
-        <div className="flex gap-3">
-          <button
-            onClick={downloadReport}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Download Report
-          </button>
-
-          <button
-            onClick={logout}
-            className="bg-red-600 text-white px-4 py-2 rounded"
-          >
-            Logout
-          </button>
-        </div>
+        <button
+          onClick={downloadReport}
+          className="w-fit rounded bg-blue-600 px-4 py-2 text-white"
+        >
+          Download Report
+        </button>
       </div>
 
       {error ? (

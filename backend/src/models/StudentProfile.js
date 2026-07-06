@@ -14,6 +14,11 @@ const studentProfileSchema = new mongoose.Schema(
       unique: true,
     },
 
+    academicYear: {
+      type: String,
+      default: "",
+    },
+
     class: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Class",

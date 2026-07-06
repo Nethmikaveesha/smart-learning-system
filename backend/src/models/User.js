@@ -16,6 +16,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    phoneNumber: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     password: {
       type: String,
       required: true,
@@ -30,6 +36,26 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    teacherId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      unique: true,
+    },
+
+    parentId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      unique: true,
+    },
+
+    relationship: {
+      type: String,
+      trim: true,
+      default: "",
     },
   },
   { timestamps: true }

@@ -33,6 +33,92 @@ export const getUserById = async (req, res) => {
   }
 };
 
+export const updateUser = async (req, res) => {
+  try {
+    const allowedUpdates = [
+      "fullName",
+      "email",
+      "phoneNumber",
+      "role",
+      "isActive",
+      "teacherId",
+      "parentId",
+      "relationship",
+    ];
+
+    const updates = {};
+
+    allowedUpdates.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    if (req.body.status) {
+      updates.isActive = req.body.status === "Active";
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "User Management",
+      description: `Updated user: ${user.fullName}`,
+    });
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const disableUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "User Management",
+      description: `Disabled user: ${user.fullName}`,
+    });
+
+    res.status(200).json({
+      message: "User disabled successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
 // Delete user
 export const deleteUser = async (req, res) => {
   try {
