@@ -2,31 +2,38 @@ import Result from "../models/Result.js";
 import StudentProfile from "../models/StudentProfile.js";
 import Attendance from "../models/Attendance.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
-
-const calculateGrade = (marks) => {
-  if (marks >= 75) return "A";
-  if (marks >= 65) return "B";
-  if (marks >= 55) return "C";
-  if (marks >= 35) return "S";
-  return "F";
-};
+import {
+  calculateGrade,
+  isPassingMark,
+  PASS_MARK,
+} from "../utils/grading.js";
 
 export const addResult = async (req, res) => {
   try {
     const { student, exam, marks } = req.body;
+
+    const existingResult = await Result.findOne({ student, exam });
+
+    if (existingResult) {
+      return res.status(400).json({
+        message:
+          "A result already exists for this student, exam, and subject combination",
+      });
+    }
 
     const result = await Result.create({
       student,
       exam,
       marks,
       grade: calculateGrade(marks),
+      rank: 0,
     });
 
     const studentProfile = await StudentProfile.findById(student);
 
     let riskStatus = "Low";
 
-    if (marks < 35 || studentProfile.attendancePercentage < 60) {
+    if (marks < PASS_MARK || studentProfile.attendancePercentage < 60) {
       riskStatus = "High";
     } else if (marks < 50 || studentProfile.attendancePercentage < 75) {
       riskStatus = "Medium";
@@ -49,6 +56,13 @@ export const addResult = async (req, res) => {
       riskStatus,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message:
+          "A result already exists for this student, exam, and subject combination",
+      });
+    }
+
     res.status(500).json({
       message: error.message,
     });
@@ -68,6 +82,38 @@ export const getAllResults = async (req, res) => {
       .populate("exam", "examName");
 
     res.status(200).json(results);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const deleteResult = async (req, res) => {
+  try {
+    const result = await Result.findById(req.params.id).populate({
+      path: "student",
+      populate: { path: "user", select: "fullName" },
+    });
+
+    if (!result) {
+      return res.status(404).json({
+        message: "Result not found",
+      });
+    }
+
+    await result.deleteOne();
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "DELETE",
+      module: "Results",
+      description: `Deleted result for ${result.student?.user?.fullName || "student"}`,
+    });
+
+    res.status(200).json({
+      message: "Result deleted successfully",
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -105,7 +151,7 @@ export const calculateExamAnalytics = async (req, res) => {
           : Number(((results[i].marks - mean) / standardDeviation).toFixed(2));
 
       results[i].zScore = zScore;
-      results[i].rank = i + 1;
+      results[i].rank = results.length === 1 ? 0 : i + 1;
 
       await results[i].save();
     }
@@ -157,7 +203,7 @@ export const detectWeakStudents = async (req, res) => {
 
       let riskStatus = "Low";
 
-      if (result.marks < 35 || studentProfile.attendancePercentage < 60) {
+      if (result.marks < PASS_MARK || studentProfile.attendancePercentage < 60) {
         riskStatus = "High";
       } else if (result.marks < 50 || studentProfile.attendancePercentage < 75) {
         riskStatus = "Medium";
@@ -213,9 +259,9 @@ export const getAnalyticsSummary = async (req, res) => {
           ).toFixed(2)
         : 0;
 
-    const passCount = results.filter((result) => result.marks >= 35).length;
+    const passCount = results.filter((result) => isPassingMark(result.marks)).length;
 
-    const failCount = results.filter((result) => result.marks < 35).length;
+    const failCount = results.filter((result) => !isPassingMark(result.marks)).length;
 
     const highRiskStudents = await StudentProfile.countDocuments({
       riskStatus: "High",

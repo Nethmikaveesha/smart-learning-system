@@ -1,6 +1,10 @@
 import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
 import Attendance from "../models/Attendance.js";
+import {
+  dedupeResults,
+  sortResultsByLatest,
+} from "../utils/studentResults.js";
 
 export const getStudentDashboard = async (req, res) => {
   try {
@@ -11,7 +15,7 @@ export const getStudentDashboard = async (req, res) => {
     })
       .populate("user", "fullName email")
       .populate("class", "className")
-      .populate("subjects", "subjectName");
+      .populate("subjects", "subjectName subjectCode");
 
     if (!studentProfile) {
       return res.status(404).json({
@@ -19,11 +23,18 @@ export const getStudentDashboard = async (req, res) => {
       });
     }
 
-    const results = await Result.find({
+    const rawResults = await Result.find({
       student: studentProfile._id,
-    })
-      .populate("exam", "examName examDate")
-      .sort({ createdAt: -1 });
+    }).populate({
+      path: "exam",
+      select: "examName examDate",
+      populate: {
+        path: "subject",
+        select: "subjectName",
+      },
+    });
+
+    const results = sortResultsByLatest(dedupeResults(rawResults));
 
     const attendanceRecords = await Attendance.find({
       student: studentProfile._id,

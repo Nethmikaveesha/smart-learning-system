@@ -11,36 +11,39 @@ import {
   resolveSubject,
 } from "../utils/resolveReference.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
+import { validateRegistrationInput } from "../utils/registrationValidation.js";
 
 export const registerAdmin = async (req, res) => {
   try {
     const { fullName, email, phoneNumber, password, confirmPassword, status } =
       req.body;
 
-    if (!fullName || !email || !password) {
+    const validationError = validateRegistrationInput({
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      confirmPassword,
+    });
+
+    if (validationError) {
       return res.status(400).json({
-        message: "Full name, email, and password are required",
+        message: validationError,
       });
     }
 
-    if (confirmPassword && password !== confirmPassword) {
-      return res.status(400).json({
-        message: "Password and confirm password do not match",
-      });
-    }
-
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: "This email is already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      fullName,
-      email,
-      phoneNumber,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phoneNumber: phoneNumber.trim(),
       password: hashedPassword,
       role: "admin",
       isActive: status ? status === "Active" : true,
@@ -97,24 +100,32 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    if (confirmPassword && password !== confirmPassword) {
+    const validationError = validateRegistrationInput({
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      confirmPassword,
+    });
+
+    if (validationError) {
       return res.status(400).json({
-        message: "Password and confirm password do not match",
+        message: validationError,
       });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: "This email is already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      fullName,
-      email,
-      phoneNumber,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      phoneNumber: phoneNumber.trim(),
       password: hashedPassword,
       role,
       isActive: status ? status === "Active" : true,
@@ -250,6 +261,64 @@ export const loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
       },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        message: "All password fields are required",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        message: "New password and confirmation do not match",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Current password is incorrect",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    await createAuditLog({
+      userId: user._id,
+      action: "UPDATE",
+      module: "Auth",
+      description: "Password changed successfully",
+    });
+
+    res.status(200).json({
+      message: "Password changed successfully",
     });
   } catch (error) {
     res.status(500).json({

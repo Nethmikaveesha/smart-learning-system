@@ -1,7 +1,7 @@
 import SidebarSection from "./SidebarSection";
 
 export const adminMobileLinks = [
-  { label: "Dashboard", to: "/admin" },
+  { label: "Dashboard", to: "/admin", end: true },
   { label: "Users", to: "/admin/users" },
   { label: "Add Admin", to: "/admin/users/add" },
   { label: "Classes", to: "/admin/classes" },
@@ -15,7 +15,7 @@ function AdminSidebar() {
     <nav className="space-y-2">
       <SidebarSection
         items={[
-          { label: "Dashboard", to: "/admin" },
+          { label: "Dashboard", to: "/admin", end: true },
           { label: "System Analytics", to: "/admin/system-analytics" },
         ]}
       />
@@ -28,7 +28,7 @@ function AdminSidebar() {
           { label: "Add Student", to: "/admin/users/add-student" },
           { label: "Add Parent", to: "/admin/users/add-parent" },
           { label: "View Users", to: "/admin/users" },
-          { label: "Edit / Disable User", to: "/admin/users/edit-disable" },
+          { label: "Disable User", to: "/admin/users/edit-disable" },
         ]}
       />
 

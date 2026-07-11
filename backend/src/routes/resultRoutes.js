@@ -3,6 +3,7 @@ import express from "express";
 import {
   addResult,
   getAllResults,
+  deleteResult,
   calculateExamAnalytics,
   detectWeakStudents,
   getAnalyticsSummary,
@@ -28,6 +29,14 @@ router.get(
   authorizeRoles("admin", "teacher"),
   getAllResults
 );
+
+router.delete(
+  "/:id",
+  protect,
+  authorizeRoles("admin"),
+  deleteResult
+);
+
  router.put(
   "/analytics/:examId",
   protect,

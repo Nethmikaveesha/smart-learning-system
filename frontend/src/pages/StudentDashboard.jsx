@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -6,111 +7,296 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  ScatterChart,
-  Scatter,
   CartesianGrid,
 } from "recharts";
 
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { formatMarks } from "../utils/formatters";
+
+const QUICK_ACTIONS = [
+  { label: "My Subjects", to: "/student/subjects" },
+  { label: "Exam Papers", to: "/student/exam-papers" },
+  { label: "Submit Answers", to: "/student/essay-grader" },
+  { label: "Ask AI", to: "/chatbot" },
+  { label: "Start Revision", to: "/student/revision-timetable" },
+];
+
+async function fetchOptional(apiCall, fallback) {
+  try {
+    return await apiCall();
+  } catch (error) {
+    console.warn("Optional dashboard section failed:", error.response?.data || error);
+    return fallback;
+  }
+}
+
+function hasExamResults(data) {
+  return Array.isArray(data?.results) && data.results.length > 0;
+}
+
+function formatSummaryValue(value, type = "text") {
+  if (value === null || value === undefined || value === "") {
+    return "--";
+  }
+
+  if (type === "percent") {
+    const numericValue = Number(value);
+    return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
+  }
+
+  if (type === "number") {
+    const numericValue = Number(value);
+    return numericValue !== 0 ? formatMarks(numericValue) : "--";
+  }
+
+  return value || "--";
+}
+
+function formatRiskStatus(status) {
+  if (!status) return "--";
+  if (status === "Low") return "Low Risk";
+  if (status === "Medium") return "Medium Risk";
+  if (status === "High") return "High Risk";
+  return status;
+}
+
+function getSubjectName(result) {
+  return (
+    result.exam?.subject?.subjectName ||
+    result.exam?.examName?.split(" - ").pop() ||
+    "General"
+  );
+}
+
+function formatShortDate(dateValue) {
+  if (!dateValue) return "--";
+  return new Date(dateValue).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function buildAlerts({ data, examTimetables, essayQuestions, adaptivePlan }) {
+  const alerts = [];
+  const classId = data?.student?.class?._id || data?.student?.class;
+  const studentSubjectIds = new Set(
+    (data?.student?.subjects || []).map((subject) =>
+      String(subject._id || subject)
+    )
+  );
+
+  const upcomingTimetables = examTimetables
+    .filter((item) => {
+      const matchesClass = String(item.class?._id || item.class) === String(classId);
+      const matchesSubject = studentSubjectIds.has(
+        String(item.subject?._id || item.subject)
+      );
+      return matchesClass && matchesSubject && new Date(item.examDate) >= new Date();
+    })
+    .sort((left, right) => new Date(left.examDate) - new Date(right.examDate));
+
+  if (upcomingTimetables[0]) {
+    const nextExam = upcomingTimetables[0];
+    alerts.push(
+      `${nextExam.subject?.subjectName || "Subject"} exam is scheduled for ${formatShortDate(nextExam.examDate)}.`
+    );
+  }
+
+  const recentPapers = essayQuestions
+    .filter((question) =>
+      studentSubjectIds.has(String(question.subject?._id || question.subject))
+    )
+    .sort(
+      (left, right) =>
+        new Date(right.createdAt || 0) - new Date(left.createdAt || 0)
+    );
+
+  if (recentPapers[0]?.subject?.subjectName) {
+    alerts.push(
+      `A new ${recentPapers[0].subject.subjectName} paper is available.`
+    );
+  }
+
+  if (
+    Number(data?.attendancePercentage) > 0 &&
+    Number(data.attendancePercentage) < 80
+  ) {
+    alerts.push("Your attendance is below 80%.");
+  }
+
+  if (adaptivePlan.length > 0) {
+    alerts.push(
+      `Additional revision is recommended for ${adaptivePlan[0].subject}.`
+    );
+  } else if (data?.riskStatus === "High" || data?.riskStatus === "Medium") {
+    alerts.push(`Your risk status is currently ${formatRiskStatus(data.riskStatus)}.`);
+  }
+
+  return alerts;
+}
+
+function buildUpcomingActivities(examTimetables, revisionTimetable, classId) {
+  const activities = [];
+
+  const classTimetables = examTimetables
+    .filter((item) => String(item.class?._id || item.class) === String(classId))
+    .filter((item) => new Date(item.examDate) >= new Date())
+    .sort((left, right) => new Date(left.examDate) - new Date(right.examDate));
+
+  classTimetables.forEach((item) => {
+    activities.push({
+      activity: item.examName,
+      subject: item.subject?.subjectName || "General",
+      date: item.examDate,
+    });
+  });
+
+  revisionTimetable.forEach((item) => {
+    activities.push({
+      activity: "Revision Session",
+      subject: item.subject,
+      date: item.examDate,
+    });
+  });
+
+  if (revisionTimetable[1]) {
+    activities.push({
+      activity: "Assignment",
+      subject: revisionTimetable[1].subject,
+      date: revisionTimetable[1].examDate,
+    });
+  }
+
+  const uniqueActivities = [];
+  const seen = new Set();
+
+  for (const item of activities) {
+    const key = `${item.activity}-${item.subject}-${item.date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueActivities.push(item);
+    if (uniqueActivities.length === 3) break;
+  }
+
+  return uniqueActivities;
+}
+
+function getSubjectPerformance(results, subjects) {
+  const latestBySubject = new Map();
+
+  results.forEach((result) => {
+    const subjectName = getSubjectName(result);
+    if (!latestBySubject.has(subjectName)) {
+      latestBySubject.set(subjectName, Number(result.marks) || 0);
+    }
+  });
+
+  const orderedSubjects = (subjects || []).map((subject) => subject.subjectName);
+
+  return orderedSubjects
+    .filter((subjectName) => latestBySubject.has(subjectName))
+    .slice(0, 3)
+    .map((subjectName) => ({
+      subject: subjectName,
+      marks: latestBySubject.get(subjectName),
+    }));
+}
+
+function getRecommendedNextStep(adaptivePlan, contentRecommendations, hasResults) {
+  if (!hasResults) {
+    return {
+      available: false,
+      message:
+        "Recommendations will appear after sufficient academic data is available.",
+    };
+  }
+
+  if (adaptivePlan.length > 0) {
+    const weakSubject = adaptivePlan[0];
+    const topic =
+      weakSubject.notes?.[0]?.topic ||
+      weakSubject.flashcards?.[0]?.topic ||
+      contentRecommendations[0]?.topic ||
+      "key topics";
+
+    return {
+      available: true,
+      title: `Focus on ${topic}`,
+      message: `Your recent ${weakSubject.subject} score is below your target.`,
+      actionLabel: "Start Learning",
+      actionTo: "/student/adaptive-learning",
+    };
+  }
+
+  if (contentRecommendations.length > 0) {
+    const recommendation = contentRecommendations[0];
+    return {
+      available: true,
+      title: recommendation.noteTitle,
+      message: recommendation.noteDescription,
+      actionLabel: "Start Learning",
+      actionTo: "/student/study-materials",
+    };
+  }
+
+  return {
+    available: true,
+    title: "Keep up your revision routine",
+    message: "You are performing well across your subjects.",
+    actionLabel: "View Study Materials",
+    actionTo: "/student/study-materials",
+  };
+}
 
 function StudentDashboard() {
   const { token } = useAuth();
 
   const [data, setData] = useState(null);
-  const [studyPlan, setStudyPlan] = useState([]);
-  const [correlationData, setCorrelationData] = useState([]);
-  const [contentRecommendations, setContentRecommendations] = useState([]);
-  const [flashcards, setFlashcards] = useState([]);
   const [adaptivePlan, setAdaptivePlan] = useState([]);
-  const [error, setError] = useState("");
-  const [badges, setBadges] = useState([]);
+  const [contentRecommendations, setContentRecommendations] = useState([]);
   const [revisionTimetable, setRevisionTimetable] = useState([]);
-
-  // Chatbot සඳහා නව States එකතු කරන ලදී ✅
-  const [chatQuestion, setChatQuestion] = useState("");
-  const [chatAnswer, setChatAnswer] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
+  const [examTimetables, setExamTimetables] = useState([]);
+  const [essayQuestions, setEssayQuestions] = useState([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await api.get("/student-dashboard", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        setError("");
+        const headers = { Authorization: `Bearer ${token}` };
 
-        setData(res.data);
+        const dashboardRes = await api.get("/student-dashboard", { headers });
+        setData(dashboardRes.data);
 
-        const plannerRes = await api.get("/study-planner", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const [adaptiveRes, contentRes, revisionRes, timetableRes, papersRes] =
+          await Promise.all([
+            fetchOptional(() => api.get("/adaptive-learning", { headers }), {
+              adaptivePlan: [],
+            }),
+            fetchOptional(() => api.get("/content-recommendations", { headers }), []),
+            fetchOptional(
+              () => api.get("/study-planner/revision-timetable", { headers }),
+              { timetable: [] }
+            ),
+            fetchOptional(() => api.get("/exam-timetables", { headers }), []),
+            fetchOptional(() => api.get("/essays/questions", { headers }), []),
+          ]);
 
-        setStudyPlan(plannerRes.data.plan);
-
-        const correlationRes = await api.get(
-          "/analytics/attendance-marks",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        setCorrelationData(correlationRes.data);
-
-        const contentRes = await api.get("/content-recommendations", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setContentRecommendations(contentRes.data);
-
-        const flashcardRes = await api.get("/flashcards", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setFlashcards(flashcardRes.data);
-
-        const adaptiveRes = await api.get("/adaptive-learning", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setAdaptivePlan(adaptiveRes.data.adaptivePlan);
-
-        const badgeRes = await api.get("/badges/student", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const revisionRes = await api.get(
-          "/study-planner/revision-timetable",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        setRevisionTimetable(revisionRes.data.timetable || []);
-        setBadges(badgeRes.data.badges);
-      } catch (error) {
+        setAdaptivePlan(adaptiveRes.adaptivePlan || []);
+        setContentRecommendations(Array.isArray(contentRes) ? contentRes : []);
+        setRevisionTimetable(revisionRes.timetable || []);
+        setExamTimetables(Array.isArray(timetableRes) ? timetableRes : []);
+        setEssayQuestions(Array.isArray(papersRes) ? papersRes : []);
+      } catch (fetchError) {
         console.error(
           "Student Dashboard Error:",
-          error.response?.data || error
+          fetchError.response?.data || fetchError
         );
 
         setError(
-          error.response?.data?.message ||
+          fetchError.response?.data?.message ||
             "Failed to load student dashboard"
         );
       }
@@ -121,468 +307,304 @@ function StudentDashboard() {
     }
   }, [token]);
 
-  const performanceData =
-    data?.results?.map((result) => ({
-      exam: result.exam?.examName || "Unknown Exam",
-      marks: Number(result.marks) || 0,
-      zScore:
-        result.zScore !== null && result.zScore !== undefined
-          ? Number(result.zScore)
-          : null,
-    })) || [];
+  const recentResults = useMemo(() => {
+    if (!data?.results?.length) return [];
 
-  // Chatbot API එකට ප්‍රශ්න යොමු කරන function එක එකතු කරන ලදී ✅
-  const askChatbot = async () => {
-    try {
-      if (!chatQuestion.trim()) return;
+    return [...data.results]
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt || right.exam?.examDate || 0) -
+          new Date(left.createdAt || left.exam?.examDate || 0)
+      )
+      .slice(0, 3);
+  }, [data]);
 
-      setChatLoading(true);
-      setChatAnswer("");
+  const subjectPerformance = useMemo(
+    () => getSubjectPerformance(data?.results || [], data?.student?.subjects || []),
+    [data]
+  );
 
-      const res = await api.post(
-        "/chatbot/ask",
-        { question: chatQuestion },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  const trendData = useMemo(
+    () =>
+      subjectPerformance.map((item) => ({
+        subject: item.subject.split(" ")[0],
+        marks: item.marks,
+      })),
+    [subjectPerformance]
+  );
 
-      setChatAnswer(res.data.answer);
-    } catch (error) {
-      setChatAnswer(
-        error.response?.data?.message || "Failed to get chatbot response"
-      );
-    } finally {
-      setChatLoading(false);
-    }
-  };
+  const alerts = useMemo(
+    () =>
+      data
+        ? buildAlerts({
+            data,
+            examTimetables,
+            essayQuestions,
+            adaptivePlan,
+          })
+        : [],
+    [data, examTimetables, essayQuestions, adaptivePlan]
+  );
+
+  const upcomingActivities = useMemo(
+    () =>
+      buildUpcomingActivities(
+        examTimetables,
+        revisionTimetable,
+        data?.student?.class?._id || data?.student?.class
+      ),
+    [examTimetables, revisionTimetable, data]
+  );
+
+  const recommendation = useMemo(
+    () =>
+      getRecommendedNextStep(
+        adaptivePlan,
+        contentRecommendations,
+        hasExamResults(data)
+      ),
+    [adaptivePlan, contentRecommendations, data]
+  );
+
+  const studentName = data?.student?.user?.fullName?.split(" ")[0] || "Student";
+  const subjectList =
+    data?.student?.subjects?.map((subject) => subject.subjectName).join(", ") ||
+    "--";
 
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-3xl font-bold">Student Dashboard</h1>
+      <h1 className="mb-6 text-3xl font-bold text-slate-900">Student Dashboard</h1>
 
       {error ? (
-        <div className="bg-red-100 text-red-700 p-4 rounded">
-          {error}
-        </div>
+        <div className="mb-6 rounded-lg bg-red-100 p-4 text-red-700">{error}</div>
       ) : !data ? (
         <p>Loading...</p>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card title="Attendance" value={`${data.attendancePercentage}%`} />
-            <Card title="Current Z-Score" value={data.currentZScore} />
-            <Card title="Risk Status" value={data.riskStatus} />
-            <Card
-              title="Latest Grade"
-              value={data.latestResult?.grade || "N/A"}
-            />
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-5 mb-8">
-            <h2 className="text-xl font-bold mb-4">Student Information</h2>
-
-            <p className="mb-2">
-              <strong>Name:</strong> {data.student?.user?.fullName}
-            </p>
-
-            <p className="mb-2">
-              <strong>Email:</strong> {data.student?.user?.email}
-            </p>
-
-            <p className="mb-2">
-              <strong>Student ID:</strong> {data.student?.studentId}
-            </p>
-
-            <p className="mb-2">
-              <strong>Class:</strong> {data.student?.class?.className}
-            </p>
-          </div>
-
-          <Section title="Academic Performance Tracker">
-            <p className="text-sm text-slate-500 mb-4">
-              Marks and Z-Score trends across examinations
-            </p>
-
-            {performanceData.length === 0 ? (
-              <p>No examination performance data available.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="exam" />
-
-                  <YAxis
-                    yAxisId="marks"
-                    orientation="left"
-                    domain={[0, 100]}
-                  />
-
-                  <YAxis
-                    yAxisId="zScore"
-                    orientation="right"
-                    domain={["auto", "auto"]}
-                  />
-
-                  <Tooltip />
-
-                  <Line
-                    yAxisId="marks"
-                    type="monotone"
-                    dataKey="marks"
-                    name="Marks"
-                    strokeWidth={3}
-                    connectNulls
-                  />
-
-                  <Line
-                    yAxisId="zScore"
-                    type="monotone"
-                    dataKey="zScore"
-                    name="Z-Score"
-                    strokeWidth={3}
-                    connectNulls
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-
-            <div className="flex gap-6 mt-4 text-sm">
-              <span>Marks Trend</span>
-              <span>Z-Score Trend</span>
-            </div>
-          </Section>
-
-          <div className="bg-white rounded-xl shadow p-5 mb-8">
-            <h2 className="text-xl font-bold mb-4">
-              Attendance vs Marks Correlation
+          <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-2xl font-bold text-slate-900">
+              Welcome back, {studentName}!
             </h2>
+            <div className="mt-3 space-y-1 text-sm text-slate-600">
+              <p>
+                <span className="font-semibold text-slate-800">Student ID:</span>{" "}
+                {data.student?.studentId || "--"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-800">Class:</span>{" "}
+                {data.student?.class?.className || "--"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-800">Subjects:</span>{" "}
+                {subjectList}
+              </p>
+            </div>
+          </section>
 
-            <ResponsiveContainer width="100%" height={300}>
-              <ScatterChart>
-                <CartesianGrid />
-                <XAxis
-                  type="number"
-                  dataKey="attendance"
-                  name="Attendance"
-                  unit="%"
-                />
-                <YAxis
-                  type="number"
-                  dataKey="averageMarks"
-                  name="Average Marks"
-                />
-                
-                <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                
-                <Scatter name="Students" data={correlationData} />
-              </ScatterChart>
-            </ResponsiveContainer>
+          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard
+              title="Attendance"
+              value={formatSummaryValue(data.attendancePercentage, "percent")}
+            />
+            <SummaryCard
+              title="Current Z-Score"
+              value={
+                hasExamResults(data)
+                  ? formatSummaryValue(data.currentZScore, "number")
+                  : "--"
+              }
+            />
+            <SummaryCard
+              title="Risk Status"
+              value={
+                hasExamResults(data) ? formatRiskStatus(data.riskStatus) : "--"
+              }
+            />
+            <SummaryCard
+              title="Latest Grade"
+              value={
+                hasExamResults(data)
+                  ? formatSummaryValue(data.latestResult?.grade)
+                  : "--"
+              }
+            />
+          </section>
+
+          <Panel title="Important Alerts">
+            {alerts.length > 0 ? (
+              <ul className="space-y-2 text-sm text-slate-700">
+                {alerts.map((alert, index) => (
+                  <li key={index}>• {alert}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-600">No new alerts at the moment.</p>
+            )}
+          </Panel>
+
+          <div className="mb-6 grid gap-4 xl:grid-cols-2">
+            <Panel title="Upcoming Activities">
+              {upcomingActivities.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-100 text-slate-700">
+                      <tr>
+                        <th className="p-3 font-bold">Activity</th>
+                        <th className="p-3 font-bold">Subject</th>
+                        <th className="p-3 font-bold">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {upcomingActivities.map((item, index) => (
+                        <tr key={index} className="border-t border-slate-200">
+                          <td className="p-3">{item.activity}</td>
+                          <td className="p-3">{item.subject}</td>
+                          <td className="p-3">{formatShortDate(item.date)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  No upcoming examinations or deadlines.
+                </p>
+              )}
+
+              <Link
+                to="/student/revision-timetable"
+                className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                View Full Timetable
+              </Link>
+            </Panel>
+
+            <Panel title="Recent Performance">
+              {subjectPerformance.length > 0 ? (
+                <>
+                  <div className="mb-4 space-y-2">
+                    {subjectPerformance.map((item) => (
+                      <div
+                        key={item.subject}
+                        className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2 text-sm"
+                      >
+                        <span className="font-medium text-slate-800">
+                          {item.subject}
+                        </span>
+                        <span className="font-bold text-slate-900">{item.marks}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <ResponsiveContainer width="100%" height={150}>
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Line
+                        type="monotone"
+                        dataKey="marks"
+                        stroke="#2563eb"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  No examination performance data available.
+                </p>
+              )}
+
+              <Link
+                to="/student/performance"
+                className="mt-4 inline-flex rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+              >
+                View Performance Tracker
+              </Link>
+            </Panel>
           </div>
 
-          {/* AI Chatbot Support Section එක මෙතනට ඇතුළත් කරන ලදී ✅ */}
-          <Section title="AI Chatbot Support">
-            <p className="text-sm text-slate-500 mb-4">
-              Ask questions related to Accounting, Business Studies, Economics, study
-              planning, attendance, marks, and exam preparation.
-            </p>
-
-            <div className="flex flex-col md:flex-row gap-3 mb-4">
-              <input
-                type="text"
-                value={chatQuestion}
-                onChange={(e) => setChatQuestion(e.target.value)}
-                placeholder="Type your question here..."
-                className="flex-1 border rounded-lg px-4 py-2"
-              />
-
-              <button
-                onClick={askChatbot}
-                disabled={chatLoading}
-                className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:bg-blue-300"
+          <Panel
+            title="Latest Results"
+            action={
+              <Link
+                to="/student/performance"
+                className="text-sm font-semibold text-blue-700 hover:underline"
               >
-                {chatLoading ? "Thinking..." : "Ask AI"}
-              </button>
+                View All Results
+              </Link>
+            }
+          >
+            <div className="overflow-hidden rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th className="p-3 font-bold">Subject</th>
+                    <th className="p-3 font-bold">Exam</th>
+                    <th className="p-3 font-bold">Marks</th>
+                    <th className="p-3 font-bold">Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentResults.length === 0 ? (
+                    <tr className="border-t">
+                      <td colSpan={4} className="p-4 text-center text-slate-500">
+                        No examination results available.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentResults.map((result) => (
+                      <tr key={result._id} className="border-t border-slate-200">
+                        <td className="p-3">{getSubjectName(result)}</td>
+                        <td className="p-3">{result.exam?.examName || "--"}</td>
+                        <td className="p-3">{result.marks}</td>
+                        <td className="p-3">{result.grade || "--"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
+          </Panel>
 
-            {chatAnswer && (
-              <div className="bg-slate-50 border rounded-lg p-4">
-                <p className="font-semibold mb-2">AI Answer</p>
-                <p className="text-slate-700">{chatAnswer}</p>
-              </div>
-            )}
-          </Section>
-
-          <Section title="AI Content Recommendations">
-            {contentRecommendations.length === 0 ? (
-              <p>No recommendations available.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {contentRecommendations.map((item) => (
-                  <div key={item._id} className="border rounded-lg p-4 bg-slate-50">
-                    <h3 className="font-bold text-lg">{item.noteTitle}</h3>
-                    <p className="text-sm text-slate-600 mb-2">
-                      Subject: {item.subject?.subjectName}
-                    </p>
-                    <p className="mb-2">
-                      <strong>Topic:</strong> {item.topic}
-                    </p>
-                    <p className="mb-2">{item.noteDescription}</p>
-                    <p className="mb-2">
-                      <strong>Difficulty:</strong> {item.difficultyLevel}
-                    </p>
-                    {item.videoLink && (
-                      <a
-                        href={item.videoLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-600 underline"
-                      >
-                        Watch Video
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          <Section title="Active Recall Flashcards">
-            {flashcards.length === 0 ? (
-              <p>No flashcards available.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {flashcards.map((card) => (
-                  <div key={card._id} className="border rounded-lg p-4 bg-slate-50">
-                    <p className="text-sm text-slate-600 mb-2">
-                      {card.subject?.subjectName} | {card.topic}
-                    </p>
-                    <h3 className="font-bold mb-2">Q: {card.question}</h3>
-                    <p className="mb-2">
-                      <strong>A:</strong> {card.answer}
-                    </p>
-                    <p className="text-sm">
-                      <strong>Difficulty:</strong> {card.difficulty}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          <Section title="Adaptive Learning Recommendations">
-            {adaptivePlan.length === 0 ? (
-              <p className="text-green-600 font-semibold">
-                No weak subjects detected. Great job!
-              </p>
-            ) : (
-              <div className="space-y-5">
-                {adaptivePlan.map((item, index) => (
-                  <div key={index} className="border rounded-lg p-4 bg-orange-50">
-                    <h3 className="text-lg font-bold mb-2">{item.subject}</h3>
-                    <p>
-                      <strong>Marks:</strong> {item.marks}
-                    </p>
-                    <p className="mb-3">{item.recommendation}</p>
-
-                    <h4 className="font-semibold mb-2">Recommended Notes</h4>
-                    {item.notes?.map((note) => (
-                      <div key={note._id} className="mb-3 p-3 bg-white rounded border">
-                        <strong>{note.noteTitle}</strong>
-                        <p>{note.noteDescription}</p>
-                        {note.videoLink && (
-                          <a
-                            href={note.videoLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-600 underline"
-                          >
-                            Watch Video
-                          </a>
-                        )}
-                      </div>
-                    ))}
-
-                    <h4 className="font-semibold mt-4 mb-2">
-                      Practice Flashcards
-                    </h4>
-                    {item.flashcards?.map((card) => (
-                      <div key={card._id} className="bg-white rounded border p-3 mb-2">
-                        <p>
-                          <strong>Q:</strong> {card.question}
-                        </p>
-                        <p>
-                          <strong>A:</strong> {card.answer}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          <Section title="Academic Achievement Badges">
-            {badges.length === 0 ? (
-              <p>No badges earned yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {badges.map((badge, index) => (
-                  <div
-                    key={index}
-                    className="bg-yellow-50 border rounded-lg p-5 text-center shadow"
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Panel title="Recommended Next Step">
+              {recommendation.available && recommendation.title ? (
+                <>
+                  <p className="text-base font-bold text-slate-900">
+                    {recommendation.title}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {recommendation.message}
+                  </p>
+                  <Link
+                    to={recommendation.actionTo}
+                    className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
                   >
-                    <div className="text-6xl mb-3">{badge.icon}</div>
+                    {recommendation.actionLabel}
+                  </Link>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">{recommendation.message}</p>
+              )}
+            </Panel>
 
-                    <h3 className="font-bold text-lg">{badge.title}</h3>
-
-                    <p className="text-slate-600 mt-2">
-                      {badge.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          <Section title="Intelligent Revision Timetable">
-            <p className="text-sm text-slate-500 mb-4">
-              Personalized daily revision schedule based on upcoming exams,
-              remaining days, and previous academic performance.
-            </p>
-
-            {revisionTimetable.length === 0 ? (
-              <div className="bg-slate-50 border rounded-lg p-4">
-                <p className="text-slate-500">
-                  No upcoming examination timetable available.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {revisionTimetable.map((item, index) => (
-                  <div
-                    key={`${item.examName}-${item.subject}-${index}`}
-                    className="border rounded-xl p-5 bg-slate-50"
+            <Panel title="Quick Actions">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {QUICK_ACTIONS.map((action) => (
+                  <Link
+                    key={action.to}
+                    to={action.to}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                   >
-                    <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                      <div>
-                        <h3 className="text-lg font-bold">{item.subject}</h3>
-
-                        <p className="text-slate-600">{item.examName}</p>
-                      </div>
-
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          item.priority === "High"
-                            ? "bg-red-100 text-red-700"
-                            : item.priority === "Medium"
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {item.priority} Priority
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
-                      <div className="bg-white border rounded-lg p-3">
-                        <p className="text-sm text-slate-500">Exam Date</p>
-
-                        <p className="font-bold mt-1">
-                          {new Date(item.examDate).toLocaleDateString()}
-                        </p>
-                      </div>
-
-                      <div className="bg-white border rounded-lg p-3">
-                        <p className="text-sm text-slate-500">
-                          Days Remaining
-                        </p>
-
-                        <p className="font-bold mt-1">
-                          {item.daysRemaining} days
-                        </p>
-                      </div>
-
-                      <div className="bg-white border rounded-lg p-3">
-                        <p className="text-sm text-slate-500">Average Marks</p>
-
-                        <p className="font-bold mt-1">{item.averageMarks}</p>
-                      </div>
-
-                      <div className="bg-white border rounded-lg p-3">
-                        <p className="text-sm text-slate-500">Daily Revision</p>
-
-                        <p className="font-bold mt-1">
-                          {item.dailyStudyHours} hrs/day
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 bg-white border rounded-lg p-4">
-                      <p className="text-sm text-slate-500 mb-1">
-                        Personalized Recommendation
-                      </p>
-
-                      <p className="font-medium">{item.recommendation}</p>
-                    </div>
-                  </div>
+                    {action.label}
+                  </Link>
                 ))}
               </div>
-            )}
-          </Section>
-
-          <Section title="Smart Study Planner">
-            <table className="w-full border">
-              <thead className="bg-slate-200">
-                <tr>
-                  <th className="p-3">Subject</th>
-                  <th className="p-3">Average Marks</th>
-                  <th className="p-3">Priority</th>
-                  <th className="p-3">Study Hours</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {studyPlan.map((item, index) => (
-                  <tr key={index} className="border-t">
-                    <td className="p-3">{item.subject}</td>
-                    <td className="p-3">{item.averageMarks}</td>
-                    <td className="p-3">{item.priority}</td>
-                    <td className="p-3">{item.recommendedHours} hrs/day</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Section>
-
-          <div className="bg-white rounded-xl shadow p-5">
-            <h2 className="text-xl font-bold mb-4">Exam Results</h2>
-
-            <table className="w-full border">
-              <thead className="bg-slate-200">
-                <tr>
-                  <th className="p-3">Exam</th>
-                  <th className="p-3">Marks</th>
-                  <th className="p-3">Grade</th>
-                  <th className="p-3">Z-Score</th>
-                  <th className="p-3">Rank</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {data.results?.map((result) => (
-                  <tr key={result._id} className="border-t">
-                    <td className="p-3">{result.exam?.examName}</td>
-                    <td className="p-3">{result.marks}</td>
-                    <td className="p-3">{result.grade}</td>
-                    <td className="p-3">{result.zScore}</td>
-                    <td className="p-3">{result.rank}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            </Panel>
           </div>
         </>
       )}
@@ -590,21 +612,24 @@ function StudentDashboard() {
   );
 }
 
-function Card({ title, value }) {
+function SummaryCard({ title, value }) {
   return (
-    <div className="bg-white p-5 rounded-xl shadow">
-      <p className="text-slate-500">{title}</p>
-      <h2 className="text-3xl font-bold mt-2">{value}</h2>
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{title}</p>
+      <h2 className="mt-2 text-3xl font-bold text-slate-900">{value}</h2>
     </div>
   );
 }
 
-function Section({ title, children }) {
+function Panel({ title, children, action }) {
   return (
-    <div className="bg-white rounded-xl shadow p-5 mb-8">
-      <h2 className="text-xl font-bold mb-4">{title}</h2>
+    <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+        {action}
+      </div>
       {children}
-    </div>
+    </section>
   );
 }
 

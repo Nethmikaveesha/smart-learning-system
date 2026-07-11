@@ -6,6 +6,7 @@ import PublicLayout from "./components/PublicLayout";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherTopicErrorAnalysis from "./pages/TeacherTopicErrorAnalysis";
 import StudentDashboard from "./pages/StudentDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
 import EssayGrader from "./pages/EssayGrader";
@@ -40,48 +41,55 @@ function AppRoutes() {
       </Route>
 
       <Route
+        path="/admin"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
       >
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/*" element={<DashboardFeaturePage />} />
+        <Route index element={<AdminDashboard />} />
+        <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
       <Route
+        path="/teacher"
         element={
           <ProtectedRoute allowedRoles={["teacher", "admin"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
       >
-        <Route path="/teacher" element={<TeacherDashboard />} />
-        <Route path="/teacher/*" element={<DashboardFeaturePage />} />
+        <Route index element={<TeacherDashboard />} />
+        <Route path="topic-error-analysis" element={<TeacherTopicErrorAnalysis />} />
+        <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
       <Route
+        path="/student"
         element={
           <ProtectedRoute allowedRoles={["student"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
       >
-        <Route path="/student" element={<StudentDashboard />} />
-        <Route path="/student/*" element={<DashboardFeaturePage />} />
-        <Route path="/essay-grader" element={<EssayGrader />} />
+        <Route index element={<StudentDashboard />} />
+        <Route path="essay-grader" element={<EssayGrader />} />
+        <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
+      <Route path="/essay-grader" element={<Navigate to="/student/essay-grader" replace />} />
+
       <Route
+        path="/parent"
         element={
           <ProtectedRoute allowedRoles={["parent"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
       >
-        <Route path="/parent" element={<ParentDashboard />} />
-        <Route path="/parent/*" element={<DashboardFeaturePage />} />
+        <Route index element={<ParentDashboard />} />
+        <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
       <Route

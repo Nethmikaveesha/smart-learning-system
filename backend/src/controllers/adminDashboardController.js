@@ -3,11 +3,16 @@ import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
 import Subject from "../models/Subject.js";
 import Exam from "../models/Exam.js";
+import { isPassingMark } from "../utils/grading.js";
 
 export const getAdminDashboard = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
-    const totalStudents = await StudentProfile.countDocuments();
+    const totalStudentProfiles = await StudentProfile.countDocuments();
+    const totalStudentAccounts = await User.countDocuments({ role: "student" });
+    const totalTeachers = await User.countDocuments({ role: "teacher" });
+    const totalParents = await User.countDocuments({ role: "parent" });
+    const totalAdmins = await User.countDocuments({ role: "admin" });
     const totalSubjects = await Subject.countDocuments();
     const totalExams = await Exam.countDocuments();
 
@@ -21,8 +26,8 @@ export const getAdminDashboard = async (req, res) => {
 
     const totalResults = results.length;
 
-    const passCount = results.filter((r) => r.marks >= 35).length;
-    const failCount = results.filter((r) => r.marks < 35).length;
+    const passCount = results.filter((result) => isPassingMark(result.marks)).length;
+    const failCount = results.filter((result) => !isPassingMark(result.marks)).length;
 
     const passPercentage =
       totalResults > 0
@@ -47,20 +52,40 @@ export const getAdminDashboard = async (req, res) => {
       subjectStats[subjectName].totalMarks += result.marks;
       subjectStats[subjectName].count += 1;
 
-      if (result.marks < 35) {
+      if (!isPassingMark(result.marks)) {
         subjectStats[subjectName].failCount += 1;
       }
     });
 
-    const subjectDifficulty = Object.values(subjectStats).map((item) => ({
-      subject: item.subject,
-      averageMarks: Number((item.totalMarks / item.count).toFixed(2)),
-      failCount: item.failCount,
-    }));
+    const subjects = await Subject.find().select("subjectName");
+
+    const subjectDifficulty = subjects.map((subject) => {
+      const stats = subjectStats[subject.subjectName];
+
+      if (!stats) {
+        return {
+          subject: subject.subjectName,
+          averageMarks: 0,
+          failCount: 0,
+          resultCount: 0,
+        };
+      }
+
+      return {
+        subject: stats.subject,
+        averageMarks: Number((stats.totalMarks / stats.count).toFixed(2)),
+        failCount: stats.failCount,
+        resultCount: stats.count,
+      };
+    });
 
     res.status(200).json({
       totalUsers,
-      totalStudents,
+      totalStudents: totalStudentProfiles,
+      totalStudentAccounts,
+      totalTeachers: totalTeachers || 0,
+      totalParents: totalParents || 0,
+      totalAdmins: totalAdmins || 0,
       totalSubjects,
       totalExams,
       totalResults,

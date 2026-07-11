@@ -1,7 +1,7 @@
 import SidebarSection from "./SidebarSection";
 
 export const parentMobileLinks = [
-  { label: "Dashboard", to: "/parent" },
+  { label: "Dashboard", to: "/parent", end: true },
   { label: "Overview", to: "/parent/child-overview" },
   { label: "Marks", to: "/parent/marks-rankings" },
   { label: "Attendance", to: "/parent/attendance" },
@@ -14,7 +14,7 @@ function ParentSidebar() {
     <nav className="space-y-2">
       <SidebarSection
         items={[
-          { label: "Dashboard", to: "/parent" },
+          { label: "Dashboard", to: "/parent", end: true },
           { label: "Child Overview", to: "/parent/child-overview" },
         ]}
       />
