@@ -11,3 +11,9 @@ venv/
 **/node_modules/
 __pycache__/
 *.pyc
+ml-model/models/*.pkl
+ml-model/models/*.json
+ml-model/outputs/figures/*
+!ml-model/outputs/figures/.gitkeep
+ml-model/outputs/reports/*
+!ml-model/outputs/reports/.gitkeep

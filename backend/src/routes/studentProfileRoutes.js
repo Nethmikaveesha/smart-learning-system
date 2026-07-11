@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   createStudentProfile,
+  deleteStudentProfile,
   getAllStudentProfiles,
   updateStudentProfile,
 } from "../controllers/studentProfileController.js";
@@ -32,6 +33,13 @@ router.put(
   protect,
   authorizeRoles("admin"),
   updateStudentProfile
+);
+
+router.delete(
+  "/:id",
+  protect,
+  authorizeRoles("admin"),
+  deleteStudentProfile
 );
 
 export default router;

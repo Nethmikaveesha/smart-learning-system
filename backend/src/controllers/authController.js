@@ -4,6 +4,71 @@ import Class from "../models/Class.js";
 import StudentProfile from "../models/StudentProfile.js";
 import Subject from "../models/Subject.js";
 import jwt from "jsonwebtoken";
+import {
+  resolveClass,
+  resolveOrCreateClass,
+  resolveStudentProfile,
+  resolveSubject,
+} from "../utils/resolveReference.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
+
+export const registerAdmin = async (req, res) => {
+  try {
+    const { fullName, email, phoneNumber, password, confirmPassword, status } =
+      req.body;
+
+    if (!fullName || !email || !password) {
+      return res.status(400).json({
+        message: "Full name, email, and password are required",
+      });
+    }
+
+    if (confirmPassword && password !== confirmPassword) {
+      return res.status(400).json({
+        message: "Password and confirm password do not match",
+      });
+    }
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      fullName,
+      email,
+      phoneNumber,
+      password: hashedPassword,
+      role: "admin",
+      isActive: status ? status === "Active" : true,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "User Management",
+      description: `Created admin account: ${user.fullName}`,
+    });
+
+    res.status(201).json({
+      message: "Admin registered successfully",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        isActive: user.isActive,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const registerUser = async (req, res) => {
   try {
     const {
@@ -18,13 +83,19 @@ export const registerUser = async (req, res) => {
       assignedSubject,
       assignedClass,
       studentId,
-      classId,
+      className,
       academicYear,
       parent,
       parentId,
       childStudent,
       relationship,
     } = req.body;
+
+    if (role === "admin") {
+      return res.status(400).json({
+        message: "Use the admin registration endpoint to create admin accounts",
+      });
+    }
 
     if (confirmPassword && password !== confirmPassword) {
       return res.status(400).json({
@@ -56,37 +127,59 @@ export const registerUser = async (req, res) => {
 
     if (role === "teacher") {
       if (assignedSubject) {
-        await Subject.findByIdAndUpdate(assignedSubject, {
+        const subject = await resolveSubject(assignedSubject);
+
+        if (!subject) {
+          return res.status(404).json({
+            message: `Subject not found for reference: ${assignedSubject}`,
+          });
+        }
+
+        await Subject.findByIdAndUpdate(subject._id, {
           assignedTeacher: user._id,
         });
       }
 
       if (assignedClass) {
-        await Class.findByIdAndUpdate(assignedClass, {
+        const classRecord = await resolveOrCreateClass(assignedClass);
+
+        await Class.findByIdAndUpdate(classRecord._id, {
           assignedTeacher: user._id,
         });
       }
     }
 
     if (role === "student" && studentId) {
+      const classRecord = className
+        ? await resolveOrCreateClass(className, academicYear)
+        : null;
+
       profile = await StudentProfile.create({
         user: user._id,
         studentId,
-        class: classId || undefined,
+        class: classRecord?._id || undefined,
         parent: parent || undefined,
         academicYear,
       });
 
-      if (classId) {
-        await Class.findByIdAndUpdate(classId, {
+      if (classRecord) {
+        await Class.findByIdAndUpdate(classRecord._id, {
           $addToSet: { students: user._id },
         });
       }
     }
 
     if (role === "parent" && childStudent) {
+      const studentProfile = await resolveStudentProfile(childStudent);
+
+      if (!studentProfile) {
+        return res.status(404).json({
+          message: `Student profile not found for reference: ${childStudent}`,
+        });
+      }
+
       profile = await StudentProfile.findByIdAndUpdate(
-        childStudent,
+        studentProfile._id,
         { parent: user._id },
         { new: true }
       );
