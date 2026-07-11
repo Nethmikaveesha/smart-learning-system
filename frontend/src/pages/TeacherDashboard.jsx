@@ -16,27 +16,39 @@ function TeacherDashboard() {
   const { token } = useAuth();
   const [data, setData] = useState(null);
   const [topicAnalytics, setTopicAnalytics] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchDashboard = async () => {
-      const res = await api.get("/teacher-dashboard", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      try {
+        setError("");
 
-      setData(res.data);
+        const res = await api.get("/teacher-dashboard", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      const topicRes = await api.get("/essays/topic-error-analytics", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        setData(res.data);
 
-      setTopicAnalytics(topicRes.data);
+        const topicRes = await api.get("/essays/topic-error-analytics", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setTopicAnalytics(topicRes.data);
+      } catch (fetchError) {
+        setError(
+          fetchError.response?.data?.message ||
+            "Failed to load teacher dashboard"
+        );
+      }
     };
 
-    fetchDashboard();
+    if (token) {
+      fetchDashboard();
+    }
   }, [token]);
 
   const missingConceptData =
@@ -55,7 +67,11 @@ function TeacherDashboard() {
     <div className="p-6">
       <h1 className="mb-6 text-3xl font-bold">Teacher Dashboard</h1>
 
-      {!data ? (
+      {error ? (
+        <div className="bg-red-100 text-red-700 p-4 rounded">
+          {error}
+        </div>
+      ) : !data ? (
         <p>Loading...</p>
       ) : (
         <>

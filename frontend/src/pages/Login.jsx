@@ -62,6 +62,15 @@ function Login() {
         <button className="w-full bg-blue-600 text-white p-3 rounded">
           Login
         </button>
+
+        <div className="mt-6 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+          <p className="font-semibold text-slate-800 mb-2">Demo Accounts</p>
+          <p>admin@test.com</p>
+          <p>teacher@test.com</p>
+          <p>student@test.com</p>
+          <p>parent@test.com</p>
+          <p className="mt-2">Password: 123456</p>
+        </div>
       </form>
     </div>
   );

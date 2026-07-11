@@ -9,40 +9,79 @@ function EssayGrader() {
   const [selectedQuestion, setSelectedQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState(null);
+  const [studentProfileId, setStudentProfileId] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchQuestions = async () => {
-      const res = await api.get("/essays/questions", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const fetchData = async () => {
+      try {
+        const [questionsRes, dashboardRes] = await Promise.all([
+          api.get("/essays/questions", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+          api.get("/student-dashboard", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
 
-      setQuestions(res.data);
+        setQuestions(questionsRes.data);
+        setStudentProfileId(dashboardRes.data.student?._id || "");
+      } catch (fetchError) {
+        setError(
+          fetchError.response?.data?.message ||
+            "Failed to load essay grader data"
+        );
+      }
     };
 
-    fetchQuestions();
+    if (token) {
+      fetchData();
+    }
   }, [token]);
 
   const handleSubmit = async () => {
-    const studentProfileId =
-      "6a30afe57074f4361997befe"; // temporary
-
-    const res = await api.post(
-      "/essays/submit",
-      {
-        studentId: studentProfileId,
-        questionId: selectedQuestion,
-        answer,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    try {
+      if (!selectedQuestion || !answer.trim()) {
+        setError("Please select a question and enter your answer.");
+        return;
       }
-    );
 
-    setResult(res.data.submission);
+      if (!studentProfileId) {
+        setError("Student profile not found.");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+
+      const res = await api.post(
+        "/essays/submit",
+        {
+          studentId: studentProfileId,
+          questionId: selectedQuestion,
+          answer,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setResult(res.data.submission);
+    } catch (submitError) {
+      setError(
+        submitError.response?.data?.message ||
+          "Failed to submit essay for grading"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,6 +89,12 @@ function EssayGrader() {
       <h1 className="text-3xl font-bold mb-6">
         Essay Grader
       </h1>
+
+      {error && (
+        <div className="bg-red-100 text-red-700 p-4 rounded mb-4">
+          {error}
+        </div>
+      )}
 
       <select
         className="border p-3 rounded w-full mb-4"
@@ -75,9 +120,10 @@ function EssayGrader() {
 
       <button
         onClick={handleSubmit}
-        className="bg-blue-600 text-white px-5 py-3 rounded"
+        disabled={loading}
+        className="bg-blue-600 text-white px-5 py-3 rounded disabled:bg-blue-300"
       >
-        Submit Essay
+        {loading ? "Grading..." : "Submit Essay"}
       </button>
 
       {result && (

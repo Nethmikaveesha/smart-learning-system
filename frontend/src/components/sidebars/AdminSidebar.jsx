@@ -3,7 +3,7 @@ import SidebarSection from "./SidebarSection";
 export const adminMobileLinks = [
   { label: "Dashboard", to: "/admin" },
   { label: "Users", to: "/admin/users" },
-  { label: "Add User", to: "/admin/users/add" },
+  { label: "Add Admin", to: "/admin/users/add" },
   { label: "Classes", to: "/admin/classes" },
   { label: "Exams", to: "/admin/exam-timetables" },
   { label: "Analytics", to: "/admin/system-analytics" },
@@ -23,7 +23,7 @@ function AdminSidebar() {
       <SidebarSection
         title="User Management"
         items={[
-          { label: "Add New User", to: "/admin/users/add" },
+          { label: "Add New Admin", to: "/admin/users/add" },
           { label: "Add Teacher", to: "/admin/users/add-teacher" },
           { label: "Add Student", to: "/admin/users/add-student" },
           { label: "Add Parent", to: "/admin/users/add-parent" },

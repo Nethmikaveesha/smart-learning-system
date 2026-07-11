@@ -2,30 +2,47 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import UserRecordsTable from "../components/UserRecordsTable";
 
 const featureConfigs = {
   "/admin/users/add": {
-    title: "Add New User",
-    description: "Select a role and complete the matching registration fields.",
+    title: "Add New Admin",
+    description: "Create a new administrator account for the system.",
     registerForm: true,
+    rolePreset: "admin",
+    registerEndpoint: "/auth/register-admin",
+    listEndpoint: "/users",
+    listTitle: "Registered Admins",
+    listType: "admin",
+    listFilter: (row) => row.role === "admin",
   },
   "/admin/users/add-teacher": {
     title: "Add Teacher",
     description: "Create a teacher account and assign subject/class links.",
     registerForm: true,
     rolePreset: "teacher",
+    listEndpoint: "/users/teachers",
+    listTitle: "Registered Teachers",
+    listType: "teacher",
   },
   "/admin/users/add-student": {
     title: "Add Student",
     description: "Create a student account and create the student profile.",
     registerForm: true,
     rolePreset: "student",
+    listEndpoint: "/student-profiles",
+    listTitle: "Registered Students",
+    listType: "student",
   },
   "/admin/users/add-parent": {
     title: "Add Parent",
     description: "Create a parent account and link it with a student profile.",
     registerForm: true,
     rolePreset: "parent",
+    listEndpoint: "/users",
+    listTitle: "Registered Parents",
+    listType: "user",
+    listFilter: (row) => row.role === "parent",
   },
   "/admin/users": {
     title: "View Users",
@@ -432,6 +449,7 @@ function DashboardFeaturePage() {
       {config.registerForm && (
         <RegisterUserForm
           rolePreset={config.rolePreset}
+          registerEndpoint={config.registerEndpoint}
           token={token}
           onSaved={(savedMessage) => {
             setMessage(savedMessage);
@@ -463,11 +481,27 @@ function DashboardFeaturePage() {
         </div>
       )}
 
+      {config.listEndpoint && (
+        <UserRecordsTable
+          title={config.listTitle || "Records"}
+          listEndpoint={config.listEndpoint}
+          listType={config.listType || "user"}
+          listFilter={config.listFilter}
+          token={token}
+          refreshKey={refreshKey}
+          onSaved={(savedMessage) => {
+            setMessage(savedMessage);
+            setRefreshKey((current) => current + 1);
+          }}
+          onError={setError}
+        />
+      )}
+
       {loading && config.endpoint ? (
         <p>Loading...</p>
       ) : config.layout === "cards" ? (
         <CardPanel data={displayData} />
-      ) : config.endpoint || config.profileData || data ? (
+      ) : config.endpoint || config.profileData ? (
         <DataTable
           data={displayData}
           rows={rows}
@@ -479,14 +513,14 @@ function DashboardFeaturePage() {
           }}
           onError={setError}
         />
-      ) : (
+      ) : config.form || config.registerForm || config.action ? null : (
         <EmptyState />
       )}
     </div>
   );
 }
 
-function RegisterUserForm({ rolePreset, token, onSaved, onError }) {
+function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", token, onSaved, onError }) {
   const [values, setValues] = useState({
     fullName: "",
     email: "",
@@ -499,7 +533,7 @@ function RegisterUserForm({ rolePreset, token, onSaved, onError }) {
     assignedSubject: "",
     assignedClass: "",
     studentId: "",
-    classId: "",
+    className: "",
     academicYear: "",
     parent: "",
     parentId: "",
@@ -507,11 +541,74 @@ function RegisterUserForm({ rolePreset, token, onSaved, onError }) {
     relationship: "",
   });
   const [saving, setSaving] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [classes, setClasses] = useState([]);
 
   const role = rolePreset || values.role;
 
+  const academicYearOptions = useMemo(() => {
+    const years = [
+      ...new Set(classes.map((classItem) => classItem.academicYear).filter(Boolean)),
+    ];
+
+    if (years.length > 0) {
+      return years.sort();
+    }
+
+    const currentYear = new Date().getFullYear();
+    return [currentYear - 1, currentYear, currentYear + 1].map(String);
+  }, [classes]);
+
+  useEffect(() => {
+    const loadRoleOptions = async () => {
+      if (!token || (role !== "teacher" && role !== "student")) return;
+
+      try {
+        if (role === "teacher") {
+          const [subjectsRes, classesRes] = await Promise.all([
+            api.get("/subjects", {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+            api.get("/classes", {
+              headers: { Authorization: `Bearer ${token}` },
+            }),
+          ]);
+
+          setSubjects(subjectsRes.data || []);
+          setClasses(classesRes.data || []);
+          return;
+        }
+
+        const classesRes = await api.get("/classes", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setClasses(classesRes.data || []);
+      } catch (loadError) {
+        onError(
+          loadError.response?.data?.message ||
+            "Failed to load class options"
+        );
+      }
+    };
+
+    loadRoleOptions();
+  }, [role, token, onError]);
+
   const updateValue = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
+  };
+
+  const updateClassName = (className) => {
+    const selectedClass = classes.find(
+      (classItem) => classItem.className === className
+    );
+
+    setValues((current) => ({
+      ...current,
+      className,
+      academicYear: selectedClass?.academicYear || current.academicYear,
+    }));
   };
 
   const submitForm = async (event) => {
@@ -526,12 +623,22 @@ function RegisterUserForm({ rolePreset, token, onSaved, onError }) {
       setSaving(true);
       onError("");
 
-      const payload = {
-        ...values,
-        role,
-      };
+      const payload =
+        role === "admin"
+          ? {
+              fullName: values.fullName,
+              email: values.email,
+              phoneNumber: values.phoneNumber,
+              password: values.password,
+              confirmPassword: values.confirmPassword,
+              status: values.status,
+            }
+          : {
+              ...values,
+              role,
+            };
 
-      const res = await api.post("/auth/register", payload, {
+      const res = await api.post(registerEndpoint, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -591,23 +698,63 @@ function RegisterUserForm({ rolePreset, token, onSaved, onError }) {
         {role === "teacher" && (
           <>
             <TextField label="Teacher ID" name="teacherId" value={values.teacherId} onChange={updateValue} required />
-            <TextField label="Assigned Subject ID" name="assignedSubject" value={values.assignedSubject} onChange={updateValue} />
-            <TextField label="Assigned Class ID" name="assignedClass" value={values.assignedClass} onChange={updateValue} />
+            <OptionSelectField
+              label="Assigned Subject Code"
+              name="assignedSubject"
+              value={values.assignedSubject}
+              onChange={updateValue}
+              placeholder="Select subject"
+              options={subjects.map((subject) => ({
+                value: subject.subjectCode,
+                label: `${subject.subjectCode} - ${subject.subjectName}`,
+              }))}
+            />
+            <OptionSelectField
+              label="Assigned Class Name"
+              name="assignedClass"
+              value={values.assignedClass}
+              onChange={updateValue}
+              placeholder="Select class"
+              options={classes.map((classItem) => ({
+                value: classItem.className,
+                label: classItem.className,
+              }))}
+            />
           </>
         )}
 
         {role === "student" && (
           <>
             <TextField label="Student ID" name="studentId" value={values.studentId} onChange={updateValue} required />
-            <TextField label="Class ID" name="classId" value={values.classId} onChange={updateValue} />
-            <TextField label="Academic Year" name="academicYear" value={values.academicYear} onChange={updateValue} required />
+            <OptionSelectField
+              label="Class Name"
+              name="className"
+              value={values.className}
+              onChange={(_, value) => updateClassName(value)}
+              placeholder="Select class"
+              options={classes.map((classItem) => ({
+                value: classItem.className,
+                label: classItem.className,
+              }))}
+            />
+            <OptionSelectField
+              label="Academic Year"
+              name="academicYear"
+              value={values.academicYear}
+              onChange={updateValue}
+              placeholder="Select academic year"
+              options={academicYearOptions.map((year) => ({
+                value: year,
+                label: year,
+              }))}
+            />
           </>
         )}
 
         {role === "parent" && (
           <>
             <TextField label="Parent ID" name="parentId" value={values.parentId} onChange={updateValue} required />
-            <TextField label="Child / Student Profile ID" name="childStudent" value={values.childStudent} onChange={updateValue} />
+            <TextField label="Child Student ID" name="childStudent" value={values.childStudent} onChange={updateValue} placeholder="e.g. COM2026001" />
             <TextField label="Relationship" name="relationship" value={values.relationship} onChange={updateValue} required />
           </>
         )}
@@ -618,7 +765,7 @@ function RegisterUserForm({ rolePreset, token, onSaved, onError }) {
         disabled={saving}
         className="mt-5 rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:bg-slate-400"
       >
-        {saving ? "Creating..." : "Create Account"}
+        {saving ? "Creating..." : role === "admin" ? "Create Admin Account" : "Create Account"}
       </button>
     </form>
   );
@@ -745,6 +892,34 @@ function TextField({
         onChange={(event) => onChange(name, event.target.value)}
         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
       />
+    </label>
+  );
+}
+
+function OptionSelectField({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+  placeholder = "Select option",
+}) {
+  return (
+    <label className="text-sm font-semibold text-slate-700">
+      {label}
+      <select
+        name={name}
+        value={value}
+        onChange={(event) => onChange(name, event.target.value)}
+        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

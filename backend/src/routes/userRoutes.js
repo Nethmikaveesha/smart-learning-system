@@ -1,11 +1,12 @@
 import express from "express";
 
 import {
+  deleteUser,
+  disableUser,
   getAllUsers,
+  getTeachersWithAssignments,
   getUserById,
   updateUser,
-  disableUser,
-  deleteUser,
 } from "../controllers/userController.js";
 
 import {
@@ -20,6 +21,13 @@ router.get(
   protect,
   authorizeRoles("admin"),
   getAllUsers
+);
+
+router.get(
+  "/teachers",
+  protect,
+  authorizeRoles("admin"),
+  getTeachersWithAssignments
 );
 
 router.get(
