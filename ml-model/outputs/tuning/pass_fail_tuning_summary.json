@@ -2,11 +2,11 @@
   "notebook": "04A_Pass_Fail_Tuning.ipynb",
   "model_purpose": "Pass/Fail risk prediction for weak-student detection and parent risk notification",
   "dataset": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/datasets/processed/pass_fail_processed.csv",
-  "rows": 100,
+  "rows": 1500,
   "features": [
     "attendance_pct",
     "homework_pct",
-    "midterm_score",
+    "commerce_average_score",
     "study_hours_per_week"
   ],
   "target": "pass",
@@ -19,13 +19,10 @@
     "Decision Tree",
     "Random Forest"
   ],
-  "best_tuned_model": "Random Forest",
+  "best_tuned_model": "Logistic Regression",
   "best_parameters": {
-    "model__max_depth": null,
-    "model__max_features": "sqrt",
-    "model__min_samples_leaf": 1,
-    "model__min_samples_split": 2,
-    "model__n_estimators": 100
+    "model__C": 0.01,
+    "model__solver": "lbfgs"
   },
   "selection_metric": "Balanced Accuracy with F1 Score and Accuracy as supporting metrics",
   "random_state": 42,

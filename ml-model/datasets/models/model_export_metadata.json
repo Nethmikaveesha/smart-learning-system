@@ -15,19 +15,16 @@
     "Pass/Fail Risk": {
       "model_file": "pass_fail_model.pkl",
       "feature_columns_file": "pass_fail_feature_columns.pkl",
-      "selected_model": "Random Forest",
+      "selected_model": "Logistic Regression",
       "best_parameters": {
-        "model__max_depth": null,
-        "model__max_features": "sqrt",
-        "model__min_samples_leaf": 1,
-        "model__min_samples_split": 2,
-        "model__n_estimators": 100
+        "model__C": 0.01,
+        "model__solver": "lbfgs"
       },
       "target": "pass",
       "features": [
         "attendance_pct",
         "homework_pct",
-        "midterm_score",
+        "commerce_average_score",
         "study_hours_per_week"
       ],
       "labels": [
@@ -36,29 +33,27 @@
       ],
       "core_project_model": true,
       "evaluation_metrics": {
-        "Accuracy": 1.0,
-        "Balanced Accuracy": 1.0,
-        "Precision": 1.0,
-        "Recall": 1.0,
-        "F1 Score": 1.0,
-        "Macro F1 Score": 1.0,
-        "Weighted F1 Score": 1.0,
-        "CV Accuracy": 1.0,
-        "CV Balanced Accuracy": 1.0,
-        "CV Macro F1 Score": 1.0,
-        "CV Weighted F1 Score": 1.0,
+        "Accuracy": 0.75,
+        "Balanced Accuracy": 0.7509301364200083,
+        "Precision": 0.8148148148148148,
+        "Recall": 0.7457627118644068,
+        "F1 Score": 0.7787610619469026,
+        "Macro F1 Score": 0.7457023700539112,
+        "Weighted F1 Score": 0.7516529345946495,
+        "CV Accuracy": 0.7386666666666667,
+        "CV Balanced Accuracy": 0.7402419627605988,
+        "CV Macro F1 Score": 0.7343191363416508,
+        "CV Weighted F1 Score": 0.7400305002354994,
         "CV Folds": 5.0
       }
     },
     "Commerce Risk": {
       "model_file": "final_risk_model.pkl",
       "feature_columns_file": "final_feature_columns.pkl",
-      "selected_model": "Decision Tree",
+      "selected_model": "Logistic Regression",
       "best_parameters": {
-        "model__criterion": "gini",
-        "model__max_depth": 2,
-        "model__min_samples_leaf": 1,
-        "model__min_samples_split": 2
+        "model__C": 0.1,
+        "model__solver": "lbfgs"
       },
       "target": "risk_level",
       "features": [
@@ -69,20 +64,21 @@
       ],
       "labels": [
         "Low Risk",
-        "Medium Risk"
+        "Medium Risk",
+        "High Risk"
       ],
       "core_project_model": true,
       "evaluation_metrics": {
-        "Accuracy": 1.0,
-        "Balanced Accuracy": 1.0,
-        "Macro Precision": 1.0,
-        "Macro Recall": 1.0,
-        "Macro F1 Score": 1.0,
-        "Weighted F1 Score": 1.0,
-        "CV Accuracy": 0.9990049751243781,
-        "CV Balanced Accuracy": 0.9833333333333334,
-        "CV Macro F1 Score": 0.9906533364333875,
-        "CV Weighted F1 Score": 0.9989610191312677,
+        "Accuracy": 0.7305555555555555,
+        "Balanced Accuracy": 0.7323630859326534,
+        "Macro Precision": 0.7333947348223194,
+        "Macro Recall": 0.7323630859326534,
+        "Macro F1 Score": 0.73281529002822,
+        "Weighted F1 Score": 0.7312038072516712,
+        "CV Accuracy": 0.7244444444444444,
+        "CV Balanced Accuracy": 0.726765489656361,
+        "CV Macro F1 Score": 0.7240364282673715,
+        "CV Weighted F1 Score": 0.7233027943917085,
         "CV Folds": 5.0
       }
     },

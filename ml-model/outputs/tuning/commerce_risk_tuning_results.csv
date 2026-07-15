@@ -1,4 +1,4 @@
 Model,Version,Best CV Balanced Accuracy,Best Parameters,CV Folds,Accuracy,Balanced Accuracy,Macro Precision,Macro Recall,Macro F1 Score,Weighted F1 Score
-Logistic Regression,Tuned,0.9968,"{""model__C"": 50.0, ""model__solver"": ""lbfgs""}",5,0.99,0.9949,0.875,0.9949,0.926,0.9907
-Decision Tree,Tuned,1.0,"{""model__criterion"": ""gini"", ""model__max_depth"": 2, ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2}",5,1.0,1.0,1.0,1.0,1.0,1.0
-Random Forest,Tuned,1.0,"{""model__max_depth"": null, ""model__max_features"": ""sqrt"", ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2, ""model__n_estimators"": 100}",5,1.0,1.0,1.0,1.0,1.0,1.0
+Logistic Regression,Tuned,0.7246,"{""model__C"": 0.1, ""model__solver"": ""lbfgs""}",5,0.7306,0.7324,0.7334,0.7324,0.7328,0.7312
+Decision Tree,Tuned,0.652,"{""model__criterion"": ""entropy"", ""model__max_depth"": 8, ""model__min_samples_leaf"": 4, ""model__min_samples_split"": 2}",5,0.6833,0.6849,0.7047,0.6849,0.6905,0.688
+Random Forest,Tuned,0.6937,"{""model__max_depth"": null, ""model__max_features"": ""sqrt"", ""model__min_samples_leaf"": 2, ""model__min_samples_split"": 2, ""model__n_estimators"": 200}",5,0.7139,0.7131,0.7299,0.7131,0.7193,0.7172

@@ -1,9 +1,4 @@
-"""Rebuild and train the Smart Learning System ML models.
 
-This script creates reproducible, realistically overlapping educational datasets,
-trains multiple candidate models, selects by balanced accuracy, and exports all
-artifacts used by the Flask API.
-"""
 from __future__ import annotations
 
 import json
