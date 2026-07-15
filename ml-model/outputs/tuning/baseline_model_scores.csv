@@ -1,10 +1,10 @@
 Task,Model,Version,Accuracy,Balanced Accuracy,Precision,Recall,F1 Score,Macro F1 Score,Weighted F1 Score
-Pass/Fail Risk,Logistic Regression,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0
-Pass/Fail Risk,Decision Tree,Baseline,0.95,0.9583,1.0,0.9167,0.9565,0.9488,0.9504
-Pass/Fail Risk,Random Forest,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0
-Commerce Risk,Logistic Regression,Baseline,0.9652,0.9821,0.7308,0.9821,0.8067,0.8067,0.9713
-Commerce Risk,Decision Tree,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0
-Commerce Risk,Random Forest,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+Pass/Fail Risk,Logistic Regression,Baseline,0.75,0.7509,0.8148,0.7458,0.7788,0.7457,0.7517
+Pass/Fail Risk,Decision Tree,Baseline,0.68,0.6866,0.7718,0.6497,0.7055,0.6776,0.6826
+Pass/Fail Risk,Random Forest,Baseline,0.7233,0.7035,0.7423,0.8136,0.7763,0.7069,0.7194
+Commerce Risk,Logistic Regression,Baseline,0.7333,0.7357,0.7358,0.7357,0.7357,0.7357,0.7338
+Commerce Risk,Decision Tree,Baseline,0.6889,0.6893,0.7104,0.6893,0.6951,0.6951,0.6939
+Commerce Risk,Random Forest,Baseline,0.7,0.6954,0.7116,0.6954,0.7011,0.7011,0.7025
 xAPI Benchmark,Logistic Regression,Baseline,0.7708,0.795,0.7701,0.795,0.7765,0.7765,0.7672
 xAPI Benchmark,Decision Tree,Baseline,0.75,0.7632,0.7575,0.7632,0.7559,0.7559,0.7469
 xAPI Benchmark,Random Forest,Baseline,0.8021,0.8046,0.8139,0.8046,0.8074,0.8074,0.8016

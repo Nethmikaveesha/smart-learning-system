@@ -1,8 +1,9 @@
 Task,Class,Count,Percentage
-Pass/Fail Risk,1,60,60.0
-Pass/Fail Risk,0,40,40.0
-Commerce Risk,Low Risk,974,97.21
-Commerce Risk,Medium Risk,28,2.79
+Pass/Fail Risk,1,883,58.87
+Pass/Fail Risk,0,617,41.13
+Commerce Risk,Low Risk,666,37.0
+Commerce Risk,Medium Risk,630,35.0
+Commerce Risk,High Risk,504,28.0
 xAPI Benchmark,M,211,44.14
 xAPI Benchmark,H,142,29.71
 xAPI Benchmark,L,125,26.15

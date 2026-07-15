@@ -2,7 +2,7 @@
   "notebook": "04B_Multi_Class_Tuning.ipynb",
   "model_purpose": "Sri Lankan A/L Commerce student risk-level prediction",
   "dataset": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/datasets/processed/commerce_risk_dataset.csv",
-  "rows": 1002,
+  "rows": 1800,
   "features": [
     "Accounting_Score",
     "Business_Studies_Score",
@@ -17,11 +17,10 @@
   ],
   "available_classes": [
     "Low Risk",
-    "Medium Risk"
-  ],
-  "missing_expected_classes": [
+    "Medium Risk",
     "High Risk"
   ],
+  "missing_expected_classes": [],
   "excluded_leakage_columns": [
     "Subject_Average"
   ],
@@ -30,12 +29,10 @@
     "Decision Tree",
     "Random Forest"
   ],
-  "best_tuned_model": "Decision Tree",
+  "best_tuned_model": "Logistic Regression",
   "best_parameters": {
-    "model__criterion": "gini",
-    "model__max_depth": 2,
-    "model__min_samples_leaf": 1,
-    "model__min_samples_split": 2
+    "model__C": 0.1,
+    "model__solver": "lbfgs"
   },
   "selection_metric": "Balanced Accuracy with Macro F1 and Accuracy as supporting metrics",
   "random_state": 42,

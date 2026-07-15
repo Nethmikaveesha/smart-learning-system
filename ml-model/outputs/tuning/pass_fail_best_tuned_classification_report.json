@@ -1,27 +1,27 @@
 {
   "Fail": {
-    "precision": 1.0,
-    "recall": 1.0,
-    "f1-score": 1.0,
-    "support": 8.0
+    "precision": 0.6739130434782609,
+    "recall": 0.7560975609756098,
+    "f1-score": 0.7126436781609196,
+    "support": 123.0
   },
   "Pass": {
-    "precision": 1.0,
-    "recall": 1.0,
-    "f1-score": 1.0,
-    "support": 12.0
+    "precision": 0.8148148148148148,
+    "recall": 0.7457627118644068,
+    "f1-score": 0.7787610619469026,
+    "support": 177.0
   },
-  "accuracy": 1.0,
+  "accuracy": 0.75,
   "macro avg": {
-    "precision": 1.0,
-    "recall": 1.0,
-    "f1-score": 1.0,
-    "support": 20.0
+    "precision": 0.7443639291465378,
+    "recall": 0.7509301364200083,
+    "f1-score": 0.7457023700539112,
+    "support": 300.0
   },
   "weighted avg": {
-    "precision": 1.0,
-    "recall": 1.0,
-    "f1-score": 1.0,
-    "support": 20.0
+    "precision": 0.7570450885668276,
+    "recall": 0.75,
+    "f1-score": 0.7516529345946495,
+    "support": 300.0
   }
 }
