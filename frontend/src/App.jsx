@@ -3,18 +3,24 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 
 import DashboardLayout from "./components/DashboardLayout";
 import PublicLayout from "./components/PublicLayout";
+
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherTopicErrorAnalysis from "./pages/TeacherTopicErrorAnalysis";
 import StudentDashboard from "./pages/StudentDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
+import ParentRiskAlerts from "./pages/ParentRiskAlerts";
+
 import EssayGrader from "./pages/EssayGrader";
 import Chatbot from "./pages/Chatbot";
 import RiskDashboard from "./pages/RiskDashboard";
 import PublicPage from "./pages/public/PublicPage";
 import DashboardFeaturePage from "./pages/DashboardFeaturePage";
 
+// This component protects dashboard routes.
+// If the user is not logged in, it redirects to the login page.
+// If the logged-in user's role is not allowed, it also redirects to login.
 function ProtectedRoute({ children, allowedRoles }) {
   const { user } = useAuth();
 
@@ -32,6 +38,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public website routes */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<PublicPage page="home" />} />
         <Route path="/about" element={<PublicPage page="about" />} />
@@ -40,6 +47,7 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
       </Route>
 
+      {/* Admin dashboard routes */}
       <Route
         path="/admin"
         element={
@@ -52,6 +60,7 @@ function AppRoutes() {
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
+      {/* Teacher dashboard routes */}
       <Route
         path="/teacher"
         element={
@@ -61,10 +70,14 @@ function AppRoutes() {
         }
       >
         <Route index element={<TeacherDashboard />} />
-        <Route path="topic-error-analysis" element={<TeacherTopicErrorAnalysis />} />
+        <Route
+          path="topic-error-analysis"
+          element={<TeacherTopicErrorAnalysis />}
+        />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
+      {/* Student dashboard routes */}
       <Route
         path="/student"
         element={
@@ -78,8 +91,13 @@ function AppRoutes() {
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
-      <Route path="/essay-grader" element={<Navigate to="/student/essay-grader" replace />} />
+      {/* Old direct essay-grader URL redirects to the student dashboard essay page */}
+      <Route
+        path="/essay-grader"
+        element={<Navigate to="/student/essay-grader" replace />}
+      />
 
+      {/* Parent dashboard routes */}
       <Route
         path="/parent"
         element={
@@ -89,9 +107,15 @@ function AppRoutes() {
         }
       >
         <Route index element={<ParentDashboard />} />
+
+        {/* Sidebar Risk Alerts page with ML prediction buttons */}
+        <Route path="risk-alerts" element={<ParentRiskAlerts />} />
+
+        {/* Other parent sidebar pages use the reusable feature page */}
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
+      {/* Shared chatbot route */}
       <Route
         element={
           <ProtectedRoute allowedRoles={["student", "teacher", "admin"]}>
@@ -102,12 +126,12 @@ function AppRoutes() {
         <Route path="/chatbot" element={<Chatbot />} />
       </Route>
 
+      {/* Standalone ML research/demo dashboard */}
       <Route path="/risk-dashboard" element={<RiskDashboard />} />
+
+      {/* Unknown routes redirect to public home */}
       <Route path="*" element={<Navigate to="/" />} />
-
     </Routes>
-
-    
   );
 }
 

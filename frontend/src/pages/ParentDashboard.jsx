@@ -10,9 +10,12 @@ import {
   CartesianGrid,
 } from "recharts";
 
-import api from "../services/api";
+import api, {
+  predictCommerceRisk,
+  predictPassFailRisk,
+} from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { formatMarks, formatRank } from "../utils/formatters";
+import { formatMarks } from "../utils/formatters";
 
 const QUICK_ACTIONS = [
   { label: "View Child Overview", to: "/parent/child-overview" },
@@ -23,9 +26,7 @@ const QUICK_ACTIONS = [
 ];
 
 function formatSummaryValue(value, type = "text") {
-  if (value === null || value === undefined || value === "") {
-    return "--";
-  }
+  if (value === null || value === undefined || value === "") return "--";
 
   if (type === "percent") {
     const numericValue = Number(value);
@@ -63,6 +64,12 @@ function ParentDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [error, setError] = useState("");
 
+  // ML prediction states
+  const [mlLoading, setMlLoading] = useState("");
+  const [mlError, setMlError] = useState("");
+  const [passFailPrediction, setPassFailPrediction] = useState(null);
+  const [commercePrediction, setCommercePrediction] = useState(null);
+
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
@@ -87,9 +94,7 @@ function ParentDashboard() {
       }
     };
 
-    if (token) {
-      fetchDashboard();
-    }
+    if (token) fetchDashboard();
   }, [token, selectedStudentId]);
 
   const recentResults = useMemo(() => data?.results?.slice(0, 3) || [], [data]);
@@ -127,6 +132,78 @@ function ParentDashboard() {
     }
   };
 
+  const getStudentProfileObjectId = () => {
+    return data?.student?._id || "";
+  };
+
+  const runPassFailPrediction = async () => {
+    try {
+      setMlError("");
+      setMlLoading("pass-fail");
+
+      const studentProfileObjectId = getStudentProfileObjectId();
+
+      if (!studentProfileObjectId) {
+        setMlError("Student profile ID not found");
+        return;
+      }
+
+      const res = await predictPassFailRisk(studentProfileObjectId, {
+        homework_pct: 75,
+        study_hours_per_week: 8,
+      });
+
+      setPassFailPrediction(res.data);
+    } catch (predictionError) {
+      setMlError(
+        predictionError.response?.data?.message ||
+          "Failed to run Pass/Fail risk prediction"
+      );
+    } finally {
+      setMlLoading("");
+    }
+  };
+
+  const runCommercePrediction = async () => {
+    try {
+      setMlError("");
+      setMlLoading("commerce");
+
+      const studentProfileObjectId = getStudentProfileObjectId();
+
+      if (!studentProfileObjectId) {
+        setMlError("Student profile ID not found");
+        return;
+      }
+
+      const subjectMarks = data?.subjectPerformance || [];
+
+      const findSubjectMarks = (keyword, fallback) => {
+        const matchedSubject = subjectMarks.find((item) =>
+          item.subject?.toLowerCase().includes(keyword)
+        );
+
+        return matchedSubject?.marks ?? fallback;
+      };
+
+      const res = await predictCommerceRisk(studentProfileObjectId, {
+        Accounting_Score: findSubjectMarks("account", 72),
+        Business_Studies_Score: findSubjectMarks("business", 68),
+        Economics_Score: findSubjectMarks("economic", 61),
+        Attendance_Percentage: data?.attendancePercentage || 78,
+      });
+
+      setCommercePrediction(res.data);
+    } catch (predictionError) {
+      setMlError(
+        predictionError.response?.data?.message ||
+          "Failed to run Commerce risk prediction"
+      );
+    } finally {
+      setMlLoading("");
+    }
+  };
+
   const childName = data?.student?.user?.fullName || "Child";
   const subjectList =
     data?.student?.subjects?.map((subject) => subject.subjectName).join(", ") ||
@@ -137,6 +214,7 @@ function ParentDashboard() {
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Parent Dashboard</h1>
+
           {data?.linkedChildren?.length > 1 ? (
             <label className="mt-3 block text-sm text-slate-600">
               Viewing Child:
@@ -221,6 +299,78 @@ function ParentDashboard() {
             </div>
           </section>
 
+          <Panel title="ML Risk Prediction">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  Pass/Fail Risk Model
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Predicts whether the student is likely to pass or fail.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={runPassFailPrediction}
+                  disabled={!getStudentProfileObjectId() || mlLoading === "pass-fail"}
+                  className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {mlLoading === "pass-fail"
+                    ? "Predicting..."
+                    : "Run Pass/Fail Prediction"}
+                </button>
+
+                {passFailPrediction && (
+                  <div className="mt-4 rounded-lg bg-white p-3 text-sm">
+                    <p>
+                      <span className="font-semibold">Result:</span>{" "}
+                      {passFailPrediction.predicted_result}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Risk Level:</span>{" "}
+                      {passFailPrediction.risk_level}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  Commerce Risk Model
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Predicts High, Medium, or Low academic risk.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={runCommercePrediction}
+                  disabled={!getStudentProfileObjectId() || mlLoading === "commerce"}
+                  className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {mlLoading === "commerce"
+                    ? "Predicting..."
+                    : "Run Commerce Prediction"}
+                </button>
+
+                {commercePrediction && (
+                  <div className="mt-4 rounded-lg bg-white p-3 text-sm">
+                    <p>
+                      <span className="font-semibold">Risk Level:</span>{" "}
+                      {commercePrediction.risk_level}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {mlError && (
+              <div className="mt-4 rounded-lg bg-red-100 p-3 text-sm text-red-700">
+                {mlError}
+              </div>
+            )}
+          </Panel>
+
           <div className="mb-6 grid gap-4 xl:grid-cols-2">
             <Panel title="Important Alerts">
               {data.alerts?.length > 0 ? (
@@ -261,7 +411,9 @@ function ParentDashboard() {
                   />
                 </div>
               ) : (
-                <p className="text-sm text-slate-600">No attendance data available.</p>
+                <p className="text-sm text-slate-600">
+                  No attendance data available.
+                </p>
               )}
 
               <Link
@@ -286,7 +438,9 @@ function ParentDashboard() {
                         <span className="font-medium text-slate-800">
                           {item.subject}
                         </span>
-                        <span className="font-bold text-slate-900">{item.marks}</span>
+                        <span className="font-bold text-slate-900">
+                          {item.marks}
+                        </span>
                       </div>
                     ))}
                   </div>
