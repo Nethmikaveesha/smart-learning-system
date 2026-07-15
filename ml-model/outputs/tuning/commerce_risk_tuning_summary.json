@@ -1,0 +1,47 @@
+{
+  "notebook": "04B_Multi_Class_Tuning.ipynb",
+  "model_purpose": "Sri Lankan A/L Commerce student risk-level prediction",
+  "dataset": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/datasets/processed/commerce_risk_dataset.csv",
+  "rows": 1002,
+  "features": [
+    "Accounting_Score",
+    "Business_Studies_Score",
+    "Economics_Score",
+    "Attendance_Percentage"
+  ],
+  "target": "risk_level",
+  "expected_classes": [
+    "High Risk",
+    "Medium Risk",
+    "Low Risk"
+  ],
+  "available_classes": [
+    "Low Risk",
+    "Medium Risk"
+  ],
+  "missing_expected_classes": [
+    "High Risk"
+  ],
+  "excluded_leakage_columns": [
+    "Subject_Average"
+  ],
+  "candidate_models": [
+    "Logistic Regression",
+    "Decision Tree",
+    "Random Forest"
+  ],
+  "best_tuned_model": "Decision Tree",
+  "best_parameters": {
+    "model__criterion": "gini",
+    "model__max_depth": 2,
+    "model__min_samples_leaf": 1,
+    "model__min_samples_split": 2
+  },
+  "selection_metric": "Balanced Accuracy with Macro F1 and Accuracy as supporting metrics",
+  "random_state": 42,
+  "data_leakage_prevention": "Subject_Average is excluded and pipeline transformations are fitted inside training folds only.",
+  "tuning_results_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/commerce_risk_tuning_results.csv",
+  "comparison_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/commerce_risk_baseline_vs_tuned_comparison.csv",
+  "classification_report_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/commerce_risk_best_tuned_classification_report.json",
+  "confusion_matrix_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/figures/commerce_risk_best_tuned_confusion_matrix.png"
+}

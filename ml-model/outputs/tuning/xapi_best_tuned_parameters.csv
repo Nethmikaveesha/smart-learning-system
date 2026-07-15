@@ -1,0 +1,6 @@
+Model,Parameter,Value
+Random Forest,model__max_depth,12
+Random Forest,model__max_features,log2
+Random Forest,model__min_samples_leaf,2
+Random Forest,model__min_samples_split,2
+Random Forest,model__n_estimators,300

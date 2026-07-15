@@ -1,0 +1,7 @@
+Dataset,Rows,Columns,Missing Values,Duplicate Records
+pass_fail_raw,100,6,0,0
+multi_class_risk_raw,1005,4,0,3
+xapi_raw,480,17,0,2
+pass_fail_processed,100,6,0,0
+multiclass_risk_processed,1002,6,0,0
+xapi_encoded,478,74,0,0

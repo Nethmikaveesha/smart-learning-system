@@ -1,0 +1,13 @@
+Model,Importance Type,Feature,Value
+Decision Tree,feature_importance,attendance_pct,1.0
+Decision Tree,feature_importance,homework_pct,0.0
+Decision Tree,feature_importance,midterm_score,0.0
+Decision Tree,feature_importance,study_hours_per_week,0.0
+Logistic Regression,absolute_coefficient,attendance_pct,1.4637181875497545
+Logistic Regression,absolute_coefficient,homework_pct,1.424981954200527
+Logistic Regression,absolute_coefficient,study_hours_per_week,1.3199910137398627
+Logistic Regression,absolute_coefficient,midterm_score,1.2558246116311813
+Random Forest,feature_importance,homework_pct,0.34000000000000014
+Random Forest,feature_importance,attendance_pct,0.3099999999999999
+Random Forest,feature_importance,study_hours_per_week,0.23999999999999988
+Random Forest,feature_importance,midterm_score,0.11000000000000007

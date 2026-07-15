@@ -1,0 +1,41 @@
+{
+  "notebook": "04C_xAPI_Tuning.ipynb",
+  "model_purpose": "Optional xAPI-Edu-Data benchmark performance classification",
+  "dataset": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/datasets/processed/xapi_encoded.csv",
+  "rows": 478,
+  "feature_count": 72,
+  "target": "Class",
+  "target_encoding": {
+    "L": 0,
+    "M": 1,
+    "H": 2
+  },
+  "available_classes": [
+    "H",
+    "L",
+    "M"
+  ],
+  "excluded_leakage_columns": [
+    "Class_Encoded"
+  ],
+  "candidate_models": [
+    "Logistic Regression",
+    "Decision Tree",
+    "Random Forest"
+  ],
+  "best_tuned_model": "Random Forest",
+  "best_parameters": {
+    "model__max_depth": 12,
+    "model__max_features": "log2",
+    "model__min_samples_leaf": 2,
+    "model__min_samples_split": 2,
+    "model__n_estimators": 300
+  },
+  "selection_metric": "Balanced Accuracy with Macro F1 and Accuracy as supporting metrics",
+  "random_state": 42,
+  "data_leakage_prevention": "Class_Encoded is excluded and pipeline transformations are fitted inside training folds only.",
+  "tuning_results_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/xapi_tuning_results.csv",
+  "comparison_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/xapi_baseline_vs_tuned_comparison.csv",
+  "classification_report_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/xapi_best_tuned_classification_report.json",
+  "confusion_matrix_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/figures/xapi_best_tuned_confusion_matrix.png"
+}
