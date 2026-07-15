@@ -17,45 +17,20 @@ import api, {
 import { useAuth } from "../context/AuthContext";
 import { formatMarks } from "../utils/formatters";
 
+// Parent dashboard shortcut links.
 const QUICK_ACTIONS = [
-  { label: "View Child Overview", to: "/parent/child-overview" },
+  { label: "Child Overview", to: "/parent/child-overview" },
   { label: "Marks & Rankings", to: "/parent/marks-rankings" },
   { label: "Attendance", to: "/parent/attendance" },
-  { label: "Progress Reports", to: "/parent/progress-reports" },
   { label: "Risk Alerts", to: "/parent/risk-alerts" },
+  { label: "Progress Reports", to: "/parent/progress-reports" },
 ];
 
-function formatSummaryValue(value, type = "text") {
-  if (value === null || value === undefined || value === "") return "--";
-
-  if (type === "percent") {
-    const numericValue = Number(value);
-    return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
-  }
-
-  if (type === "number") {
-    const numericValue = Number(value);
-    return numericValue !== 0 ? formatMarks(numericValue) : "--";
-  }
-
-  return value || "--";
-}
-
-function formatRiskStatus(status) {
-  if (!status) return "--";
-  if (status === "Low") return "Low Risk";
-  if (status === "Medium") return "Medium Risk";
-  if (status === "High") return "High Risk";
-  return status;
-}
-
-function getSubjectName(result) {
-  return (
-    result.exam?.subject?.subjectName ||
-    result.exam?.examName?.split(" - ").pop() ||
-    "General"
-  );
-}
+// These fallback values are only used if the backend does not have enough data.
+const DEFAULT_PASS_FAIL_INPUT = {
+  homework_pct: 75,
+  study_hours_per_week: 8,
+};
 
 function ParentDashboard() {
   const { token } = useAuth();
@@ -76,6 +51,7 @@ function ParentDashboard() {
         setError("");
 
         const params = selectedStudentId ? { studentId: selectedStudentId } : {};
+
         const res = await api.get("/parent-dashboard", {
           headers: { Authorization: `Bearer ${token}` },
           params,
@@ -97,7 +73,14 @@ function ParentDashboard() {
     if (token) fetchDashboard();
   }, [token, selectedStudentId]);
 
-  const recentResults = useMemo(() => data?.results?.slice(0, 3) || [], [data]);
+  const childName = data?.student?.user?.fullName || "Child";
+  const studentProfileObjectId = data?.student?._id || "";
+
+  const subjectList =
+    data?.student?.subjects?.map((subject) => subject.subjectName).join(", ") ||
+    "--";
+
+  const recentResults = useMemo(() => data?.results?.slice(0, 4) || [], [data]);
 
   const trendData = useMemo(
     () =>
@@ -132,8 +115,12 @@ function ParentDashboard() {
     }
   };
 
-  const getStudentProfileObjectId = () => {
-    return data?.student?._id || "";
+  const findSubjectMarks = (keyword, fallback) => {
+    const matchedSubject = data?.subjectPerformance?.find((item) =>
+      item.subject?.toLowerCase().includes(keyword)
+    );
+
+    return matchedSubject?.marks ?? fallback;
   };
 
   const runPassFailPrediction = async () => {
@@ -141,17 +128,15 @@ function ParentDashboard() {
       setMlError("");
       setMlLoading("pass-fail");
 
-      const studentProfileObjectId = getStudentProfileObjectId();
-
       if (!studentProfileObjectId) {
         setMlError("Student profile ID not found");
         return;
       }
 
-      const res = await predictPassFailRisk(studentProfileObjectId, {
-        homework_pct: 75,
-        study_hours_per_week: 8,
-      });
+      const res = await predictPassFailRisk(
+        studentProfileObjectId,
+        DEFAULT_PASS_FAIL_INPUT
+      );
 
       setPassFailPrediction(res.data);
     } catch (predictionError) {
@@ -169,23 +154,12 @@ function ParentDashboard() {
       setMlError("");
       setMlLoading("commerce");
 
-      const studentProfileObjectId = getStudentProfileObjectId();
-
       if (!studentProfileObjectId) {
         setMlError("Student profile ID not found");
         return;
       }
 
-      const subjectMarks = data?.subjectPerformance || [];
-
-      const findSubjectMarks = (keyword, fallback) => {
-        const matchedSubject = subjectMarks.find((item) =>
-          item.subject?.toLowerCase().includes(keyword)
-        );
-
-        return matchedSubject?.marks ?? fallback;
-      };
-
+      // Commerce model expects A/L Commerce marks and attendance percentage.
       const res = await predictCommerceRisk(studentProfileObjectId, {
         Accounting_Score: findSubjectMarks("account", 72),
         Business_Studies_Score: findSubjectMarks("business", 68),
@@ -204,75 +178,51 @@ function ParentDashboard() {
     }
   };
 
-  const childName = data?.student?.user?.fullName || "Child";
-  const subjectList =
-    data?.student?.subjects?.map((subject) => subject.subjectName).join(", ") ||
-    "--";
-
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Parent Dashboard</h1>
-
-          {data?.linkedChildren?.length > 1 ? (
-            <label className="mt-3 block text-sm text-slate-600">
-              Viewing Child:
-              <select
-                value={selectedStudentId}
-                onChange={(event) => setSelectedStudentId(event.target.value)}
-                className="ml-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-800"
-              >
-                {data.linkedChildren.map((child) => (
-                  <option key={child.studentId} value={child.studentId}>
-                    {child.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <p className="mt-2 text-sm text-slate-600">Viewing: {childName}</p>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={downloadReport}
-          className="w-fit rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          Download Summary Report
-        </button>
-      </div>
+      <DashboardHeader
+        childName={childName}
+        linkedChildren={data?.linkedChildren || []}
+        selectedStudentId={selectedStudentId}
+        onChildChange={(value) => {
+          setSelectedStudentId(value);
+          setPassFailPrediction(null);
+          setCommercePrediction(null);
+          setMlError("");
+        }}
+        onDownloadReport={downloadReport}
+      />
 
       {error ? (
-        <div className="mb-6 rounded-lg bg-red-100 p-4 text-red-700">{error}</div>
+        <AlertBox type="error" message={error} />
       ) : !data ? (
-        <p>Loading...</p>
+        <LoadingPanel />
       ) : (
         <>
-          <section className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <SummaryCard
-              title="Attendance"
-              value={formatSummaryValue(data.attendancePercentage, "percent")}
+          <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <MetricCard
+              label="Attendance"
+              value={formatPercent(data.attendancePercentage)}
             />
-            <SummaryCard
-              title="Risk Status"
+            <MetricCard
+              label="Risk Status"
               value={formatRiskStatus(data.riskStatus)}
+              badgeClass={getRiskBadgeClass(formatRiskStatus(data.riskStatus))}
             />
-            <SummaryCard
-              title="Latest Marks"
+            <MetricCard
+              label="Latest Marks"
               value={
                 data.latestResult
                   ? formatSummaryValue(data.latestResult.marks, "number")
                   : "--"
               }
             />
-            <SummaryCard
-              title="Latest Grade"
+            <MetricCard
+              label="Latest Grade"
               value={formatSummaryValue(data.latestResult?.grade)}
             />
-            <SummaryCard
-              title="Overall Average"
+            <MetricCard
+              label="Overall Average"
               value={
                 data.overallAverage !== null && data.overallAverage !== undefined
                   ? formatSummaryValue(data.overallAverage, "number")
@@ -282,107 +232,126 @@ function ParentDashboard() {
           </section>
 
           <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-bold text-slate-900">{childName}</h2>
-            <div className="mt-3 space-y-1 text-sm text-slate-600">
-              <p>
-                <span className="font-semibold text-slate-800">Student ID:</span>{" "}
-                {data.student?.studentId || "--"}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-800">Class:</span>{" "}
-                {data.student?.class?.className || "--"}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-800">Subjects:</span>{" "}
-                {subjectList}
-              </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                  Student Profile
+                </p>
+                <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+                  {childName}
+                </h2>
+
+                <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
+                  <ProfileItem
+                    label="Student ID"
+                    value={data.student?.studentId}
+                  />
+                  <ProfileItem
+                    label="Class"
+                    value={data.student?.class?.className}
+                  />
+                  <ProfileItem label="Subjects" value={subjectList} />
+                </div>
+              </div>
+
+              <Link
+                to="/parent/child-overview"
+                className="w-fit rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+              >
+                View Child Overview
+              </Link>
             </div>
           </section>
 
-          <Panel title="ML Risk Prediction">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-900">
-                  Pass/Fail Risk Model
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Predicts whether the student is likely to pass or fail.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={runPassFailPrediction}
-                  disabled={!getStudentProfileObjectId() || mlLoading === "pass-fail"}
-                  className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {mlLoading === "pass-fail"
-                    ? "Predicting..."
-                    : "Run Pass/Fail Prediction"}
-                </button>
-
+          <Panel
+            title="ML Risk Prediction"
+            description="Run machine-learning predictions using the latest academic and attendance data."
+            action={
+              <Link
+                to="/parent/risk-alerts"
+                className="text-sm font-black text-blue-700 hover:underline"
+              >
+                Open Risk Alerts
+              </Link>
+            }
+          >
+            <div className="grid gap-4 lg:grid-cols-2">
+              <PredictionCard
+                title="Pass/Fail Risk Model"
+                description="Predicts whether the student is likely to pass or fail."
+                buttonText="Run Pass/Fail Prediction"
+                loadingText="Predicting..."
+                color="blue"
+                isLoading={mlLoading === "pass-fail"}
+                disabled={!studentProfileObjectId}
+                onClick={runPassFailPrediction}
+              >
                 {passFailPrediction && (
-                  <div className="mt-4 rounded-lg bg-white p-3 text-sm">
-                    <p>
-                      <span className="font-semibold">Result:</span>{" "}
-                      {passFailPrediction.predicted_result}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Risk Level:</span>{" "}
-                      {passFailPrediction.risk_level}
-                    </p>
-                  </div>
+                  <PredictionResult
+                    rows={[
+                      {
+                        label: "Result",
+                        value: passFailPrediction.predicted_result,
+                      },
+                      {
+                        label: "Risk Level",
+                        value: passFailPrediction.risk_level,
+                        badgeClass: getRiskBadgeClass(
+                          passFailPrediction.risk_level
+                        ),
+                      },
+                    ]}
+                  />
                 )}
-              </div>
+              </PredictionCard>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-900">
-                  Commerce Risk Model
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Predicts High, Medium, or Low academic risk.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={runCommercePrediction}
-                  disabled={!getStudentProfileObjectId() || mlLoading === "commerce"}
-                  className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {mlLoading === "commerce"
-                    ? "Predicting..."
-                    : "Run Commerce Prediction"}
-                </button>
-
+              <PredictionCard
+                title="Commerce Risk Model"
+                description="Predicts High, Medium, or Low academic risk for A/L Commerce."
+                buttonText="Run Commerce Prediction"
+                loadingText="Predicting..."
+                color="emerald"
+                isLoading={mlLoading === "commerce"}
+                disabled={!studentProfileObjectId}
+                onClick={runCommercePrediction}
+              >
                 {commercePrediction && (
-                  <div className="mt-4 rounded-lg bg-white p-3 text-sm">
-                    <p>
-                      <span className="font-semibold">Risk Level:</span>{" "}
-                      {commercePrediction.risk_level}
-                    </p>
-                  </div>
+                  <PredictionResult
+                    rows={[
+                      {
+                        label: "Risk Level",
+                        value: commercePrediction.risk_level,
+                        badgeClass: getRiskBadgeClass(
+                          commercePrediction.risk_level
+                        ),
+                      },
+                    ]}
+                  />
                 )}
-              </div>
+              </PredictionCard>
             </div>
 
-            {mlError && (
-              <div className="mt-4 rounded-lg bg-red-100 p-3 text-sm text-red-700">
-                {mlError}
-              </div>
-            )}
+            {mlError && <AlertBox type="error" message={mlError} compact />}
           </Panel>
 
           <div className="mb-6 grid gap-4 xl:grid-cols-2">
             <Panel title="Important Alerts">
               {data.alerts?.length > 0 ? (
-                <ul className="space-y-2 text-sm text-slate-700">
+                <ul className="space-y-2 text-sm">
                   {data.alerts.map((alert, index) => (
-                    <li key={index}>• {alert}</li>
+                    <li
+                      key={index}
+                      className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 font-semibold text-amber-800"
+                    >
+                      {alert}
+                    </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-slate-600">
-                  No important alerts at the moment.
-                </p>
+                <EmptyState
+                  title="No important alerts"
+                  message="The student is not currently flagged by dashboard rules."
+                />
               )}
             </Panel>
 
@@ -405,20 +374,18 @@ function ParentDashboard() {
                         : "--"
                     }
                   />
-                  <InfoStat
-                    label="Status"
-                    value={data.attendanceSummary.status}
-                  />
+                  <InfoStat label="Status" value={data.attendanceSummary.status} />
                 </div>
               ) : (
-                <p className="text-sm text-slate-600">
-                  No attendance data available.
-                </p>
+                <EmptyState
+                  title="No attendance data"
+                  message="Attendance records will appear after teachers mark attendance."
+                />
               )}
 
               <Link
                 to="/parent/attendance"
-                className="mt-4 inline-flex rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-800"
               >
                 View Attendance Details
               </Link>
@@ -426,82 +393,86 @@ function ParentDashboard() {
           </div>
 
           <div className="mb-6 grid gap-4 xl:grid-cols-2">
-            <Panel title="Recent Performance">
+            <Panel title="Subject Performance">
               {data.subjectPerformance?.length > 0 ? (
                 <>
                   <div className="mb-4 space-y-2">
                     {data.subjectPerformance.map((item) => (
                       <div
                         key={item.subject}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2 text-sm"
+                        className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
                       >
-                        <span className="font-medium text-slate-800">
+                        <span className="font-bold text-slate-700">
                           {item.subject}
                         </span>
-                        <span className="font-bold text-slate-900">
+                        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
                           {item.marks}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <ResponsiveContainer width="100%" height={150}>
-                    <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Line
-                        type="monotone"
-                        dataKey="marks"
-                        stroke="#2563eb"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="h-44">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={trendData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="marks"
+                          stroke="#2563eb"
+                          strokeWidth={3}
+                          dot={{ r: 4 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </>
               ) : (
-                <p className="text-sm text-slate-600">
-                  No examination performance data available.
-                </p>
+                <EmptyState
+                  title="No subject performance"
+                  message="Subject performance will appear after exam results are added."
+                />
               )}
-
-              <Link
-                to="/parent/monthly-performance"
-                className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                View Monthly Performance
-              </Link>
             </Panel>
 
             <Panel title="Recommended Action">
               {data.recommendedAction ? (
                 <>
-                  <p className="font-semibold text-slate-900">
+                  <p className="text-base font-black text-slate-950">
                     {data.recommendedAction.title}
                   </p>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
                     {data.recommendedAction.message}
                   </p>
+
                   {data.recommendedAction.topics?.length > 0 && (
-                    <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
+                    <ul className="mt-4 space-y-2 text-sm text-slate-700">
                       {data.recommendedAction.topics.map((topic) => (
-                        <li key={topic}>{topic}</li>
+                        <li
+                          key={topic}
+                          className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-semibold"
+                        >
+                          {topic}
+                        </li>
                       ))}
                     </ul>
                   )}
+
                   <Link
                     to="/parent/progress-reports"
-                    className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                    className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2 text-sm font-black text-white transition hover:bg-blue-800"
                   >
                     View Progress Report
                   </Link>
                 </>
               ) : (
-                <p className="text-sm text-slate-600">
-                  No recommended actions at the moment.
-                </p>
+                <EmptyState
+                  title="No recommended action"
+                  message="Recommendations will appear when the system detects academic concerns."
+                />
               )}
             </Panel>
           </div>
@@ -511,36 +482,49 @@ function ParentDashboard() {
             action={
               <Link
                 to="/parent/marks-rankings"
-                className="text-sm font-semibold text-blue-700 hover:underline"
+                className="text-sm font-black text-blue-700 hover:underline"
               >
-                View Marks & Rankings
+                View All Results
               </Link>
             }
           >
-            <div className="overflow-hidden rounded-lg border border-slate-200">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-100 text-slate-700">
                   <tr>
-                    <th className="p-3 font-bold">Subject</th>
-                    <th className="p-3 font-bold">Exam</th>
-                    <th className="p-3 font-bold">Marks</th>
-                    <th className="p-3 font-bold">Grade</th>
+                    <th className="p-3 font-black">Subject</th>
+                    <th className="p-3 font-black">Exam</th>
+                    <th className="p-3 font-black">Marks</th>
+                    <th className="p-3 font-black">Grade</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentResults.length === 0 ? (
                     <tr className="border-t">
-                      <td colSpan={4} className="p-4 text-center text-slate-500">
+                      <td colSpan={4} className="p-5 text-center text-slate-500">
                         No examination results available.
                       </td>
                     </tr>
                   ) : (
                     recentResults.map((result) => (
-                      <tr key={result._id} className="border-t border-slate-200">
-                        <td className="p-3">{getSubjectName(result)}</td>
-                        <td className="p-3">{result.exam?.examName || "--"}</td>
-                        <td className="p-3">{result.marks}</td>
-                        <td className="p-3">{result.grade || "--"}</td>
+                      <tr
+                        key={result._id}
+                        className="border-t border-slate-200 bg-white"
+                      >
+                        <td className="p-3 font-semibold text-slate-800">
+                          {getSubjectName(result)}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {result.exam?.examName || "--"}
+                        </td>
+                        <td className="p-3 font-black text-slate-950">
+                          {result.marks}
+                        </td>
+                        <td className="p-3">
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                            {result.grade || "--"}
+                          </span>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -555,7 +539,7 @@ function ParentDashboard() {
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-black text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                 >
                   {action.label}
                 </Link>
@@ -568,20 +552,105 @@ function ParentDashboard() {
   );
 }
 
-function SummaryCard({ title, value }) {
+function DashboardHeader({
+  childName,
+  linkedChildren,
+  selectedStudentId,
+  onChildChange,
+  onDownloadReport,
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-slate-500">{title}</p>
-      <h2 className="mt-2 text-3xl font-bold text-slate-900">{value}</h2>
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+            Parent Dashboard
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            {childName}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Monitor academic progress, attendance, alerts, and ML-based risk
+            predictions from one place.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          {linkedChildren.length > 1 && (
+            <label className="text-sm font-semibold text-slate-600">
+              Viewing Child
+              <select
+                value={selectedStudentId}
+                onChange={(event) => onChildChange(event.target.value)}
+                className="mt-2 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-sm"
+              >
+                {linkedChildren.map((child) => (
+                  <option key={child.studentId} value={child.studentId}>
+                    {child.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <button
+            type="button"
+            onClick={onDownloadReport}
+            className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+          >
+            Download Report
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Panel({ title, children, action }) {
+function MetricCard({ label, value, badgeClass }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      {badgeClass ? (
+        <span
+          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-black ${badgeClass}`}
+        >
+          {value || "--"}
+        </span>
+      ) : (
+        <h2 className="mt-3 truncate text-2xl font-black text-slate-950">
+          {value || "--"}
+        </h2>
+      )}
+    </div>
+  );
+}
+
+function ProfileItem({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-1 font-bold text-slate-800">{value || "--"}</p>
+    </div>
+  );
+}
+
+function Panel({ title, description, children, action }) {
   return (
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-black text-slate-950">{title}</h2>
+          {description && (
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              {description}
+            </p>
+          )}
+        </div>
         {action}
       </div>
       {children}
@@ -589,12 +658,168 @@ function Panel({ title, children, action }) {
   );
 }
 
+function PredictionCard({
+  title,
+  description,
+  buttonText,
+  loadingText,
+  color,
+  isLoading,
+  disabled,
+  onClick,
+  children,
+}) {
+  const buttonClass =
+    color === "emerald"
+      ? "bg-emerald-600 hover:bg-emerald-700"
+      : "bg-blue-700 hover:bg-blue-800";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+      <h3 className="text-base font-black text-slate-950">{title}</h3>
+      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-600">
+        {description}
+      </p>
+
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled || isLoading}
+        className={`mt-4 rounded-lg px-4 py-2.5 text-sm font-black text-white shadow-sm transition disabled:cursor-not-allowed disabled:bg-slate-400 ${buttonClass}`}
+      >
+        {isLoading ? loadingText : buttonText}
+      </button>
+
+      {children}
+    </div>
+  );
+}
+
+function PredictionResult({ rows }) {
+  return (
+    <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-center justify-between gap-3 text-sm"
+          >
+            <span className="text-slate-500">{row.label}</span>
+
+            {row.badgeClass ? (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-black ${row.badgeClass}`}
+              >
+                {row.value || "--"}
+              </span>
+            ) : (
+              <span className="font-black text-slate-950">
+                {row.value || "--"}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function InfoStat({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 font-semibold text-slate-900">{value ?? "--"}</p>
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-lg font-black text-slate-950">
+        {value ?? "--"}
+      </p>
     </div>
+  );
+}
+
+function AlertBox({ message, compact = false }) {
+  return (
+    <div
+      className={`rounded-xl border border-red-200 bg-red-50 text-sm font-semibold text-red-700 ${
+        compact ? "mt-5 p-4" : "mb-6 p-5"
+      }`}
+    >
+      {message}
+    </div>
+  );
+}
+
+function EmptyState({ title, message }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-black text-slate-800">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
+    </div>
+  );
+}
+
+function LoadingPanel() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-sm font-semibold text-slate-600">
+        Loading parent dashboard...
+      </p>
+    </div>
+  );
+}
+
+function formatSummaryValue(value, type = "text") {
+  if (value === null || value === undefined || value === "") return "--";
+
+  if (type === "percent") {
+    const numericValue = Number(value);
+    return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
+  }
+
+  if (type === "number") {
+    const numericValue = Number(value);
+    return numericValue !== 0 ? formatMarks(numericValue) : "--";
+  }
+
+  return value || "--";
+}
+
+function formatPercent(value) {
+  const numericValue = Number(value);
+  return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
+}
+
+function formatRiskStatus(status) {
+  if (!status) return "--";
+  if (status === "Low") return "Low Risk";
+  if (status === "Medium") return "Medium Risk";
+  if (status === "High") return "High Risk";
+  return status;
+}
+
+function getRiskBadgeClass(status) {
+  const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus.includes("high")) {
+    return "bg-red-100 text-red-700";
+  }
+
+  if (normalizedStatus.includes("medium")) {
+    return "bg-amber-100 text-amber-700";
+  }
+
+  if (normalizedStatus.includes("low") || normalizedStatus.includes("pass")) {
+    return "bg-emerald-100 text-emerald-700";
+  }
+
+  return "bg-slate-100 text-slate-700";
+}
+
+function getSubjectName(result) {
+  return (
+    result.exam?.subject?.subjectName ||
+    result.exam?.examName?.split(" - ").pop() ||
+    "General"
   );
 }
 
