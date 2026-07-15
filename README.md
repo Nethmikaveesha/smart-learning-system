@@ -1,3 +1,5 @@
+ final-feature-completion
+
 # EduTrack - Smart Learning System
 
 EduTrack is a Smart Learning System built for school academic management, student performance tracking, parent monitoring, teacher workflows, and ML-based academic risk prediction.
@@ -131,3 +133,4 @@ Smart-Learning-System/
 ├── research/
 ├── testing/
 └── README.md
+main

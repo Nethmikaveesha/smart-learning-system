@@ -26,39 +26,77 @@ const mobileLinksByRole = {
   parent: parentMobileLinks,
 };
 
+const roleLabels = {
+  admin: "Administrator",
+  teacher: "Teacher",
+  student: "Student",
+  parent: "Parent",
+};
+
 function DashboardLayout() {
   const { user, logout } = useAuth();
   const role = user?.role || "student";
   const Sidebar = sidebarByRole[role] || StudentSidebar;
   const mobileLinks = mobileLinksByRole[role] || studentMobileLinks;
 
+  const displayName = user?.fullName || user?.email || "Profile";
+  const initials = displayName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+      {/* Top dashboard navbar */}
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="flex min-h-16 items-center justify-between px-4 lg:px-6">
           <NavLink
             to={dashboardPaths[role] || "/student"}
-            className="text-xl font-bold text-blue-700"
+            className="flex items-center gap-3"
           >
-            EduTrack
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-700 text-sm font-black text-white shadow-sm">
+              ET
+            </span>
+            <span>
+              <span className="block text-xl font-black tracking-tight text-slate-950">
+                EduTrack
+              </span>
+              <span className="hidden text-xs font-semibold uppercase tracking-wide text-slate-500 sm:block">
+                {roleLabels[role]} Workspace
+              </span>
+            </span>
           </NavLink>
 
           <div className="flex items-center gap-2">
             <NavLink
               to={`/${role}/notifications`}
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className={({ isActive }) =>
+                `rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                  isActive
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`
+              }
             >
               Notifications
             </NavLink>
+
             <NavLink
               to={`/${role}/profile`}
-              className="hidden rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200 sm:block"
+              className="hidden items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 sm:flex"
             >
-              {user?.fullName || user?.email || "Profile"}
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                {initials}
+              </span>
+              <span className="max-w-36 truncate">{displayName}</span>
             </NavLink>
+
             <button
+              type="button"
               onClick={logout}
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
             >
               Logout
             </button>
@@ -66,6 +104,7 @@ function DashboardLayout() {
         </div>
       </header>
 
+      {/* Mobile role navigation */}
       <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {mobileLinks.map((item) => (
@@ -74,10 +113,10 @@ function DashboardLayout() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `shrink-0 rounded-md px-3 py-2 text-sm font-semibold ${
+                `shrink-0 rounded-lg px-3 py-2 text-sm font-bold transition ${
                   isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "bg-slate-100 text-slate-700"
+                    ? "bg-blue-700 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`
               }
             >
@@ -88,15 +127,27 @@ function DashboardLayout() {
       </div>
 
       <div className="flex">
-        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-4 lg:block">
-          <p className="mb-4 text-xs font-bold uppercase tracking-wide text-slate-500">
-            {role} Menu
-          </p>
-          <Sidebar />
+        {/* Desktop sidebar */}
+        <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-slate-200 bg-white lg:block">
+          <div className="border-b border-slate-100 p-4">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+              {role} Menu
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-700">
+              Manage your workspace
+            </p>
+          </div>
+
+          <div className="p-4">
+            <Sidebar />
+          </div>
         </aside>
 
+        {/* Main page content */}
         <main className="min-w-0 flex-1">
-          <Outlet />
+          <div className="mx-auto max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -4,7 +4,7 @@ function SidebarSection({ title, items }) {
   return (
     <section className="space-y-1">
       {title && (
-        <p className="px-3 pt-4 pb-1 text-xs font-bold uppercase tracking-wide text-slate-400">
+        <p className="px-3 pb-2 pt-5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
           {title}
         </p>
       )}
@@ -15,14 +15,25 @@ function SidebarSection({ title, items }) {
           to={item.to}
           end={item.end}
           className={({ isActive }) =>
-            `block rounded-md px-3 py-2 text-sm font-semibold transition ${
+            `group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-bold transition ${
               isActive
-                ? "bg-blue-50 text-blue-700"
+                ? "bg-blue-700 text-white shadow-sm"
                 : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
             }`
           }
         >
-          {item.label}
+          {({ isActive }) => (
+            <>
+              <span className="truncate">{item.label}</span>
+              <span
+                className={
+                  isActive
+                    ? "h-2 w-2 rounded-full bg-white"
+                    : "h-2 w-2 rounded-full bg-transparent group-hover:bg-slate-300"
+                }
+              />
+            </>
+          )}
         </NavLink>
       ))}
     </section>

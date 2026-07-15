@@ -16,6 +16,16 @@ import { useAuth } from "../context/AuthContext";
 import AdminCharts from "../components/AdminCharts";
 import { formatMarks, formatRank } from "../utils/formatters";
 
+// Admin quick navigation cards.
+// These make the dashboard feel like a real command center.
+const QUICK_ACTIONS = [
+  { label: "Add Teacher", to: "/admin/users/add-teacher" },
+  { label: "Add Student", to: "/admin/users/add-student" },
+  { label: "Add Parent", to: "/admin/users/add-parent" },
+  { label: "View Users", to: "/admin/users" },
+  { label: "System Analytics", to: "/admin/system-analytics" },
+];
+
 function AdminDashboard() {
   const { token } = useAuth();
 
@@ -27,8 +37,11 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setError("");
+
         const headers = { Authorization: `Bearer ${token}` };
 
+        // Load all dashboard data together to reduce waiting time.
         const [adminRes, summaryRes, teacherRes, usersRes] = await Promise.all([
           api.get("/admin-dashboard", { headers }),
           api.get("/results/analytics-summary", { headers }),
@@ -37,6 +50,8 @@ function AdminDashboard() {
         ]);
 
         const users = usersRes.data || [];
+
+        // Some totals are calculated here as fallback values.
         const roleCounts = users.reduce(
           (counts, user) => {
             if (user.role === "admin") counts.admins += 1;
@@ -49,13 +64,11 @@ function AdminDashboard() {
 
         setAdminData({
           ...adminRes.data,
-          totalAdmins:
-            adminRes.data?.totalAdmins ?? roleCounts.admins,
-          totalTeachers:
-            adminRes.data?.totalTeachers ?? roleCounts.teachers,
-          totalParents:
-            adminRes.data?.totalParents ?? roleCounts.parents,
+          totalAdmins: adminRes.data?.totalAdmins ?? roleCounts.admins,
+          totalTeachers: adminRes.data?.totalTeachers ?? roleCounts.teachers,
+          totalParents: adminRes.data?.totalParents ?? roleCounts.parents,
         });
+
         setSummary(summaryRes.data);
         setTeacherData(teacherRes.data);
       } catch (fetchError) {
@@ -73,71 +86,109 @@ function AdminDashboard() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-3xl font-bold">Admin Dashboard</h1>
+      <DashboardHeader />
 
       {error ? (
-        <div className="rounded bg-red-100 p-4 text-red-700">{error}</div>
+        <AlertBox message={error} />
       ) : !adminData || !summary ? (
-        <p>Loading...</p>
+        <LoadingPanel />
       ) : (
         <>
-          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <Card title="Total Users" value={adminData.totalUsers} />
-            <Card title="Total Admins" value={adminData.totalAdmins} />
-            <Card title="Total Teachers" value={adminData.totalTeachers} />
-            <Card title="Total Students" value={adminData.totalStudents} />
-            <Card title="Total Parents" value={adminData.totalParents} />
-            <Card title="Total Subjects" value={adminData.totalSubjects} />
-            <Card title="Total Exams" value={adminData.totalExams} />
-            <Card title="Total Results" value={adminData.totalResults} />
-            <Card title="Pass Count" value={adminData.passCount} />
-            <Card title="Fail Count" value={adminData.failCount} />
-            <Card
-              title="Pass Percentage"
-              value={`${Number(adminData.passPercentage).toFixed(2)}%`}
-            />
-          </div>
+          <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="Total Users" value={adminData.totalUsers} />
+            <MetricCard label="Admins" value={adminData.totalAdmins} />
+            <MetricCard label="Teachers" value={adminData.totalTeachers} />
+            <MetricCard label="Students" value={adminData.totalStudents} />
+            <MetricCard label="Parents" value={adminData.totalParents} />
+            <MetricCard label="Subjects" value={adminData.totalSubjects} />
+            <MetricCard label="Exams" value={adminData.totalExams} />
+            <MetricCard label="Results" value={adminData.totalResults} />
+          </section>
 
-          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Card title="Average Marks" value={formatMarks(summary.averageMarks)} />
-            <Card
-              title="High Risk Students"
+          <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Pass Count"
+              value={adminData.passCount}
+              badgeClass="bg-emerald-100 text-emerald-700"
+            />
+            <MetricCard
+              label="Fail Count"
+              value={adminData.failCount}
+              badgeClass="bg-red-100 text-red-700"
+            />
+            <MetricCard
+              label="Pass Percentage"
+              value={`${Number(adminData.passPercentage || 0).toFixed(2)}%`}
+              badgeClass="bg-blue-100 text-blue-700"
+            />
+            <MetricCard
+              label="High Risk Students"
               value={summary.highRiskStudents}
               to="/admin/system-analytics"
-              hint="View analytics"
+              badgeClass="bg-amber-100 text-amber-700"
             />
-            <Card
-              title="Average Attendance"
+          </section>
+
+          <section className="mb-6 grid gap-4 md:grid-cols-3">
+            <MetricCard
+              label="Average Marks"
+              value={formatMarks(summary.averageMarks)}
+            />
+            <MetricCard
+              label="Average Attendance"
               value={`${formatMarks(summary.averageAttendance)}%`}
-              hint="Based on current student profiles"
             />
-          </div>
+            <MetricCard
+              label="System Health"
+              value="Active"
+              badgeClass="bg-emerald-100 text-emerald-700"
+            />
+          </section>
 
-          <AdminCharts summary={summary} />
+          <Panel title="Quick Actions" description="Common administration tasks.">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {QUICK_ACTIONS.map((action) => (
+                <Link
+                  key={action.to}
+                  to={action.to}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-black text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                >
+                  {action.label}
+                </Link>
+              ))}
+            </div>
+          </Panel>
 
-          <div className="mb-8 rounded-xl bg-white p-5 shadow">
-            <h2 className="mb-4 text-xl font-bold">
-              System-Wide Subject Difficulty Analysis
-            </h2>
+          <Panel
+            title="System Analytics"
+            description="Overall academic performance, attendance, and risk summary."
+          >
+            <AdminCharts summary={summary} />
+          </Panel>
 
+          <Panel
+            title="System-Wide Subject Difficulty Analysis"
+            description="Subjects with lower averages or higher fail counts need academic attention."
+          >
             {subjectDifficultyData.length === 0 ? (
-              <p className="text-slate-600">No results available.</p>
+              <EmptyState
+                title="No results available"
+                message="Subject difficulty analysis will appear after exam results are published."
+              />
             ) : (
               <>
-                <div className="relative h-80">
+                <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={subjectDifficultyData}
-                      margin={{ top: 16, right: 16, left: 0, bottom: 8 }}
+                      margin={{ top: 20, right: 16, left: 0, bottom: 8 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="subject" />
-                      <YAxis domain={[0, 100]} />
+                      <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
                       <Tooltip
                         formatter={(value, name) => [
-                          name === "averageMarks"
-                            ? formatMarks(value)
-                            : value,
+                          name === "averageMarks" ? formatMarks(value) : value,
                           name === "averageMarks" ? "Average Marks" : name,
                         ]}
                       />
@@ -146,7 +197,7 @@ function AdminDashboard() {
                         name="Average Marks"
                         fill="#2563eb"
                         radius={[8, 8, 0, 0]}
-                        maxBarSize={60}
+                        maxBarSize={64}
                       >
                         <LabelList
                           dataKey="averageMarks"
@@ -158,30 +209,51 @@ function AdminDashboard() {
                   </ResponsiveContainer>
                 </div>
 
-                <table className="mt-6 w-full border text-left">
-                  <thead className="bg-slate-200">
-                    <tr>
-                      <th className="p-3">Subject</th>
-                      <th className="p-3">Average Marks</th>
-                      <th className="p-3">Result Count</th>
-                      <th className="p-3">Fail Count</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {subjectDifficultyData.map((item) => (
-                      <tr key={item.subject} className="border-t">
-                        <td className="p-3">{item.subject}</td>
-                        <td className="p-3">{formatMarks(item.averageMarks)}</td>
-                        <td className="p-3">{item.resultCount ?? 0}</td>
-                        <td className="p-3">{item.failCount}</td>
+                <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-100 text-slate-700">
+                      <tr>
+                        <th className="p-3 font-black">Subject</th>
+                        <th className="p-3 font-black">Average Marks</th>
+                        <th className="p-3 font-black">Result Count</th>
+                        <th className="p-3 font-black">Fail Count</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+
+                    <tbody>
+                      {subjectDifficultyData.map((item) => (
+                        <tr
+                          key={item.subject}
+                          className="border-t border-slate-200 bg-white"
+                        >
+                          <td className="p-3 font-semibold text-slate-800">
+                            {item.subject}
+                          </td>
+                          <td className="p-3 font-black text-slate-950">
+                            {formatMarks(item.averageMarks)}
+                          </td>
+                          <td className="p-3 text-slate-600">
+                            {item.resultCount ?? 0}
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-black ${
+                                Number(item.failCount) > 0
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                              }`}
+                            >
+                              {item.failCount ?? 0}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
-          </div>
+          </Panel>
 
           <RecentResultsTable results={teacherData?.recentResults || []} />
         </>
@@ -190,58 +262,166 @@ function AdminDashboard() {
   );
 }
 
-function Card({ title, value, to, hint }) {
+function DashboardHeader() {
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+            Admin Dashboard
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            System Overview
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            Monitor users, academic performance, attendance, results, and
+            system-wide learning risk from one administrative workspace.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/admin/users/add-student"
+            className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+          >
+            Add Student
+          </Link>
+          <Link
+            to="/admin/users"
+            className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+          >
+            View Users
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, to, badgeClass }) {
   const displayValue = value ?? 0;
 
-  const content = (
-    <div className={`rounded-xl bg-white p-5 shadow ${to ? "transition hover:shadow-md" : ""}`}>
-      <p className="text-slate-500">{title}</p>
-      <h2 className="mt-2 text-3xl font-bold">{displayValue}</h2>
-      {hint && <p className="mt-2 text-xs font-medium text-blue-700">{hint}</p>}
+  const card = (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+
+      {badgeClass ? (
+        <span
+          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-black ${badgeClass}`}
+        >
+          {displayValue}
+        </span>
+      ) : (
+        <h2 className="mt-3 truncate text-2xl font-black text-slate-950">
+          {displayValue}
+        </h2>
+      )}
     </div>
   );
 
   if (to) {
-    return <Link to={to}>{content}</Link>;
+    return <Link to={to}>{card}</Link>;
   }
 
-  return content;
+  return card;
+}
+
+function Panel({ title, description, children }) {
+  return (
+    <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-4">
+        <h2 className="text-lg font-black text-slate-950">{title}</h2>
+        {description && (
+          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        )}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 function RecentResultsTable({ results }) {
   return (
-    <div className="rounded-xl bg-white p-5 shadow">
-      <h2 className="mb-4 text-xl font-bold">Recent Results</h2>
-
+    <Panel
+      title="Recent Results"
+      description="Latest published student results across the system."
+    >
       {results.length === 0 ? (
-        <p className="text-slate-600">No results available.</p>
+        <EmptyState
+          title="No results available"
+          message="Recent student results will appear after teachers publish marks."
+        />
       ) : (
-        <table className="w-full border text-left">
-          <thead className="bg-slate-200">
-            <tr>
-              <th className="p-3">Student</th>
-              <th className="p-3">Exam</th>
-              <th className="p-3">Marks</th>
-              <th className="p-3">Grade</th>
-              <th className="p-3">Rank</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {results.map((item) => (
-              <tr key={item._id} className="border-t">
-                <td className="p-3">
-                  {item.student?.user?.fullName || "N/A"}
-                </td>
-                <td className="p-3">{item.exam?.examName || "N/A"}</td>
-                <td className="p-3">{formatMarks(item.marks)}</td>
-                <td className="p-3">{item.grade}</td>
-                <td className="p-3">{formatRank(item.rank)}</td>
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-100 text-slate-700">
+              <tr>
+                <th className="p-3 font-black">Student</th>
+                <th className="p-3 font-black">Exam</th>
+                <th className="p-3 font-black">Marks</th>
+                <th className="p-3 font-black">Grade</th>
+                <th className="p-3 font-black">Rank</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {results.map((item) => (
+                <tr
+                  key={item._id}
+                  className="border-t border-slate-200 bg-white"
+                >
+                  <td className="p-3 font-semibold text-slate-800">
+                    {item.student?.user?.fullName || "N/A"}
+                  </td>
+                  <td className="p-3 text-slate-600">
+                    {item.exam?.examName || "N/A"}
+                  </td>
+                  <td className="p-3 font-black text-slate-950">
+                    {formatMarks(item.marks)}
+                  </td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                      {item.grade || "--"}
+                    </span>
+                  </td>
+                  <td className="p-3 font-semibold text-slate-700">
+                    {formatRank(item.rank)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
+    </Panel>
+  );
+}
+
+function AlertBox({ message }) {
+  return (
+    <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-700">
+      {message}
+    </div>
+  );
+}
+
+function LoadingPanel() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-sm font-semibold text-slate-600">
+        Loading admin dashboard...
+      </p>
+    </div>
+  );
+}
+
+function EmptyState({ title, message }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-black text-slate-800">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
     </div>
   );
 }
