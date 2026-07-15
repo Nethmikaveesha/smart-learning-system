@@ -1,71 +1,133 @@
-# Smart Learning System
+# EduTrack - Smart Learning System
 
-Smart Learning Management System & Performance Monitoring For Advanced Level Students in Sri Lanka Assisting With AI
+EduTrack is a Smart Learning System built for school academic management, student performance tracking, parent monitoring, teacher workflows, and ML-based academic risk prediction.
 
-## Quick Start (MERN)
+The system includes a MERN web application and a Python Flask ML service. The MERN application handles users, dashboards, academic records, reports, and role-based features. The ML service provides student risk predictions using trained machine-learning models.
 
-```bash
-# Install dependencies
-npm run install:all
+## Main Features
 
-# Terminal 1 - Backend (port 5001)
-npm run dev:backend
+### Public Website
+- Home page
+- About page
+- Features page
+- Contact page
+- Login page
 
-# Terminal 2 - Frontend (port 5173)
-npm run dev:frontend
-```
+### Admin Dashboard
+- User management
+- Add teacher, student, and parent accounts
+- Class and subject management
+- Teacher assignment management
+- Exam timetable management
+- Reports
+- Settings
+- Database backup
 
-Open http://localhost:5173
+### Teacher Dashboard
+- My classes
+- My subjects
+- Paper management
+- Question bank
+- Student submissions
+- AI essay grading
+- Marks management
+- Attendance management
+- Topic error analysis
+- Weak student detection
+- Reports
 
-## Demo Login Accounts
+### Student Dashboard
+- My subjects
+- Exam papers
+- Submit answers
+- Adaptive learning
+- Performance tracker
+- AI chatbot
+- Revision timetable
+- Achievement badges
+- Flashcards
+- Study materials
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@test.com | 123456 |
-| Teacher | teacher@test.com | 123456 |
-| Student | student@test.com | 123456 |
-| Parent | parent@test.com | 123456 |
+### Parent Dashboard
+- Child overview
+- Marks and rankings
+- Monthly performance
+- Attendance
+- Risk alerts
+- Attendance vs grades
+- Progress reports
+- ML risk prediction results
 
-## Modules
+## ML Models
 
-- Admin Dashboard
-- Teacher Dashboard
-- Student Dashboard
-- Parent Dashboard
-- AI Essay Grader
-- Attendance Management
-- Performance Analytics
-- Z-Score & Ranking
-- Weak Student Detection
-- Smart Revision Planner
-- AI Chatbot
-- Monthly PDF Reports
-- Database Backups
+The project uses three ML models.
+
+| Model | Status | Purpose |
+| --- | --- | --- |
+| Pass/Fail Risk Model | Mandatory | Predicts whether a student is likely to pass or fail |
+| Multi-Class Commerce Risk Model | Recommended | Predicts High Risk, Medium Risk, or Low Risk for A/L Commerce students |
+| xAPI Performance Model | Optional | Benchmark/research model using xAPI-Edu-Data |
 
 ## Technology Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React, Tailwind CSS, Recharts |
-| Backend | Node.js, Express.js |
-| Database | MongoDB |
-| AI | Gemini API, NLP keyword matching |
-| ML (optional) | Python Flask, scikit-learn |
+### Frontend
+- React
+- Vite
+- React Router
+- Tailwind CSS
+- Axios
+- Recharts
 
-## Environment Setup
+### Backend
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT Authentication
+- PDFKit
+- Node Cron
+- Gemini API integration
 
-Copy `backend/.env.example` to `backend/.env` and fill in:
+### ML Service
+- Python
+- Flask
+- Pandas
+- Scikit-learn
+- Joblib
+- Matplotlib
+- Jupyter Notebook
 
-- `MONGO_URI`
-- `PORT=5001`
-- `JWT_SECRET`
-- `GEMINI_API_KEY` (for essay grader & chatbot)
+## Project Structure
 
-## ML API (Optional - Phase 2)
-
-```bash
-cd ml-model
-pip3 install -r requirements.txt
-python3 train_all.py   # train models first
-python3 app.py         # starts on port 5000
-```
+```text
+Smart-Learning-System/
+├── backend/
+│   ├── src/
+│   ├── scripts/
+│   ├── backups/
+│   └── package.json
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   └── package.json
+│
+├── ml-model/
+│   ├── app.py
+│   ├── train_all.py
+│   ├── requirements.txt
+│   ├── datasets/
+│   ├── models/
+│   ├── notebooks/
+│   ├── outputs/
+│   └── utils/
+│
+├── docs/
+├── datasets/
+├── research/
+├── testing/
+└── README.md
