@@ -3,6 +3,7 @@ import {
   registerUser,
   registerAdmin,
   loginUser,
+  changePassword,
 } from "../controllers/authController.js";
 import {
   protect,
@@ -14,5 +15,6 @@ const router = express.Router();
 router.post("/register", protect, authorizeRoles("admin"), registerUser);
 router.post("/register-admin", protect, authorizeRoles("admin"), registerAdmin);
 router.post("/login", loginUser);
+router.put("/change-password", protect, changePassword);
 
 export default router;

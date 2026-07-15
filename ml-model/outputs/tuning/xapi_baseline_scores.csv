@@ -1,0 +1,4 @@
+Model,Version,Accuracy,Balanced Accuracy,Macro Precision,Macro Recall,Macro F1 Score,Weighted F1 Score
+Logistic Regression,Baseline,0.7708,0.795,0.7701,0.795,0.7765,0.7672
+Decision Tree,Baseline,0.6562,0.6738,0.6596,0.6738,0.6639,0.6524
+Random Forest,Baseline,0.7917,0.7966,0.8013,0.7966,0.7979,0.7911

@@ -160,6 +160,12 @@ export const updateUser = async (req, res) => {
 
 export const disableUser = async (req, res) => {
   try {
+    if (req.params.id === req.user?._id?.toString()) {
+      return res.status(400).json({
+        message: "You cannot disable your own account",
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive: false },

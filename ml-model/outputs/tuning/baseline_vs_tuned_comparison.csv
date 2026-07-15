@@ -1,0 +1,19 @@
+Task,Model,Version,Accuracy,Balanced Accuracy,Precision,Recall,F1 Score,Macro F1 Score,Weighted F1 Score,Best CV Balanced Accuracy,Best Parameters,CV Folds
+Commerce Risk,Decision Tree,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,,
+Commerce Risk,Random Forest,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,,
+Commerce Risk,Decision Tree,Tuned,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,"{""model__criterion"": ""gini"", ""model__max_depth"": 3, ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2}",5.0
+Commerce Risk,Random Forest,Tuned,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,"{""model__max_depth"": null, ""model__max_features"": ""sqrt"", ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2, ""model__n_estimators"": 100}",5.0
+Commerce Risk,Logistic Regression,Tuned,0.9801,0.9897,0.8,0.9897,0.8698,0.8698,0.9825,0.9904,"{""model__C"": 10.0, ""model__solver"": ""lbfgs""}",5.0
+Commerce Risk,Logistic Regression,Baseline,0.9652,0.9821,0.7308,0.9821,0.8067,0.8067,0.9713,,,
+Pass/Fail Risk,Logistic Regression,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,,
+Pass/Fail Risk,Random Forest,Baseline,1.0,1.0,1.0,1.0,1.0,1.0,1.0,,,
+Pass/Fail Risk,Logistic Regression,Tuned,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.99,"{""model__C"": 1.0, ""model__solver"": ""lbfgs""}",5.0
+Pass/Fail Risk,Random Forest,Tuned,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,"{""model__max_depth"": null, ""model__max_features"": ""sqrt"", ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2, ""model__n_estimators"": 100}",5.0
+Pass/Fail Risk,Decision Tree,Baseline,0.95,0.9583,1.0,0.9167,0.9565,0.9488,0.9504,,,
+Pass/Fail Risk,Decision Tree,Tuned,0.95,0.9583,1.0,0.9167,0.9565,0.9488,0.9504,0.9857,"{""model__criterion"": ""gini"", ""model__max_depth"": 3, ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2}",5.0
+xAPI Benchmark,Random Forest,Baseline,0.8021,0.8046,0.8139,0.8046,0.8074,0.8074,0.8016,,,
+xAPI Benchmark,Logistic Regression,Baseline,0.7708,0.795,0.7701,0.795,0.7765,0.7765,0.7672,,,
+xAPI Benchmark,Logistic Regression,Tuned,0.7604,0.7889,0.7599,0.7889,0.7672,0.7672,0.755,0.7572,"{""model__C"": 0.1, ""model__solver"": ""lbfgs""}",5.0
+xAPI Benchmark,Random Forest,Tuned,0.7604,0.7781,0.7603,0.7781,0.7671,0.7671,0.7582,0.8012,"{""model__max_depth"": 10, ""model__max_features"": ""sqrt"", ""model__min_samples_leaf"": 2, ""model__min_samples_split"": 2, ""model__n_estimators"": 100}",5.0
+xAPI Benchmark,Decision Tree,Baseline,0.75,0.7632,0.7575,0.7632,0.7559,0.7559,0.7469,,,
+xAPI Benchmark,Decision Tree,Tuned,0.6771,0.7022,0.6794,0.7022,0.6878,0.6878,0.6727,0.7489,"{""model__criterion"": ""entropy"", ""model__max_depth"": 8, ""model__min_samples_leaf"": 2, ""model__min_samples_split"": 5}",5.0

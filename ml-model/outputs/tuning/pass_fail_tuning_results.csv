@@ -1,0 +1,4 @@
+Model,Version,Best CV Balanced Accuracy,Best Parameters,CV Folds,Accuracy,Balanced Accuracy,Precision,Recall,F1 Score,Macro F1 Score,Weighted F1 Score
+Logistic Regression,Tuned,0.99,"{""model__C"": 1.0, ""model__solver"": ""lbfgs""}",5,1.0,1.0,1.0,1.0,1.0,1.0,1.0
+Decision Tree,Tuned,0.9857,"{""model__criterion"": ""gini"", ""model__max_depth"": 2, ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2}",5,0.95,0.9583,1.0,0.9167,0.9565,0.9488,0.9504
+Random Forest,Tuned,1.0,"{""model__max_depth"": null, ""model__max_features"": ""sqrt"", ""model__min_samples_leaf"": 1, ""model__min_samples_split"": 2, ""model__n_estimators"": 100}",5,1.0,1.0,1.0,1.0,1.0,1.0,1.0

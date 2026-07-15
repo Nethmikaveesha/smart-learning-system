@@ -1,0 +1,7 @@
+Model,Version,Accuracy,Balanced Accuracy,Macro Precision,Macro Recall,Macro F1 Score,Weighted F1 Score,Best CV Balanced Accuracy,Best Parameters,CV Folds
+Random Forest,Tuned,0.7812,0.7994,0.7812,0.7994,0.7881,0.7791,0.8026,"{""model__max_depth"": 12, ""model__max_features"": ""log2"", ""model__min_samples_leaf"": 2, ""model__min_samples_split"": 2, ""model__n_estimators"": 300}",5.0
+Random Forest,Baseline,0.7917,0.7966,0.8013,0.7966,0.7979,0.7911,,,
+Logistic Regression,Baseline,0.7708,0.795,0.7701,0.795,0.7765,0.7672,,,
+Logistic Regression,Tuned,0.6979,0.7413,0.7041,0.7413,0.7021,0.6835,0.7589,"{""model__C"": 0.01, ""model__solver"": ""lbfgs""}",5.0
+Decision Tree,Tuned,0.6771,0.7022,0.6794,0.7022,0.6878,0.6727,0.7489,"{""model__criterion"": ""entropy"", ""model__max_depth"": 8, ""model__min_samples_leaf"": 2, ""model__min_samples_split"": 5}",5.0
+Decision Tree,Baseline,0.6562,0.6738,0.6596,0.6738,0.6639,0.6524,,,

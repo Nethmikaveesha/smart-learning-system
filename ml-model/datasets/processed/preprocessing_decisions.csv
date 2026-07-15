@@ -1,0 +1,9 @@
+Dataset,Issue,Action,Reason
+Pass/Fail,Missing numeric values,Median imputation only where missing values exist,Median is robust against extreme values
+Pass/Fail,Duplicate records,Removed exact duplicate rows,Prevents repeated records from biasing model training
+Pass/Fail,Invalid score ranges,Validated/clipped percentage and score fields to 0-100,Academic percentages must stay inside valid bounds
+Multi-Class Risk,Target label not present in raw dataset,Created Risk_Level using transparent academic rules,Risk model requires supervised target labels
+Multi-Class Risk,Class imbalance,Retain data; use class weights during training,Avoid synthetic data leakage before train/test split
+xAPI,Categorical variables,One-hot encoding for benchmark dataset,Suitable for non-ordinal categories
+All datasets,Outliers,Retained unless invalid by domain range,Extreme academic values may represent real student behaviour
+All datasets,Potential data leakage,No fitted scaling/resampling on full dataset,Fitted transformations must occur after train/test split

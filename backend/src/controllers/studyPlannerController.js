@@ -81,6 +81,14 @@ export const generateRevisionTimetable = async (req, res) => {
       });
     }
 
+    if (!studentProfile.class) {
+      return res.status(200).json({
+        message: "No class assigned to this student profile",
+        studentId: studentProfile.studentId,
+        timetable: [],
+      });
+    }
+
     const today = new Date();
 
     const upcomingExams = await Exam.find({

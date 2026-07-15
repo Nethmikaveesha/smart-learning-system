@@ -1,0 +1,196 @@
+{
+  "random_state": 42,
+  "export_directory": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/datasets/models",
+  "core_project_models": [
+    "Pass/Fail Risk",
+    "Commerce Risk"
+  ],
+  "optional_benchmark_model": "xAPI Benchmark",
+  "data_leakage_prevention": {
+    "pass_fail": "Target pass is excluded from X; preprocessing is inside the pipeline.",
+    "commerce_risk": "Subject_Average is excluded from X; preprocessing is inside the pipeline.",
+    "xapi": "Class_Encoded is excluded from X; preprocessing is inside the pipeline."
+  },
+  "models": {
+    "Pass/Fail Risk": {
+      "model_file": "pass_fail_model.pkl",
+      "feature_columns_file": "pass_fail_feature_columns.pkl",
+      "selected_model": "Random Forest",
+      "best_parameters": {
+        "model__max_depth": null,
+        "model__max_features": "sqrt",
+        "model__min_samples_leaf": 1,
+        "model__min_samples_split": 2,
+        "model__n_estimators": 100
+      },
+      "target": "pass",
+      "features": [
+        "attendance_pct",
+        "homework_pct",
+        "midterm_score",
+        "study_hours_per_week"
+      ],
+      "labels": [
+        0,
+        1
+      ],
+      "core_project_model": true,
+      "evaluation_metrics": {
+        "Accuracy": 1.0,
+        "Balanced Accuracy": 1.0,
+        "Precision": 1.0,
+        "Recall": 1.0,
+        "F1 Score": 1.0,
+        "Macro F1 Score": 1.0,
+        "Weighted F1 Score": 1.0,
+        "CV Accuracy": 1.0,
+        "CV Balanced Accuracy": 1.0,
+        "CV Macro F1 Score": 1.0,
+        "CV Weighted F1 Score": 1.0,
+        "CV Folds": 5.0
+      }
+    },
+    "Commerce Risk": {
+      "model_file": "final_risk_model.pkl",
+      "feature_columns_file": "final_feature_columns.pkl",
+      "selected_model": "Decision Tree",
+      "best_parameters": {
+        "model__criterion": "gini",
+        "model__max_depth": 2,
+        "model__min_samples_leaf": 1,
+        "model__min_samples_split": 2
+      },
+      "target": "risk_level",
+      "features": [
+        "Accounting_Score",
+        "Business_Studies_Score",
+        "Economics_Score",
+        "Attendance_Percentage"
+      ],
+      "labels": [
+        "Low Risk",
+        "Medium Risk"
+      ],
+      "core_project_model": true,
+      "evaluation_metrics": {
+        "Accuracy": 1.0,
+        "Balanced Accuracy": 1.0,
+        "Macro Precision": 1.0,
+        "Macro Recall": 1.0,
+        "Macro F1 Score": 1.0,
+        "Weighted F1 Score": 1.0,
+        "CV Accuracy": 0.9990049751243781,
+        "CV Balanced Accuracy": 0.9833333333333334,
+        "CV Macro F1 Score": 0.9906533364333875,
+        "CV Weighted F1 Score": 0.9989610191312677,
+        "CV Folds": 5.0
+      }
+    },
+    "xAPI Benchmark": {
+      "model_file": "student_risk_model.pkl",
+      "feature_columns_file": "feature_columns.pkl",
+      "selected_model": "Random Forest",
+      "best_parameters": {
+        "model__max_depth": 12,
+        "model__max_features": "log2",
+        "model__min_samples_leaf": 2,
+        "model__min_samples_split": 2,
+        "model__n_estimators": 300
+      },
+      "target": "Class",
+      "features": [
+        "raisedhands",
+        "VisITedResources",
+        "AnnouncementsView",
+        "Discussion",
+        "gender_F",
+        "gender_M",
+        "NationalITy_Egypt",
+        "NationalITy_Iran",
+        "NationalITy_Iraq",
+        "NationalITy_Jordan",
+        "NationalITy_KW",
+        "NationalITy_Lybia",
+        "NationalITy_Morocco",
+        "NationalITy_Palestine",
+        "NationalITy_SaudiArabia",
+        "NationalITy_Syria",
+        "NationalITy_Tunis",
+        "NationalITy_USA",
+        "NationalITy_lebanon",
+        "NationalITy_venzuela",
+        "PlaceofBirth_Egypt",
+        "PlaceofBirth_Iran",
+        "PlaceofBirth_Iraq",
+        "PlaceofBirth_Jordan",
+        "PlaceofBirth_KuwaIT",
+        "PlaceofBirth_Lybia",
+        "PlaceofBirth_Morocco",
+        "PlaceofBirth_Palestine",
+        "PlaceofBirth_SaudiArabia",
+        "PlaceofBirth_Syria",
+        "PlaceofBirth_Tunis",
+        "PlaceofBirth_USA",
+        "PlaceofBirth_lebanon",
+        "PlaceofBirth_venzuela",
+        "StageID_HighSchool",
+        "StageID_MiddleSchool",
+        "StageID_lowerlevel",
+        "GradeID_G-02",
+        "GradeID_G-04",
+        "GradeID_G-05",
+        "GradeID_G-06",
+        "GradeID_G-07",
+        "GradeID_G-08",
+        "GradeID_G-09",
+        "GradeID_G-10",
+        "GradeID_G-11",
+        "GradeID_G-12",
+        "SectionID_A",
+        "SectionID_B",
+        "SectionID_C",
+        "Topic_Arabic",
+        "Topic_Biology",
+        "Topic_Chemistry",
+        "Topic_English",
+        "Topic_French",
+        "Topic_Geology",
+        "Topic_History",
+        "Topic_IT",
+        "Topic_Math",
+        "Topic_Quran",
+        "Topic_Science",
+        "Topic_Spanish",
+        "Semester_F",
+        "Semester_S",
+        "Relation_Father",
+        "Relation_Mum",
+        "ParentAnsweringSurvey_No",
+        "ParentAnsweringSurvey_Yes",
+        "ParentschoolSatisfaction_Bad",
+        "ParentschoolSatisfaction_Good",
+        "StudentAbsenceDays_Above-7",
+        "StudentAbsenceDays_Under-7"
+      ],
+      "labels": [
+        "H",
+        "L",
+        "M"
+      ],
+      "core_project_model": false,
+      "evaluation_metrics": {
+        "Accuracy": 0.78125,
+        "Balanced Accuracy": 0.7993541324575807,
+        "Macro Precision": 0.7812305392950555,
+        "Macro Recall": 0.7993541324575807,
+        "Macro F1 Score": 0.7881219648117188,
+        "Weighted F1 Score": 0.7790641668656955,
+        "CV Accuracy": 0.7865131578947369,
+        "CV Balanced Accuracy": 0.8007835439976579,
+        "CV Macro F1 Score": 0.7937504957723371,
+        "CV Weighted F1 Score": 0.7850053884861767,
+        "CV Folds": 5.0
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import SidebarSection from "./SidebarSection";
 
 export const teacherMobileLinks = [
-  { label: "Dashboard", to: "/teacher" },
+  { label: "Dashboard", to: "/teacher", end: true },
   { label: "Classes", to: "/teacher/classes" },
   { label: "Papers", to: "/teacher/papers" },
   { label: "Submissions", to: "/teacher/submissions" },
@@ -14,7 +14,7 @@ function TeacherSidebar() {
     <nav className="space-y-2">
       <SidebarSection
         items={[
-          { label: "Dashboard", to: "/teacher" },
+          { label: "Dashboard", to: "/teacher", end: true },
           { label: "My Classes", to: "/teacher/classes" },
           { label: "My Subjects", to: "/teacher/subjects" },
         ]}

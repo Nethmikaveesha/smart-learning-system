@@ -1,0 +1,9 @@
+Dataset,Class,Count,Percentage
+Pass/Fail,1,60,60.0
+Pass/Fail,0,40,40.0
+Multi-Class Risk,Medium Risk,625,62.38
+Multi-Class Risk,Low Risk,371,37.03
+Multi-Class Risk,High Risk,6,0.6
+xAPI,M,211,44.14
+xAPI,H,142,29.71
+xAPI,L,125,26.15

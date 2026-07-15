@@ -1,0 +1,5 @@
+Model,Parameter,Value
+Decision Tree,model__criterion,gini
+Decision Tree,model__max_depth,2
+Decision Tree,model__min_samples_leaf,1
+Decision Tree,model__min_samples_split,2

@@ -13,6 +13,7 @@ function SidebarSection({ title, items }) {
         <NavLink
           key={item.to}
           to={item.to}
+          end={item.end}
           className={({ isActive }) =>
             `block rounded-md px-3 py-2 text-sm font-semibold transition ${
               isActive

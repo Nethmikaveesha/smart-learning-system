@@ -53,6 +53,7 @@ export const getAdaptiveLearningPlan = async (req, res) => {
     res.status(200).json({
       studentId: student.studentId,
       adaptivePlan: recommendations,
+      hasExamResults: results.length > 0,
     });
   } catch (error) {
     res.status(500).json({

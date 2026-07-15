@@ -1,0 +1,21 @@
+{
+  "notebook": "04_Hyperparameter_Tuning.ipynb",
+  "random_state": 42,
+  "selection_metric": "balanced_accuracy with Macro F1 as supporting evidence",
+  "core_project_models": [
+    "Pass/Fail Risk",
+    "Commerce Risk"
+  ],
+  "optional_benchmark_model": "xAPI Benchmark",
+  "data_leakage_prevention": [
+    "Pipelines fit imputation and scaling inside training folds only.",
+    "Commerce Subject_Average is excluded from feature matrix.",
+    "xAPI Class_Encoded is excluded from feature matrix."
+  ],
+  "outputs": {
+    "tuning_results": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/hyperparameter_tuning_results.csv",
+    "baseline_vs_tuned": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/baseline_vs_tuned_comparison.csv",
+    "best_tuned_summary": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/best_tuned_model_per_task.csv",
+    "best_parameters": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/best_tuned_parameters.csv"
+  }
+}

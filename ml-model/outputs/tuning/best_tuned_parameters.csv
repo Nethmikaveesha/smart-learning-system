@@ -1,0 +1,9 @@
+Task,Best Tuned Model,Parameter,Value
+Pass/Fail Risk,Logistic Regression,model__C,1.0
+Pass/Fail Risk,Logistic Regression,model__solver,lbfgs
+Commerce Risk,Decision Tree,model__criterion,gini
+Commerce Risk,Decision Tree,model__max_depth,3
+Commerce Risk,Decision Tree,model__min_samples_leaf,1
+Commerce Risk,Decision Tree,model__min_samples_split,2
+xAPI Benchmark,Logistic Regression,model__C,0.1
+xAPI Benchmark,Logistic Regression,model__solver,lbfgs

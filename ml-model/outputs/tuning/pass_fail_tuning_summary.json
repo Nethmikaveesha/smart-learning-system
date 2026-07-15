@@ -1,0 +1,37 @@
+{
+  "notebook": "04A_Pass_Fail_Tuning.ipynb",
+  "model_purpose": "Pass/Fail risk prediction for weak-student detection and parent risk notification",
+  "dataset": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/datasets/processed/pass_fail_processed.csv",
+  "rows": 100,
+  "features": [
+    "attendance_pct",
+    "homework_pct",
+    "midterm_score",
+    "study_hours_per_week"
+  ],
+  "target": "pass",
+  "target_meaning": {
+    "0": "Fail",
+    "1": "Pass"
+  },
+  "candidate_models": [
+    "Logistic Regression",
+    "Decision Tree",
+    "Random Forest"
+  ],
+  "best_tuned_model": "Random Forest",
+  "best_parameters": {
+    "model__max_depth": null,
+    "model__max_features": "sqrt",
+    "model__min_samples_leaf": 1,
+    "model__min_samples_split": 2,
+    "model__n_estimators": 100
+  },
+  "selection_metric": "Balanced Accuracy with F1 Score and Accuracy as supporting metrics",
+  "random_state": 42,
+  "data_leakage_prevention": "Imputation and scaling are fitted inside the training pipeline and cross-validation folds only.",
+  "tuning_results_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/pass_fail_tuning_results.csv",
+  "comparison_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/pass_fail_baseline_vs_tuned_comparison.csv",
+  "classification_report_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/tuning/pass_fail_best_tuned_classification_report.json",
+  "confusion_matrix_file": "/Users/admin/Documents/ICBT/Smart-Learning-System/ml-model/outputs/figures/pass_fail_best_tuned_confusion_matrix.png"
+}

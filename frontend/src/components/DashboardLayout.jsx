@@ -72,6 +72,7 @@ function DashboardLayout() {
             <NavLink
               key={item.to}
               to={item.to}
+              end={item.end}
               className={({ isActive }) =>
                 `shrink-0 rounded-md px-3 py-2 text-sm font-semibold ${
                   isActive
