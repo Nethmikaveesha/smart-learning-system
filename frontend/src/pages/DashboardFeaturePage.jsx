@@ -8,6 +8,23 @@ import {
   validateRegistrationForm,
 } from "../utils/registrationValidation";
 
+/** Real-world class label: "Grade 13 — 13 Commerce A (2026)" */
+function formatClassOptionLabel(item) {
+  const grade = item.gradeLevel ? `Grade ${item.gradeLevel}` : null;
+  const name = item.className || "Class";
+  const year = item.academicYear ? ` (${item.academicYear})` : "";
+  return grade ? `${grade} — ${name}${year}` : `${name}${year}`;
+}
+
+/** Exam label includes grade from linked class */
+function formatExamOptionLabel(item) {
+  const subject = item.subject?.subjectName || "Subject";
+  const className = item.class?.className || "Class";
+  const grade = item.class?.gradeLevel ? `G${item.class.gradeLevel}` : null;
+  const classPart = grade ? `${grade} ${className}` : className;
+  return `${item.examName} — ${subject} (${classPart})`;
+}
+
 const featureConfigs = {
   "/admin/users/add": {
     title: "Add New Admin",
@@ -76,15 +93,48 @@ const featureConfigs = {
   },
   "/admin/classes": {
     title: "Classes",
+    description:
+      "Create A/L classes with an explicit Grade 12 or Grade 13 level. This drives exam and student filtering.",
     endpoint: "/classes",
+    tableColumns: [
+      "gradeLevel",
+      "className",
+      "stream",
+      "medium",
+      "academicYear",
+    ],
     form: {
       endpoint: "/classes",
       method: "post",
       submitLabel: "Create Class",
       fields: [
-        { name: "className", label: "Class Name", required: true },
-        { name: "academicYear", label: "Academic Year", required: true },
-        { name: "assignedTeacher", label: "Assigned Teacher ID" },
+        {
+          name: "gradeLevel",
+          label: "Grade Level",
+          type: "select",
+          required: true,
+          options: [
+            { value: "12", label: "Grade 12" },
+            { value: "13", label: "Grade 13" },
+          ],
+        },
+        {
+          name: "className",
+          label: "Class Name",
+          required: true,
+          placeholder: "e.g. Commerce A or 12 Commerce A",
+        },
+        {
+          name: "academicYear",
+          label: "Academic Year",
+          required: true,
+          placeholder: "e.g. 2026",
+        },
+        {
+          name: "assignedTeacher",
+          label: "Assigned Teacher ID",
+          placeholder: "Optional MongoDB User _id",
+        },
       ],
     },
   },
@@ -108,6 +158,8 @@ const featureConfigs = {
   },
   "/admin/exam-timetables": {
     title: "Exam Timetables",
+    description:
+      "Schedule exam dates, times, and rooms. This is separate from marks exams.",
     endpoint: "/exam-timetables",
     form: {
       endpoint: "/exam-timetables",
@@ -122,6 +174,114 @@ const featureConfigs = {
         { name: "endTime", label: "End Time", type: "time", required: true },
         { name: "location", label: "Location" },
         { name: "instructions", label: "Instructions" },
+      ],
+    },
+  },
+  "/admin/exams": {
+    title: "Exams",
+    description:
+      "Create exams used for Marks Management, ranks, and Z-scores. Pick class and subject by name.",
+    endpoint: "/exams",
+    tableColumns: ["examName", "class", "subject", "examDate", "totalMarks"],
+    form: {
+      endpoint: "/exams",
+      method: "post",
+      submitLabel: "Create Exam",
+      fields: [
+        {
+          name: "examName",
+          label: "Exam Name",
+          required: true,
+          placeholder: "e.g. Term Test 1 - Accounting",
+        },
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "subjectId",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "examDate",
+          label: "Exam Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "totalMarks",
+          label: "Total Marks",
+          type: "number",
+          defaultValue: 100,
+          placeholder: "100",
+        },
+      ],
+    },
+  },
+  "/teacher/exams": {
+    title: "Create Exam",
+    description:
+      "Create an exam for Marks Management. After creating, enter student marks from Marks Management.",
+    endpoint: "/exams",
+    tableColumns: ["examName", "class", "subject", "examDate", "totalMarks"],
+    form: {
+      endpoint: "/exams",
+      method: "post",
+      submitLabel: "Create Exam",
+      fields: [
+        {
+          name: "examName",
+          label: "Exam Name",
+          required: true,
+          placeholder: "e.g. Term Test 1 - Accounting",
+        },
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "subjectId",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "examDate",
+          label: "Exam Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "totalMarks",
+          label: "Total Marks",
+          type: "number",
+          defaultValue: 100,
+          placeholder: "100",
+        },
       ],
     },
   },
@@ -168,37 +328,91 @@ const featureConfigs = {
     title: "My Subjects",
     endpoint: "/subjects",
   },
-  "/teacher/papers": {
-    title: "My Papers",
-    endpoint: "/essays/questions",
-  },
   "/teacher/create-paper": {
     title: "Create Paper",
-    description: "Create a new essay question paper for students.",
+    description:
+      "Create a new essay question paper for Grade 12 or Grade 13 students. Select grade and subject by name.",
+    endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
     form: {
       endpoint: "/essays/questions",
       method: "post",
       submitLabel: "Create Paper",
       fields: [
-        { name: "subject", label: "Subject ID", required: true },
-        { name: "question", label: "Question", type: "textarea", required: true },
-        { name: "maxMarks", label: "Max Marks", type: "number" },
+        {
+          name: "gradeLevel",
+          label: "Grade Level",
+          type: "select",
+          required: true,
+          options: [
+            { value: "12", label: "Grade 12" },
+            { value: "13", label: "Grade 13" },
+          ],
+        },
+        {
+          name: "subject",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "question",
+          label: "Question",
+          type: "textarea",
+          required: true,
+          placeholder: "Type the essay question students will answer...",
+        },
+        {
+          name: "maxMarks",
+          label: "Max Marks",
+          type: "number",
+          defaultValue: 10,
+          placeholder: "10",
+        },
       ],
     },
   },
   "/teacher/question-bank": {
     title: "Question Bank",
     endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
   },
   "/teacher/marking-schemes": {
     title: "Marking Schemes",
-    description: "Create a marking scheme for an essay question.",
+    description:
+      "Create a marking scheme for an essay question. Select the paper by question text — the question ID is sent in the background.",
+    endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks"],
     form: {
       endpoint: "/essays/marking-schemes",
       method: "post",
       submitLabel: "Create Marking Scheme",
       fields: [
-        { name: "question", label: "Question ID", required: true },
+        {
+          name: "question",
+          label: "Essay Paper",
+          type: "async-select",
+          required: true,
+          placeholder: "Select essay question",
+          optionsEndpoint: "/essays/questions",
+          optionValue: "_id",
+          getOptionLabel: (item) => {
+            const text = item.question || "Untitled question";
+            const short =
+              text.length > 80 ? `${text.slice(0, 80)}...` : text;
+            const subject = item.subject?.subjectName;
+            const grade = item.gradeLevel ? `G${item.gradeLevel}` : null;
+            const parts = [short];
+            if (grade) parts.push(grade);
+            if (subject) parts.push(subject);
+            return parts.join(" — ");
+          },
+        },
         {
           name: "keywords",
           label: "Keywords",
@@ -206,9 +420,19 @@ const featureConfigs = {
           placeholder: "comma,separated,keywords",
           transform: "csv",
         },
-        { name: "modelAnswer", label: "Model Answer", type: "textarea" },
+        {
+          name: "modelAnswer",
+          label: "Model Answer",
+          type: "textarea",
+          placeholder: "Ideal answer used by AI / NLP grading...",
+        },
       ],
     },
+  },
+  "/teacher/papers": {
+    title: "My Papers",
+    endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
   },
   "/teacher/submissions": {
     title: "Student Submissions",
@@ -216,13 +440,121 @@ const featureConfigs = {
   },
   "/teacher/marks": {
     title: "Marks Management",
+    description:
+      "Select an exam and student by name, enter marks, then save. Grade and risk status are calculated automatically by the API.",
     endpoint: "/results",
+    tableColumns: ["student", "exam", "marks", "grade", "rank", "zScore"],
+    form: {
+      endpoint: "/results",
+      method: "post",
+      submitLabel: "Add Result",
+      fields: [
+        {
+          name: "exam",
+          label: "Exam",
+          type: "async-select",
+          required: true,
+          placeholder: "Select exam",
+          optionsEndpoint: "/exams",
+          optionValue: "_id",
+          getOptionLabel: formatExamOptionLabel,
+        },
+        {
+          name: "student",
+          label: "Student",
+          type: "async-select",
+          required: true,
+          placeholder: "Select student",
+          optionsEndpoint: "/student-profiles",
+          optionValue: "_id",
+          dependsOn: "exam",
+          filterBy: (item, values, asyncOptions) => {
+            if (!values.exam) return true;
+
+            const exams = asyncOptions["/exams"] || [];
+            const selectedExam = exams.find(
+              (exam) => String(exam._id) === String(values.exam)
+            );
+
+            if (!selectedExam) return true;
+
+            const examClassId = selectedExam.class?._id || selectedExam.class;
+            const studentClassId = item.class?._id || item.class;
+
+            return String(studentClassId) === String(examClassId);
+          },
+          getOptionLabel: (item) => {
+            const name = item.user?.fullName || "Student";
+            const code = item.studentId || "No ID";
+            return `${name} (${code})`;
+          },
+        },
+        {
+          name: "marks",
+          label: "Marks",
+          type: "number",
+          required: true,
+          placeholder: "e.g. 72",
+        },
+      ],
+    },
   },
   "/teacher/attendance": {
     title: "Attendance Management",
-    endpoint: "/teacher-dashboard",
-    layout: "cards",
-    description: "Use class records and student IDs to mark attendance from the attendance API.",
+    description:
+      "Select a class and student by name, then mark Present or Absent. MongoDB IDs are sent in the background.",
+    endpoint: "/classes",
+    tableColumns: ["className", "stream", "medium", "academicYear"],
+    form: {
+      endpoint: "/attendance",
+      method: "post",
+      submitLabel: "Mark Attendance",
+      fields: [
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "student",
+          label: "Student",
+          type: "async-select",
+          required: true,
+          placeholder: "Select student",
+          optionsEndpoint: "/student-profiles",
+          optionValue: "_id",
+          dependsOn: "classId",
+          filterBy: (item, values) => {
+            if (!values.classId) return true;
+            const studentClassId = item.class?._id || item.class;
+            return String(studentClassId) === String(values.classId);
+          },
+          getOptionLabel: (item) => {
+            const name = item.user?.fullName || "Student";
+            const code = item.studentId || "No ID";
+            return `${name} (${code})`;
+          },
+        },
+        {
+          name: "date",
+          label: "Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "status",
+          label: "Status",
+          type: "select",
+          options: ["Present", "Absent"],
+          required: true,
+        },
+      ],
+    },
   },
   "/teacher/z-scores-rankings": {
     title: "Z-Scores & Rankings",
@@ -426,6 +758,7 @@ const featureConfigs = {
 function DashboardFeaturePage() {
   const { pathname } = useLocation();
   const { token, user } = useAuth();
+
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -502,15 +835,11 @@ function DashboardFeaturePage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-          {user?.role} Dashboard
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">{config.title}</h1>
-        {config.description && (
-          <p className="mt-2 max-w-3xl text-slate-600">{config.description}</p>
-        )}
-      </div>
+      <PageHeader
+        role={user?.role}
+        title={config.title}
+        description={config.description}
+      />
 
       {config.form && (
         <FeatureForm
@@ -539,25 +868,17 @@ function DashboardFeaturePage() {
 
       {config.action && (
         <button
+          type="button"
           onClick={runAction}
           disabled={loading}
-          className="mb-6 rounded-md bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:bg-blue-300"
+          className="mb-6 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {loading ? "Working..." : config.action.label}
         </button>
       )}
 
-      {message && (
-        <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-4 text-green-700">
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">
-          {error}
-        </div>
-      )}
+      {message && <StatusMessage type="success" message={message} />}
+      {error && <StatusMessage type="error" message={error} />}
 
       {config.listEndpoint && (
         <UserRecordsTable
@@ -576,7 +897,7 @@ function DashboardFeaturePage() {
       )}
 
       {loading && config.endpoint ? (
-        <p>Loading...</p>
+        <LoadingPanel />
       ) : config.layout === "summary" ? (
         <SummaryPanel data={displayData} fields={config.summaryFields || []} />
       ) : config.layout === "grid" ? (
@@ -613,6 +934,45 @@ function DashboardFeaturePage() {
   );
 }
 
+function PageHeader({ role, title, description }) {
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+        {role || "Dashboard"} Workspace
+      </p>
+      <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        {title}
+      </h1>
+      {description && (
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          {description}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function StatusMessage({ type, message }) {
+  const styles =
+    type === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-red-200 bg-red-50 text-red-700";
+
+  return (
+    <div className={`mb-4 rounded-xl border p-4 text-sm font-semibold ${styles}`}>
+      {message}
+    </div>
+  );
+}
+
+function LoadingPanel() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-sm font-semibold text-slate-600">Loading data...</p>
+    </div>
+  );
+}
+
 function getInitialRegistrationValues(rolePreset) {
   return {
     fullName: "",
@@ -643,7 +1003,13 @@ function getCreatingLabel(role) {
   return "Creating...";
 }
 
-function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", token, onSaved, onError }) {
+function RegisterUserForm({
+  rolePreset,
+  registerEndpoint = "/auth/register",
+  token,
+  onSaved,
+  onError,
+}) {
   const [values, setValues] = useState(getInitialRegistrationValues(rolePreset));
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -657,9 +1023,7 @@ function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", tok
       ...new Set(classes.map((classItem) => classItem.academicYear).filter(Boolean)),
     ];
 
-    if (years.length > 0) {
-      return years.sort();
-    }
+    if (years.length > 0) return years.sort();
 
     const currentYear = new Date().getFullYear();
     return [currentYear - 1, currentYear, currentYear + 1].map(String);
@@ -691,10 +1055,7 @@ function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", tok
 
         setClasses(classesRes.data || []);
       } catch (loadError) {
-        onError(
-          loadError.response?.data?.message ||
-            "Failed to load class options"
-        );
+        onError(loadError.response?.data?.message || "Failed to load class options");
       }
     };
 
@@ -703,6 +1064,7 @@ function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", tok
 
   const updateValue = (name, value) => {
     setValues((current) => ({ ...current, [name]: value }));
+
     setFieldErrors((current) => {
       if (!current[name]) return current;
       const next = { ...current };
@@ -786,8 +1148,15 @@ function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", tok
   return (
     <form
       onSubmit={submitForm}
-      className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
+      <div className="mb-5 border-b border-slate-100 pb-4">
+        <h2 className="text-lg font-black text-slate-950">Register User</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Create a secure account and assign role-specific academic details.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <FormTextField
           label="Full Name"
@@ -844,7 +1213,7 @@ function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", tok
         )}
 
         {rolePreset && (
-          <div className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-black text-slate-700">
             Role: {rolePreset}
           </div>
         )}
@@ -959,20 +1328,128 @@ function RegisterUserForm({ rolePreset, registerEndpoint = "/auth/register", tok
       <button
         type="submit"
         disabled={saving}
-        className="mt-5 rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:bg-slate-400"
+        className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
-        {saving ? getCreatingLabel(role) : role === "admin" ? "Create Admin Account" : "Create Account"}
+        {saving
+          ? getCreatingLabel(role)
+          : role === "admin"
+          ? "Create Admin Account"
+          : "Create Account"}
       </button>
     </form>
   );
 }
 
-function FeatureForm({ form, token, onSaved, onError }) {
-  const initialValues = Object.fromEntries(
-    form.fields.map((field) => [field.name, field.options?.[0] || ""])
+function getFeatureFormInitialValues(fields) {
+  return Object.fromEntries(
+    fields.map((field) => {
+      if (field.defaultValue !== undefined) {
+        return [field.name, field.defaultValue];
+      }
+
+      if (field.type === "select" && field.options?.length) {
+        const first = field.options[0];
+        return [field.name, typeof first === "object" ? first.value : first];
+      }
+
+      if (field.type === "date") {
+        return [field.name, new Date().toISOString().slice(0, 10)];
+      }
+
+      return [field.name, ""];
+    })
   );
+}
+
+function getFieldSelectOptions(field, values, asyncOptions) {
+  if (field.type === "async-select") {
+    const items = asyncOptions[field.optionsEndpoint] || [];
+    const filtered = field.filterBy
+      ? items.filter((item) => field.filterBy(item, values, asyncOptions))
+      : items;
+
+    return filtered.map((item) => ({
+      value: String(item[field.optionValue] || item._id || ""),
+      label: field.getOptionLabel
+        ? field.getOptionLabel(item)
+        : String(item[field.optionValue] || item._id || ""),
+    }));
+  }
+
+  if (!field.options) return [];
+
+  return field.options.map((option) =>
+    typeof option === "object"
+      ? option
+      : { value: option, label: option }
+  );
+}
+
+function FeatureForm({ form, token, onSaved, onError }) {
+  const initialValues = getFeatureFormInitialValues(form.fields);
+
   const [values, setValues] = useState(initialValues);
+  const [asyncOptions, setAsyncOptions] = useState({});
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loadAsyncOptions = async () => {
+      const endpoints = [
+        ...new Set(
+          form.fields
+            .filter((field) => field.type === "async-select" && field.optionsEndpoint)
+            .map((field) => field.optionsEndpoint)
+        ),
+      ];
+
+      if (!endpoints.length || !token) return;
+
+      try {
+        setLoadingOptions(true);
+
+        const responses = await Promise.all(
+          endpoints.map((endpoint) =>
+            api.get(endpoint, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          )
+        );
+
+        const nextOptions = {};
+        endpoints.forEach((endpoint, index) => {
+          nextOptions[endpoint] = normalizeData(responses[index].data);
+        });
+
+        setAsyncOptions(nextOptions);
+      } catch (loadError) {
+        onError(
+          loadError.response?.data?.message ||
+            loadError.message ||
+            "Failed to load form options"
+        );
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+
+    loadAsyncOptions();
+  }, [form.fields, token, onError]);
+
+  const updateFieldValue = (fieldName, nextValue) => {
+    setValues((current) => {
+      const next = { ...current, [fieldName]: nextValue };
+
+      // When parent dropdown changes, clear dependent child fields.
+      form.fields.forEach((field) => {
+        if (field.dependsOn === fieldName) {
+          next[field.name] = "";
+        }
+      });
+
+      return next;
+    });
+  };
 
   const submitForm = async (event) => {
     event.preventDefault();
@@ -982,12 +1459,36 @@ function FeatureForm({ form, token, onSaved, onError }) {
       onError("");
 
       const payload = {};
+
       form.fields.forEach((field) => {
         const value = values[field.name];
-        payload[field.name] =
-          field.transform === "csv"
-            ? value.split(",").map((item) => item.trim()).filter(Boolean)
-            : value;
+
+        if (field.transform === "csv") {
+          payload[field.name] = value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+          return;
+        }
+
+        if (field.type === "number") {
+          if (value === "" || value === null || value === undefined) {
+            if (field.defaultValue !== undefined) {
+              payload[field.name] = Number(field.defaultValue);
+            }
+            return;
+          }
+
+          payload[field.name] = Number(value);
+          return;
+        }
+
+        if (field.name === "gradeLevel") {
+          payload[field.name] = Number(value);
+          return;
+        }
+
+        payload[field.name] = value;
       });
 
       const res = await api.request({
@@ -998,11 +1499,9 @@ function FeatureForm({ form, token, onSaved, onError }) {
       });
 
       onSaved(res.data?.message || "Saved successfully.");
-      setValues(initialValues);
+      setValues(getFeatureFormInitialValues(form.fields));
     } catch (saveError) {
-      onError(
-        saveError.response?.data?.message || saveError.message || "Save failed"
-      );
+      onError(saveError.response?.data?.message || saveError.message || "Save failed");
     } finally {
       setSaving(false);
     }
@@ -1011,57 +1510,82 @@ function FeatureForm({ form, token, onSaved, onError }) {
   return (
     <form
       onSubmit={submitForm}
-      className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
+      <div className="mb-5 border-b border-slate-100 pb-4">
+        <h2 className="text-lg font-black text-slate-950">Create Record</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          {loadingOptions
+            ? "Loading class and student lists..."
+            : "Fill the required details and save the new record."}
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
-        {form.fields.map((field) => (
-          <label key={field.name} className="text-sm font-semibold text-slate-700">
-            {field.label}
-            {field.type === "select" ? (
-              <select
-                value={values[field.name]}
-                required={field.required}
-                onChange={(event) =>
-                  setValues({ ...values, [field.name]: event.target.value })
-                }
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-              >
-                {field.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+        {form.fields.map((field) => {
+          const selectOptions = getFieldSelectOptions(field, values, asyncOptions);
+          const isSelect =
+            field.type === "select" || field.type === "async-select";
+          const dependsOnMissing =
+            field.dependsOn && !values[field.dependsOn];
+
+          return (
+            <label key={field.name} className="text-sm font-bold text-slate-700">
+              {field.label}
+              {field.required && <span className="text-red-600"> *</span>}
+
+              {isSelect ? (
+                <select
+                  value={values[field.name]}
+                  required={field.required}
+                  disabled={dependsOnMissing || loadingOptions}
+                  onChange={(event) =>
+                    updateFieldValue(field.name, event.target.value)
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm disabled:bg-slate-100"
+                >
+                  <option value="">
+                    {dependsOnMissing
+                      ? `Select ${field.dependsOn} first`
+                      : field.placeholder || "Select option"}
                   </option>
-                ))}
-              </select>
-            ) : field.type === "textarea" ? (
-              <textarea
-                value={values[field.name]}
-                required={field.required}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setValues({ ...values, [field.name]: event.target.value })
-                }
-                className="mt-1 min-h-28 w-full rounded-md border border-slate-300 px-3 py-2"
-              />
-            ) : (
-              <input
-                type={field.type || "text"}
-                value={values[field.name]}
-                required={field.required}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setValues({ ...values, [field.name]: event.target.value })
-                }
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-              />
-            )}
-          </label>
-        ))}
+                  {selectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === "textarea" ? (
+                <textarea
+                  value={values[field.name]}
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    updateFieldValue(field.name, event.target.value)
+                  }
+                  className="mt-1 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                />
+              ) : (
+                <input
+                  type={field.type || "text"}
+                  value={values[field.name]}
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    updateFieldValue(field.name, event.target.value)
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                />
+              )}
+            </label>
+          );
+        })}
       </div>
 
       <button
         type="submit"
-        disabled={saving}
-        className="mt-5 rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:bg-slate-400"
+        disabled={saving || loadingOptions}
+        className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
         {saving ? "Saving..." : form.submitLabel}
       </button>
@@ -1080,7 +1604,7 @@ function FormTextField({
   error = "",
 }) {
   return (
-    <label className="text-sm font-semibold text-slate-700">
+    <label className="text-sm font-bold text-slate-700">
       {label}
       {required && <span className="text-red-600"> *</span>}
       <input
@@ -1089,11 +1613,11 @@ function FormTextField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(name, event.target.value)}
-        className={`mt-1 w-full rounded-md border px-3 py-2 ${
+        className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm shadow-sm ${
           error ? "border-red-400" : "border-slate-300"
         }`}
       />
-      {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
     </label>
   );
 }
@@ -1122,7 +1646,7 @@ function PasswordField({
       : "text-slate-500";
 
   return (
-    <label className="text-sm font-semibold text-slate-700">
+    <label className="text-sm font-bold text-slate-700">
       {label}
       {required && <span className="text-red-600"> *</span>}
       <div className="relative mt-1">
@@ -1131,7 +1655,7 @@ function PasswordField({
           name={name}
           value={value}
           onChange={(event) => onChange(name, event.target.value)}
-          className={`w-full rounded-md border px-3 py-2 pr-10 ${
+          className={`w-full rounded-lg border px-3 py-2 pr-10 text-sm shadow-sm ${
             error ? "border-red-400" : "border-slate-300"
           }`}
         />
@@ -1141,32 +1665,15 @@ function PasswordField({
           className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-800"
           aria-label={visible ? "Hide password" : "Show password"}
         >
-          {visible ? (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.8"
-                d="M3 3l18 18M10.58 10.58A3 3 0 0012 15a3 3 0 002.42-4.42M9.88 5.09A10.94 10.94 0 0112 5c5.52 0 10.17 3.66 11 8.5a11.2 11.2 0 01-2.05 3.67M6.11 6.11A11.15 11.15 0 003 13.5C3.83 18.34 8.48 22 14 22c1.01 0 1.99-.13 2.91-.37"
-              />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.8"
-                d="M2.04 12C2.84 7.16 7.48 3.5 12 3.5S21.16 7.16 22 12c-.8 4.84-5.44 8.5-10 8.5S2.84 16.84 2.04 12Z"
-              />
-              <circle cx="12" cy="12" r="3" strokeWidth="1.8" />
-            </svg>
-          )}
+          {visible ? "Hide" : "Show"}
         </button>
       </div>
-      {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
+
+      {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
+
       {showStrength && value && (
-        <div className="mt-2 rounded-md bg-slate-50 p-3 text-xs text-slate-600">
-          <p className={`font-semibold ${strengthClass}`}>
+        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          <p className={`font-black ${strengthClass}`}>
             Password strength: {strength.label || "Enter password"}
           </p>
           <ul className="mt-2 space-y-1">
@@ -1198,7 +1705,7 @@ function TextField({
   required = false,
 }) {
   return (
-    <label className="text-sm font-semibold text-slate-700">
+    <label className="text-sm font-bold text-slate-700">
       {label}
       <input
         type={type}
@@ -1206,7 +1713,7 @@ function TextField({
         value={value}
         required={required}
         onChange={(event) => onChange(name, event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
       />
     </label>
   );
@@ -1221,13 +1728,13 @@ function OptionSelectField({
   placeholder = "Select option",
 }) {
   return (
-    <label className="text-sm font-semibold text-slate-700">
+    <label className="text-sm font-bold text-slate-700">
       {label}
       <select
         name={name}
         value={value}
         onChange={(event) => onChange(name, event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (
@@ -1242,13 +1749,13 @@ function OptionSelectField({
 
 function SelectField({ label, name, value, onChange, options }) {
   return (
-    <label className="text-sm font-semibold text-slate-700">
+    <label className="text-sm font-bold text-slate-700">
       {label}
       <select
         name={name}
         value={value}
         onChange={(event) => onChange(name, event.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -1275,8 +1782,14 @@ function DataTable({
   const [actionUserId, setActionUserId] = useState(null);
 
   if (!data) return <EmptyState icon={emptyIcon} message={emptyMessage} />;
+
   if (rows.length === 0) {
-    return <EmptyState icon={emptyIcon} message={emptyMessage || "No records found."} />;
+    return (
+      <EmptyState
+        icon={emptyIcon}
+        message={emptyMessage || "No records found."}
+      />
+    );
   }
 
   const columns = tableColumns || getColumns(rows);
@@ -1349,27 +1862,37 @@ function DataTable({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-100 text-slate-700">
             <tr>
               {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap p-3 font-bold">
+                <th key={column} className="whitespace-nowrap p-3 font-black">
                   {formatLabel(column)}
                 </th>
               ))}
-              {rowAction && <th className="whitespace-nowrap p-3 font-bold">Action</th>}
+              {rowAction && (
+                <th className="whitespace-nowrap p-3 font-black">Action</th>
+              )}
             </tr>
           </thead>
+
           <tbody>
             {rows.map((row, index) => (
-              <tr key={row._id || row.id || index} className="border-t border-slate-200">
+              <tr
+                key={row._id || row.id || index}
+                className="border-t border-slate-200 bg-white"
+              >
                 {columns.map((column) => (
-                  <td key={column} className="max-w-sm p-3 align-top text-slate-700">
+                  <td
+                    key={column}
+                    className="max-w-sm p-3 align-top text-slate-700"
+                  >
                     {formatCellValue(column, row[column])}
                   </td>
                 ))}
+
                 {rowAction === "disableUser" && (
                   <td className="p-3 align-top">
                     {row.isActive ? (
@@ -1380,7 +1903,7 @@ function DataTable({
                           (row._id || row.id) === currentUserId
                         }
                         onClick={() => disableUser(row)}
-                        className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:bg-slate-300"
+                        className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-black text-white transition hover:bg-red-700 disabled:bg-slate-300"
                       >
                         {actionUserId === (row._id || row.id)
                           ? "Disabling..."
@@ -1393,7 +1916,7 @@ function DataTable({
                         type="button"
                         disabled={actionUserId === (row._id || row.id)}
                         onClick={() => enableUser(row)}
-                        className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-slate-300"
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
                       >
                         {actionUserId === (row._id || row.id)
                           ? "Enabling..."
@@ -1426,10 +1949,14 @@ function SummaryPanel({ data, fields }) {
         return (
           <div
             key={field.label}
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <p className="text-sm font-semibold text-slate-500">{field.label}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-950">{displayValue}</p>
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+              {field.label}
+            </p>
+            <p className="mt-3 text-2xl font-black text-slate-950">
+              {displayValue}
+            </p>
           </div>
         );
       })}
@@ -1459,16 +1986,16 @@ function GridCardPanel({
       {rows.map((row, index) => (
         <div
           key={row._id || row.id || index}
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
         >
           {metaKey && row[metaKey] && (
             <p className="mb-2 text-3xl">{row[metaKey]}</p>
           )}
-          <h3 className="text-lg font-bold text-slate-900">
+          <h3 className="text-lg font-black text-slate-950">
             {formatCellValue(titleKey, row[titleKey])}
           </h3>
           {descriptionKey && row[descriptionKey] && (
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm leading-6 text-slate-600">
               {formatCellValue(descriptionKey, row[descriptionKey])}
             </p>
           )}
@@ -1490,9 +2017,14 @@ function CardPanel({ data }) {
         .filter(([key]) => key !== "__v" && key !== "_id")
         .slice(0, 12)
         .map(([key, value]) => (
-          <div key={key} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-slate-500">{formatLabel(key)}</p>
-            <p className="mt-2 break-words text-2xl font-bold text-slate-950">
+          <div
+            key={key}
+            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+              {formatLabel(key)}
+            </p>
+            <p className="mt-3 break-words text-2xl font-black text-slate-950">
               {formatValue(value)}
             </p>
           </div>
@@ -1503,9 +2035,9 @@ function CardPanel({ data }) {
 
 function EmptyState({ message = "No data available yet.", icon }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-600 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
       {icon && <div className="mb-2 text-3xl">{icon}</div>}
-      <p>{message}</p>
+      <p className="text-sm font-semibold text-slate-600">{message}</p>
     </div>
   );
 }
@@ -1595,9 +2127,11 @@ function getColumns(rows) {
     "question",
     "createdAt",
   ];
+
   const keys = [...new Set(rows.flatMap((row) => Object.keys(row)))].filter(
     (key) => !["__v", "password"].includes(key)
   );
+
   return [
     ...priority.filter((key) => keys.includes(key)),
     ...keys.filter((key) => !priority.includes(key)),
@@ -1607,6 +2141,10 @@ function getColumns(rows) {
 function formatCellValue(column, value) {
   if (column === "isActive") {
     return value ? "Active" : "Inactive";
+  }
+
+  if (column === "gradeLevel") {
+    return value ? `Grade ${value}` : "N/A";
   }
 
   if (column === "rank") {
@@ -1636,11 +2174,18 @@ function formatValue(value) {
   if (value === null || value === undefined || value === "") return "N/A";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "number") return String(value);
-  if (typeof value === "string") return value.length > 120 ? `${value.slice(0, 120)}...` : value;
-  if (Array.isArray(value)) return value.map(formatValue).join(", ") || "N/A";
+
+  if (typeof value === "string") {
+    return value.length > 120 ? `${value.slice(0, 120)}...` : value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(formatValue).join(", ") || "N/A";
+  }
 
   return (
     value.fullName ||
+    value.user?.fullName ||
     value.email ||
     value.subjectName ||
     value.className ||
@@ -1658,11 +2203,14 @@ function formatValue(value) {
 function downloadBlob(blob, fileName) {
   const fileURL = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
+
   link.href = fileURL;
   link.setAttribute("download", fileName);
+
   document.body.appendChild(link);
   link.click();
   link.remove();
+
   window.URL.revokeObjectURL(fileURL);
 }
 

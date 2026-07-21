@@ -4,6 +4,7 @@ export const teacherMobileLinks = [
   { label: "Dashboard", to: "/teacher", end: true },
   { label: "Classes", to: "/teacher/classes" },
   { label: "Papers", to: "/teacher/papers" },
+  { label: "Create Exam", to: "/teacher/exams" },
   { label: "Submissions", to: "/teacher/submissions" },
   { label: "Analytics", to: "/teacher/topic-error-analysis" },
   { label: "Reports", to: "/teacher/reports" },
@@ -34,7 +35,8 @@ function TeacherSidebar() {
         title="Class Operations"
         items={[
           { label: "Student Submissions", to: "/teacher/submissions" },
-          { label: "AI Essay Grading", to: "/teacher/submissions" },
+          { label: "AI Essay Grading", to: "/teacher/essay-review" },
+          { label: "Create Exam", to: "/teacher/exams" },
           { label: "Marks Management", to: "/teacher/marks" },
           { label: "Attendance Management", to: "/teacher/attendance" },
         ]}

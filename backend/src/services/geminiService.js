@@ -19,6 +19,15 @@ export const evaluateEssayWithGemini = async (
   maxMarks
 ) => {
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      return {
+        marks: 0,
+        feedback:
+          "Gemini evaluation failed. Please use teacher review.",
+        missingPoints: [],
+      };
+    }
+
     const model = genAI.getGenerativeModel({
       model:"gemini-2.5-flash",
     });
@@ -75,6 +84,17 @@ export const analyzeEssayTopicsWithGemini = async (
   modelAnswer
 ) => {
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      return {
+        weakTopics: [],
+        missingConcepts: [],
+        strongAreas: [],
+        improvementSuggestions: [
+          "AI topic analysis failed. Please use teacher review.",
+        ],
+      };
+    }
+
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
     });

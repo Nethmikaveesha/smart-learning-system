@@ -7,22 +7,46 @@ import {
 } from "../services/geminiService.js";
 import { evaluateEssayWithNlp } from "../services/nlpService.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
+import {
+  applyTeacherPartMarks,
+  buildMarkBreakdown,
+} from "../utils/essayMarkBreakdown.js";
+
+const withTimeout = (promise, ms, fallback) =>
+  Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
 
 export const createEssayQuestion = async (req, res) => {
   try {
-    const { subject, question, maxMarks } = req.body;
+    const { subject, question, maxMarks, gradeLevel } = req.body;
+    const resolvedGradeLevel = Number(gradeLevel);
+
+    if (![12, 13].includes(resolvedGradeLevel)) {
+      return res.status(400).json({
+        message: "gradeLevel is required and must be 12 or 13",
+      });
+    }
+
+    if (!subject || !question) {
+      return res.status(400).json({
+        message: "subject and question are required",
+      });
+    }
 
     const essayQuestion = await EssayQuestion.create({
       subject,
       question,
       maxMarks,
+      gradeLevel: resolvedGradeLevel,
     });
 
     await createAuditLog({
       userId: req.user?._id,
       action: "CREATE",
       module: "Essay Question",
-      description: "New essay question created",
+      description: `New essay question created for Grade ${resolvedGradeLevel}`,
     });
 
     res.status(201).json({
@@ -64,6 +88,12 @@ export const submitEssay = async (req, res) => {
   try {
     const { studentId, questionId, answer } = req.body;
 
+    if (!studentId || !questionId || !answer?.trim()) {
+      return res.status(400).json({
+        message: "studentId, questionId, and answer are required",
+      });
+    }
+
     const essayQuestion = await EssayQuestion.findById(questionId);
 
     if (!essayQuestion) {
@@ -78,78 +108,106 @@ export const submitEssay = async (req, res) => {
 
     if (!markingScheme) {
       return res.status(404).json({
-        message: "Marking scheme not found",
+        message:
+          "Marking scheme not found for this paper. Ask your teacher to create a marking scheme first (Keywords + Model Answer).",
       });
     }
 
+    const keywords = Array.isArray(markingScheme.keywords)
+      ? markingScheme.keywords
+      : [];
+
     let score = 0;
 
-    markingScheme.keywords.forEach((keyword) => {
-      if (answer.toLowerCase().includes(keyword.toLowerCase())) {
+    keywords.forEach((keyword) => {
+      if (answer.toLowerCase().includes(String(keyword).toLowerCase())) {
         score++;
       }
     });
 
-    const keywordMarks = markingScheme.keywords.length
-      ? Math.round(
-          (score / markingScheme.keywords.length) * essayQuestion.maxMarks
-        )
+    const keywordMarks = keywords.length
+      ? Math.round((score / keywords.length) * essayQuestion.maxMarks)
       : 0;
 
     const keywordFeedback =
-      keywordMarks >= 8
+      keywordMarks >= essayQuestion.maxMarks * 0.8
         ? "Excellent answer"
-        : keywordMarks >= 5
+        : keywordMarks >= essayQuestion.maxMarks * 0.5
         ? "Good answer, but needs improvement"
         : "Weak answer. Add more key points.";
 
-    const geminiEvaluation = await evaluateEssayWithGemini(
-      essayQuestion.question,
-      answer,
-      essayQuestion.maxMarks
-    );
-
+    // NLP runs locally and must never block the student submit.
     const nlpEvaluation = evaluateEssayWithNlp({
       answer,
-      modelAnswer: markingScheme.modelAnswer,
-      keywords: markingScheme.keywords,
+      modelAnswer: markingScheme.modelAnswer || "",
+      keywords,
       maxMarks: essayQuestion.maxMarks,
     });
 
-    const topicAnalysis = await analyzeEssayTopicsWithGemini(
-      essayQuestion.question,
-      answer,
-      markingScheme.modelAnswer
-    );
+    const geminiFallback = {
+      marks: 0,
+      feedback: "Gemini evaluation unavailable. NLP recommended marks were used.",
+      missingPoints: [],
+    };
+
+    const topicFallback = {
+      weakTopics: [],
+      missingConcepts: nlpEvaluation.missingKeywords || [],
+      strongAreas: nlpEvaluation.matchedKeywords || [],
+      improvementSuggestions: [
+        "Improve keyword coverage and essay structure (introduction, body, conclusion).",
+      ],
+    };
+
+    // Gemini is optional — timeout so the Submit button does not hang forever.
+    const [geminiEvaluation, topicAnalysis] = await Promise.all([
+      withTimeout(
+        evaluateEssayWithGemini(
+          essayQuestion.question,
+          answer,
+          essayQuestion.maxMarks
+        ),
+        12000,
+        geminiFallback
+      ),
+      withTimeout(
+        analyzeEssayTopicsWithGemini(
+          essayQuestion.question,
+          answer,
+          markingScheme.modelAnswer || ""
+        ),
+        12000,
+        topicFallback
+      ),
+    ]);
 
     const hasGeminiEvaluation =
       typeof geminiEvaluation.marks === "number" &&
       geminiEvaluation.feedback !==
-        "Gemini evaluation failed. Please use teacher review.";
+        "Gemini evaluation failed. Please use teacher review." &&
+      geminiEvaluation.feedback !== geminiFallback.feedback;
 
-    const finalAiMarks = hasGeminiEvaluation
-      ? Math.min(
-          essayQuestion.maxMarks,
-          Math.max(
-            0,
-            Math.round(geminiEvaluation.marks * 0.7 + nlpEvaluation.marks * 0.3)
-          )
-        )
-      : nlpEvaluation.marks || keywordMarks;
+    const finalAiFeedback = hasGeminiEvaluation
+      ? `${geminiEvaluation.feedback} NLP insight: ${nlpEvaluation.feedback}`
+      : nlpEvaluation.feedback || keywordFeedback;
 
-    const finalAiFeedback =
-      geminiEvaluation.feedback &&
-      geminiEvaluation.feedback !==
-        "Gemini evaluation failed. Please use teacher review."
-        ? `${geminiEvaluation.feedback} NLP insight: ${nlpEvaluation.feedback}`
-        : nlpEvaluation.feedback || keywordFeedback;
+    const markBreakdown = buildMarkBreakdown({
+      maxMarks: essayQuestion.maxMarks,
+      keywordCoverage: nlpEvaluation.keywordCoverage,
+      structureAnalysis: nlpEvaluation.structureAnalysis,
+      matchedKeywords: nlpEvaluation.matchedKeywords,
+      missingKeywords: nlpEvaluation.missingKeywords,
+    });
+
+    const recommendedMarks = markBreakdown.recommendedTotal;
 
     const submission = await EssaySubmission.create({
       student: studentId,
       question: questionId,
       answer,
-      marks: finalAiMarks,
+      marks: recommendedMarks,
       feedback: finalAiFeedback,
+      markBreakdown,
       nlpEvaluation,
       topicAnalysis,
     });
@@ -166,16 +224,18 @@ export const submitEssay = async (req, res) => {
       keywordEvaluation: {
         marks: keywordMarks,
         matchedKeywords: score,
-        totalKeywords: markingScheme.keywords.length,
+        totalKeywords: keywords.length,
       },
       geminiEvaluation,
       nlpEvaluation,
       topicAnalysis,
+      markBreakdown,
       submission,
     });
   } catch (error) {
+    console.error("Essay submit error:", error);
     res.status(500).json({
-      message: error.message,
+      message: error.message || "Essay submission failed",
     });
   }
 };
@@ -183,9 +243,12 @@ export const submitEssay = async (req, res) => {
 export const approveEssaySubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
-    const { finalMarks, teacherFeedback } = req.body;
+    const { finalMarks, teacherFeedback, markParts } = req.body;
 
-    const submission = await EssaySubmission.findById(submissionId);
+    const submission = await EssaySubmission.findById(submissionId).populate(
+      "question",
+      "maxMarks question"
+    );
 
     if (!submission) {
       return res.status(404).json({
@@ -193,10 +256,27 @@ export const approveEssaySubmission = async (req, res) => {
       });
     }
 
-    submission.finalMarks = finalMarks;
-    submission.teacherFeedback = teacherFeedback;
+    let nextBreakdown = submission.markBreakdown;
+
+    if (Array.isArray(markParts) && markParts.length > 0) {
+      nextBreakdown = applyTeacherPartMarks(submission.markBreakdown, markParts);
+      submission.markBreakdown = nextBreakdown;
+    }
+
+    const resolvedFinalMarks =
+      nextBreakdown?.teacherTotal !== null &&
+      nextBreakdown?.teacherTotal !== undefined
+        ? nextBreakdown.teacherTotal
+        : finalMarks !== undefined && finalMarks !== null && finalMarks !== ""
+        ? Number(finalMarks)
+        : submission.marks;
+
+    submission.finalMarks = resolvedFinalMarks;
+    submission.teacherFeedback = teacherFeedback || submission.teacherFeedback;
     submission.status =
-      finalMarks === submission.marks ? "Approved" : "Modified";
+      Number(resolvedFinalMarks) === Number(submission.marks)
+        ? "Approved"
+        : "Modified";
 
     await submission.save();
 
@@ -228,7 +308,7 @@ export const getAllEssaySubmissions = async (req, res) => {
           select: "fullName email",
         },
       })
-      .populate("question", "question maxMarks")
+      .populate("question", "question maxMarks gradeLevel")
       .sort({ createdAt: -1 });
 
     res.status(200).json(submissions);
@@ -241,10 +321,18 @@ export const getAllEssaySubmissions = async (req, res) => {
 
 export const getEssayQuestions = async (req, res) => {
   try {
-    const questions = await EssayQuestion.find().populate(
-      "subject",
-      "subjectName"
-    );
+    const filter = {};
+
+    if (req.query.gradeLevel) {
+      const grade = Number(req.query.gradeLevel);
+      if (grade === 12 || grade === 13) {
+        filter.gradeLevel = grade;
+      }
+    }
+
+    const questions = await EssayQuestion.find(filter)
+      .populate("subject", "subjectName subjectCode")
+      .sort({ gradeLevel: 1, createdAt: -1 });
 
     res.status(200).json(questions);
   } catch (error) {

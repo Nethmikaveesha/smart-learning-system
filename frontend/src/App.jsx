@@ -17,6 +17,7 @@ import Chatbot from "./pages/Chatbot";
 import RiskDashboard from "./pages/RiskDashboard";
 import PublicPage from "./pages/public/PublicPage";
 import DashboardFeaturePage from "./pages/DashboardFeaturePage";
+import TeacherEssayReview from "./pages/TeacherEssayReview";
 
 // This component protects dashboard routes.
 // If the user is not logged in, it redirects to the login page.
@@ -74,6 +75,7 @@ function AppRoutes() {
           path="topic-error-analysis"
           element={<TeacherTopicErrorAnalysis />}
         />
+        <Route path="essay-review" element={<TeacherEssayReview />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 

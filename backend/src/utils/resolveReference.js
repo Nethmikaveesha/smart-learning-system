@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Class from "../models/Class.js";
 import StudentProfile from "../models/StudentProfile.js";
 import Subject from "../models/Subject.js";
+import { inferGradeLevel } from "./gradeLevel.js";
 
 export const isValidObjectId = (value) =>
   mongoose.Types.ObjectId.isValid(value) &&
@@ -45,11 +46,28 @@ export const resolveOrCreateClass = async (className, academicYear = "") => {
   if (!className) return null;
 
   const existingClass = await resolveClass(className);
-  if (existingClass) return existingClass;
+  if (existingClass) {
+    if (!existingClass.gradeLevel) {
+      const inferred = inferGradeLevel(existingClass.className || className);
+      if (inferred) {
+        existingClass.gradeLevel = inferred;
+        await existingClass.save();
+      }
+    }
+    return existingClass;
+  }
+
+  const inferredGrade = inferGradeLevel(className);
+  if (![12, 13].includes(inferredGrade)) {
+    throw new Error(
+      `Cannot create class "${className}" without grade 12 or 13 in the name (or set gradeLevel explicitly)`
+    );
+  }
 
   return Class.create({
     className: String(className).trim(),
     academicYear: academicYear || new Date().getFullYear().toString(),
+    gradeLevel: inferredGrade,
   });
 };
 

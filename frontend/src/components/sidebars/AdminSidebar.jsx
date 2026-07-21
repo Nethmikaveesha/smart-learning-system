@@ -5,7 +5,7 @@ export const adminMobileLinks = [
   { label: "Users", to: "/admin/users" },
   { label: "Add Admin", to: "/admin/users/add" },
   { label: "Classes", to: "/admin/classes" },
-  { label: "Exams", to: "/admin/exam-timetables" },
+  { label: "Exams", to: "/admin/exams" },
   { label: "Analytics", to: "/admin/system-analytics" },
   { label: "Reports", to: "/admin/reports" },
 ];
@@ -44,6 +44,7 @@ function AdminSidebar() {
       <SidebarSection
         title="Exam Control"
         items={[
+          { label: "Exams", to: "/admin/exams" },
           { label: "Exam Timetables", to: "/admin/exam-timetables" },
           { label: "Question Paper Details", to: "/admin/question-paper-details" },
           { label: "Reports", to: "/admin/reports" },
