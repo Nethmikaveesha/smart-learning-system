@@ -8,6 +8,23 @@ import {
   validateRegistrationForm,
 } from "../utils/registrationValidation";
 
+/** Real-world class label: "Grade 13 — 13 Commerce A (2026)" */
+function formatClassOptionLabel(item) {
+  const grade = item.gradeLevel ? `Grade ${item.gradeLevel}` : null;
+  const name = item.className || "Class";
+  const year = item.academicYear ? ` (${item.academicYear})` : "";
+  return grade ? `${grade} — ${name}${year}` : `${name}${year}`;
+}
+
+/** Exam label includes grade from linked class */
+function formatExamOptionLabel(item) {
+  const subject = item.subject?.subjectName || "Subject";
+  const className = item.class?.className || "Class";
+  const grade = item.class?.gradeLevel ? `G${item.class.gradeLevel}` : null;
+  const classPart = grade ? `${grade} ${className}` : className;
+  return `${item.examName} — ${subject} (${classPart})`;
+}
+
 const featureConfigs = {
   "/admin/users/add": {
     title: "Add New Admin",
@@ -76,15 +93,48 @@ const featureConfigs = {
   },
   "/admin/classes": {
     title: "Classes",
+    description:
+      "Create A/L classes with an explicit Grade 12 or Grade 13 level. This drives exam and student filtering.",
     endpoint: "/classes",
+    tableColumns: [
+      "gradeLevel",
+      "className",
+      "stream",
+      "medium",
+      "academicYear",
+    ],
     form: {
       endpoint: "/classes",
       method: "post",
       submitLabel: "Create Class",
       fields: [
-        { name: "className", label: "Class Name", required: true },
-        { name: "academicYear", label: "Academic Year", required: true },
-        { name: "assignedTeacher", label: "Assigned Teacher ID" },
+        {
+          name: "gradeLevel",
+          label: "Grade Level",
+          type: "select",
+          required: true,
+          options: [
+            { value: "12", label: "Grade 12" },
+            { value: "13", label: "Grade 13" },
+          ],
+        },
+        {
+          name: "className",
+          label: "Class Name",
+          required: true,
+          placeholder: "e.g. Commerce A or 12 Commerce A",
+        },
+        {
+          name: "academicYear",
+          label: "Academic Year",
+          required: true,
+          placeholder: "e.g. 2026",
+        },
+        {
+          name: "assignedTeacher",
+          label: "Assigned Teacher ID",
+          placeholder: "Optional MongoDB User _id",
+        },
       ],
     },
   },
@@ -108,6 +158,8 @@ const featureConfigs = {
   },
   "/admin/exam-timetables": {
     title: "Exam Timetables",
+    description:
+      "Schedule exam dates, times, and rooms. This is separate from marks exams.",
     endpoint: "/exam-timetables",
     form: {
       endpoint: "/exam-timetables",
@@ -122,6 +174,114 @@ const featureConfigs = {
         { name: "endTime", label: "End Time", type: "time", required: true },
         { name: "location", label: "Location" },
         { name: "instructions", label: "Instructions" },
+      ],
+    },
+  },
+  "/admin/exams": {
+    title: "Exams",
+    description:
+      "Create exams used for Marks Management, ranks, and Z-scores. Pick class and subject by name.",
+    endpoint: "/exams",
+    tableColumns: ["examName", "class", "subject", "examDate", "totalMarks"],
+    form: {
+      endpoint: "/exams",
+      method: "post",
+      submitLabel: "Create Exam",
+      fields: [
+        {
+          name: "examName",
+          label: "Exam Name",
+          required: true,
+          placeholder: "e.g. Term Test 1 - Accounting",
+        },
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "subjectId",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "examDate",
+          label: "Exam Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "totalMarks",
+          label: "Total Marks",
+          type: "number",
+          defaultValue: 100,
+          placeholder: "100",
+        },
+      ],
+    },
+  },
+  "/teacher/exams": {
+    title: "Create Exam",
+    description:
+      "Create an exam for Marks Management. After creating, enter student marks from Marks Management.",
+    endpoint: "/exams",
+    tableColumns: ["examName", "class", "subject", "examDate", "totalMarks"],
+    form: {
+      endpoint: "/exams",
+      method: "post",
+      submitLabel: "Create Exam",
+      fields: [
+        {
+          name: "examName",
+          label: "Exam Name",
+          required: true,
+          placeholder: "e.g. Term Test 1 - Accounting",
+        },
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "subjectId",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "examDate",
+          label: "Exam Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "totalMarks",
+          label: "Total Marks",
+          type: "number",
+          defaultValue: 100,
+          placeholder: "100",
+        },
       ],
     },
   },
@@ -168,37 +328,91 @@ const featureConfigs = {
     title: "My Subjects",
     endpoint: "/subjects",
   },
-  "/teacher/papers": {
-    title: "My Papers",
-    endpoint: "/essays/questions",
-  },
   "/teacher/create-paper": {
     title: "Create Paper",
-    description: "Create a new essay question paper for students.",
+    description:
+      "Create a new essay question paper for Grade 12 or Grade 13 students. Select grade and subject by name.",
+    endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
     form: {
       endpoint: "/essays/questions",
       method: "post",
       submitLabel: "Create Paper",
       fields: [
-        { name: "subject", label: "Subject ID", required: true },
-        { name: "question", label: "Question", type: "textarea", required: true },
-        { name: "maxMarks", label: "Max Marks", type: "number" },
+        {
+          name: "gradeLevel",
+          label: "Grade Level",
+          type: "select",
+          required: true,
+          options: [
+            { value: "12", label: "Grade 12" },
+            { value: "13", label: "Grade 13" },
+          ],
+        },
+        {
+          name: "subject",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "question",
+          label: "Question",
+          type: "textarea",
+          required: true,
+          placeholder: "Type the essay question students will answer...",
+        },
+        {
+          name: "maxMarks",
+          label: "Max Marks",
+          type: "number",
+          defaultValue: 10,
+          placeholder: "10",
+        },
       ],
     },
   },
   "/teacher/question-bank": {
     title: "Question Bank",
     endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
   },
   "/teacher/marking-schemes": {
     title: "Marking Schemes",
-    description: "Create a marking scheme for an essay question.",
+    description:
+      "Create a marking scheme for an essay question. Select the paper by question text — the question ID is sent in the background.",
+    endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks"],
     form: {
       endpoint: "/essays/marking-schemes",
       method: "post",
       submitLabel: "Create Marking Scheme",
       fields: [
-        { name: "question", label: "Question ID", required: true },
+        {
+          name: "question",
+          label: "Essay Paper",
+          type: "async-select",
+          required: true,
+          placeholder: "Select essay question",
+          optionsEndpoint: "/essays/questions",
+          optionValue: "_id",
+          getOptionLabel: (item) => {
+            const text = item.question || "Untitled question";
+            const short =
+              text.length > 80 ? `${text.slice(0, 80)}...` : text;
+            const subject = item.subject?.subjectName;
+            const grade = item.gradeLevel ? `G${item.gradeLevel}` : null;
+            const parts = [short];
+            if (grade) parts.push(grade);
+            if (subject) parts.push(subject);
+            return parts.join(" — ");
+          },
+        },
         {
           name: "keywords",
           label: "Keywords",
@@ -206,9 +420,19 @@ const featureConfigs = {
           placeholder: "comma,separated,keywords",
           transform: "csv",
         },
-        { name: "modelAnswer", label: "Model Answer", type: "textarea" },
+        {
+          name: "modelAnswer",
+          label: "Model Answer",
+          type: "textarea",
+          placeholder: "Ideal answer used by AI / NLP grading...",
+        },
       ],
     },
+  },
+  "/teacher/papers": {
+    title: "My Papers",
+    endpoint: "/essays/questions",
+    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
   },
   "/teacher/submissions": {
     title: "Student Submissions",
@@ -216,13 +440,121 @@ const featureConfigs = {
   },
   "/teacher/marks": {
     title: "Marks Management",
+    description:
+      "Select an exam and student by name, enter marks, then save. Grade and risk status are calculated automatically by the API.",
     endpoint: "/results",
+    tableColumns: ["student", "exam", "marks", "grade", "rank", "zScore"],
+    form: {
+      endpoint: "/results",
+      method: "post",
+      submitLabel: "Add Result",
+      fields: [
+        {
+          name: "exam",
+          label: "Exam",
+          type: "async-select",
+          required: true,
+          placeholder: "Select exam",
+          optionsEndpoint: "/exams",
+          optionValue: "_id",
+          getOptionLabel: formatExamOptionLabel,
+        },
+        {
+          name: "student",
+          label: "Student",
+          type: "async-select",
+          required: true,
+          placeholder: "Select student",
+          optionsEndpoint: "/student-profiles",
+          optionValue: "_id",
+          dependsOn: "exam",
+          filterBy: (item, values, asyncOptions) => {
+            if (!values.exam) return true;
+
+            const exams = asyncOptions["/exams"] || [];
+            const selectedExam = exams.find(
+              (exam) => String(exam._id) === String(values.exam)
+            );
+
+            if (!selectedExam) return true;
+
+            const examClassId = selectedExam.class?._id || selectedExam.class;
+            const studentClassId = item.class?._id || item.class;
+
+            return String(studentClassId) === String(examClassId);
+          },
+          getOptionLabel: (item) => {
+            const name = item.user?.fullName || "Student";
+            const code = item.studentId || "No ID";
+            return `${name} (${code})`;
+          },
+        },
+        {
+          name: "marks",
+          label: "Marks",
+          type: "number",
+          required: true,
+          placeholder: "e.g. 72",
+        },
+      ],
+    },
   },
   "/teacher/attendance": {
     title: "Attendance Management",
-    endpoint: "/teacher-dashboard",
-    layout: "cards",
-    description: "Use class records and student IDs to mark attendance from the attendance API.",
+    description:
+      "Select a class and student by name, then mark Present or Absent. MongoDB IDs are sent in the background.",
+    endpoint: "/classes",
+    tableColumns: ["className", "stream", "medium", "academicYear"],
+    form: {
+      endpoint: "/attendance",
+      method: "post",
+      submitLabel: "Mark Attendance",
+      fields: [
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "student",
+          label: "Student",
+          type: "async-select",
+          required: true,
+          placeholder: "Select student",
+          optionsEndpoint: "/student-profiles",
+          optionValue: "_id",
+          dependsOn: "classId",
+          filterBy: (item, values) => {
+            if (!values.classId) return true;
+            const studentClassId = item.class?._id || item.class;
+            return String(studentClassId) === String(values.classId);
+          },
+          getOptionLabel: (item) => {
+            const name = item.user?.fullName || "Student";
+            const code = item.studentId || "No ID";
+            return `${name} (${code})`;
+          },
+        },
+        {
+          name: "date",
+          label: "Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "status",
+          label: "Status",
+          type: "select",
+          options: ["Present", "Absent"],
+          required: true,
+        },
+      ],
+    },
   },
   "/teacher/z-scores-rankings": {
     title: "Z-Scores & Rankings",
@@ -1008,13 +1340,116 @@ function RegisterUserForm({
   );
 }
 
-function FeatureForm({ form, token, onSaved, onError }) {
-  const initialValues = Object.fromEntries(
-    form.fields.map((field) => [field.name, field.options?.[0] || ""])
+function getFeatureFormInitialValues(fields) {
+  return Object.fromEntries(
+    fields.map((field) => {
+      if (field.defaultValue !== undefined) {
+        return [field.name, field.defaultValue];
+      }
+
+      if (field.type === "select" && field.options?.length) {
+        const first = field.options[0];
+        return [field.name, typeof first === "object" ? first.value : first];
+      }
+
+      if (field.type === "date") {
+        return [field.name, new Date().toISOString().slice(0, 10)];
+      }
+
+      return [field.name, ""];
+    })
   );
+}
+
+function getFieldSelectOptions(field, values, asyncOptions) {
+  if (field.type === "async-select") {
+    const items = asyncOptions[field.optionsEndpoint] || [];
+    const filtered = field.filterBy
+      ? items.filter((item) => field.filterBy(item, values, asyncOptions))
+      : items;
+
+    return filtered.map((item) => ({
+      value: String(item[field.optionValue] || item._id || ""),
+      label: field.getOptionLabel
+        ? field.getOptionLabel(item)
+        : String(item[field.optionValue] || item._id || ""),
+    }));
+  }
+
+  if (!field.options) return [];
+
+  return field.options.map((option) =>
+    typeof option === "object"
+      ? option
+      : { value: option, label: option }
+  );
+}
+
+function FeatureForm({ form, token, onSaved, onError }) {
+  const initialValues = getFeatureFormInitialValues(form.fields);
 
   const [values, setValues] = useState(initialValues);
+  const [asyncOptions, setAsyncOptions] = useState({});
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loadAsyncOptions = async () => {
+      const endpoints = [
+        ...new Set(
+          form.fields
+            .filter((field) => field.type === "async-select" && field.optionsEndpoint)
+            .map((field) => field.optionsEndpoint)
+        ),
+      ];
+
+      if (!endpoints.length || !token) return;
+
+      try {
+        setLoadingOptions(true);
+
+        const responses = await Promise.all(
+          endpoints.map((endpoint) =>
+            api.get(endpoint, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+          )
+        );
+
+        const nextOptions = {};
+        endpoints.forEach((endpoint, index) => {
+          nextOptions[endpoint] = normalizeData(responses[index].data);
+        });
+
+        setAsyncOptions(nextOptions);
+      } catch (loadError) {
+        onError(
+          loadError.response?.data?.message ||
+            loadError.message ||
+            "Failed to load form options"
+        );
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+
+    loadAsyncOptions();
+  }, [form.fields, token, onError]);
+
+  const updateFieldValue = (fieldName, nextValue) => {
+    setValues((current) => {
+      const next = { ...current, [fieldName]: nextValue };
+
+      // When parent dropdown changes, clear dependent child fields.
+      form.fields.forEach((field) => {
+        if (field.dependsOn === fieldName) {
+          next[field.name] = "";
+        }
+      });
+
+      return next;
+    });
+  };
 
   const submitForm = async (event) => {
     event.preventDefault();
@@ -1028,13 +1463,32 @@ function FeatureForm({ form, token, onSaved, onError }) {
       form.fields.forEach((field) => {
         const value = values[field.name];
 
-        payload[field.name] =
-          field.transform === "csv"
-            ? value
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean)
-            : value;
+        if (field.transform === "csv") {
+          payload[field.name] = value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+          return;
+        }
+
+        if (field.type === "number") {
+          if (value === "" || value === null || value === undefined) {
+            if (field.defaultValue !== undefined) {
+              payload[field.name] = Number(field.defaultValue);
+            }
+            return;
+          }
+
+          payload[field.name] = Number(value);
+          return;
+        }
+
+        if (field.name === "gradeLevel") {
+          payload[field.name] = Number(value);
+          return;
+        }
+
+        payload[field.name] = value;
       });
 
       const res = await api.request({
@@ -1045,7 +1499,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
       });
 
       onSaved(res.data?.message || "Saved successfully.");
-      setValues(initialValues);
+      setValues(getFeatureFormInitialValues(form.fields));
     } catch (saveError) {
       onError(saveError.response?.data?.message || saveError.message || "Save failed");
     } finally {
@@ -1061,60 +1515,76 @@ function FeatureForm({ form, token, onSaved, onError }) {
       <div className="mb-5 border-b border-slate-100 pb-4">
         <h2 className="text-lg font-black text-slate-950">Create Record</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Fill the required details and save the new record.
+          {loadingOptions
+            ? "Loading class and student lists..."
+            : "Fill the required details and save the new record."}
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {form.fields.map((field) => (
-          <label key={field.name} className="text-sm font-bold text-slate-700">
-            {field.label}
-            {field.required && <span className="text-red-600"> *</span>}
+        {form.fields.map((field) => {
+          const selectOptions = getFieldSelectOptions(field, values, asyncOptions);
+          const isSelect =
+            field.type === "select" || field.type === "async-select";
+          const dependsOnMissing =
+            field.dependsOn && !values[field.dependsOn];
 
-            {field.type === "select" ? (
-              <select
-                value={values[field.name]}
-                required={field.required}
-                onChange={(event) =>
-                  setValues({ ...values, [field.name]: event.target.value })
-                }
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-              >
-                {field.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+          return (
+            <label key={field.name} className="text-sm font-bold text-slate-700">
+              {field.label}
+              {field.required && <span className="text-red-600"> *</span>}
+
+              {isSelect ? (
+                <select
+                  value={values[field.name]}
+                  required={field.required}
+                  disabled={dependsOnMissing || loadingOptions}
+                  onChange={(event) =>
+                    updateFieldValue(field.name, event.target.value)
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm disabled:bg-slate-100"
+                >
+                  <option value="">
+                    {dependsOnMissing
+                      ? `Select ${field.dependsOn} first`
+                      : field.placeholder || "Select option"}
                   </option>
-                ))}
-              </select>
-            ) : field.type === "textarea" ? (
-              <textarea
-                value={values[field.name]}
-                required={field.required}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setValues({ ...values, [field.name]: event.target.value })
-                }
-                className="mt-1 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
-              />
-            ) : (
-              <input
-                type={field.type || "text"}
-                value={values[field.name]}
-                required={field.required}
-                placeholder={field.placeholder}
-                onChange={(event) =>
-                  setValues({ ...values, [field.name]: event.target.value })
-                }
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
-              />
-            )}
-          </label>
-        ))}
+                  {selectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === "textarea" ? (
+                <textarea
+                  value={values[field.name]}
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    updateFieldValue(field.name, event.target.value)
+                  }
+                  className="mt-1 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                />
+              ) : (
+                <input
+                  type={field.type || "text"}
+                  value={values[field.name]}
+                  required={field.required}
+                  placeholder={field.placeholder}
+                  onChange={(event) =>
+                    updateFieldValue(field.name, event.target.value)
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                />
+              )}
+            </label>
+          );
+        })}
       </div>
 
       <button
         type="submit"
-        disabled={saving}
+        disabled={saving || loadingOptions}
         className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
         {saving ? "Saving..." : form.submitLabel}
@@ -1673,6 +2143,10 @@ function formatCellValue(column, value) {
     return value ? "Active" : "Inactive";
   }
 
+  if (column === "gradeLevel") {
+    return value ? `Grade ${value}` : "N/A";
+  }
+
   if (column === "rank") {
     const numericRank = Number(value);
     return numericRank > 0 ? numericRank : "N/A";
@@ -1711,6 +2185,7 @@ function formatValue(value) {
 
   return (
     value.fullName ||
+    value.user?.fullName ||
     value.email ||
     value.subjectName ||
     value.className ||

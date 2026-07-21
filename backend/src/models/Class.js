@@ -8,6 +8,13 @@ const classSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // A/L year group — used to distinguish Grade 12 vs Grade 13.
+    gradeLevel: {
+      type: Number,
+      enum: [12, 13],
+      required: true,
+    },
+
     stream: {
       type: String,
       default: "Commerce",

@@ -40,8 +40,8 @@ export const createExam = async (req, res) => {
 export const getAllExams = async (req, res) => {
   try {
     const exams = await Exam.find()
-      .populate("class", "className")
-      .populate("subject", "subjectName");
+      .populate("class", "className gradeLevel academicYear")
+      .populate("subject", "subjectName subjectCode");
 
     res.status(200).json(exams);
   } catch (error) {

@@ -52,7 +52,7 @@ export const getAllStudentProfiles = async (req, res) => {
   try {
     const profiles = await StudentProfile.find()
       .populate("user", "fullName email phoneNumber isActive role")
-      .populate("class", "className academicYear")
+      .populate("class", "className academicYear gradeLevel")
       .populate("subjects", "subjectName")
       .populate("parent", "fullName email");
 

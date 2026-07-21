@@ -8,6 +8,13 @@ const essayQuestionSchema = new mongoose.Schema(
       required: true,
     },
 
+    // A/L year group for this essay paper (Grade 12 or 13).
+    gradeLevel: {
+      type: Number,
+      enum: [12, 13],
+      required: true,
+    },
+
     question: {
       type: String,
       required: true,
@@ -21,7 +28,4 @@ const essayQuestionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model(
-  "EssayQuestion",
-  essayQuestionSchema
-);
+export default mongoose.model("EssayQuestion", essayQuestionSchema);

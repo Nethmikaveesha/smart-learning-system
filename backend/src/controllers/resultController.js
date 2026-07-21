@@ -8,6 +8,43 @@ import {
   PASS_MARK,
 } from "../utils/grading.js";
 
+/**
+ * Recalculate rank + Z-score for every result in one exam.
+ * Rank 1 = highest marks. Single-student exams still get rank 1.
+ */
+async function recalculateExamAnalytics(examId) {
+  const results = await Result.find({ exam: examId }).sort({ marks: -1 });
+
+  if (results.length === 0) {
+    return null;
+  }
+
+  const marksArray = results.map((result) => result.marks);
+  const mean =
+    marksArray.reduce((sum, mark) => sum + mark, 0) / marksArray.length;
+  const variance =
+    marksArray.reduce((sum, mark) => sum + Math.pow(mark - mean, 2), 0) /
+    marksArray.length;
+  const standardDeviation = Math.sqrt(variance);
+
+  for (let i = 0; i < results.length; i++) {
+    const zScore =
+      standardDeviation === 0
+        ? 0
+        : Number(((results[i].marks - mean) / standardDeviation).toFixed(2));
+
+    results[i].zScore = zScore;
+    results[i].rank = i + 1;
+    await results[i].save();
+  }
+
+  return {
+    mean: Number(mean.toFixed(2)),
+    standardDeviation: Number(standardDeviation.toFixed(2)),
+    count: results.length,
+  };
+}
+
 export const addResult = async (req, res) => {
   try {
     const { student, exam, marks } = req.body;
@@ -21,13 +58,26 @@ export const addResult = async (req, res) => {
       });
     }
 
-    const result = await Result.create({
+    await Result.create({
       student,
       exam,
       marks,
       grade: calculateGrade(marks),
       rank: 0,
     });
+
+    // Real-world behavior: ranks/z-scores update as soon as marks are saved.
+    await recalculateExamAnalytics(exam);
+
+    const result = await Result.findOne({ student, exam })
+      .populate({
+        path: "student",
+        populate: {
+          path: "user",
+          select: "fullName",
+        },
+      })
+      .populate("exam", "examName");
 
     const studentProfile = await StudentProfile.findById(student);
 
@@ -47,7 +97,7 @@ export const addResult = async (req, res) => {
       userId: req.user?._id,
       action: "CREATE",
       module: "Results",
-      description: `Result added with ${marks} marks. Risk status updated to ${riskStatus}`,
+      description: `Result added with ${marks} marks. Risk status updated to ${riskStatus}. Rank/Z-score recalculated.`,
     });
 
     res.status(201).json({
@@ -71,6 +121,15 @@ export const addResult = async (req, res) => {
 
 export const getAllResults = async (req, res) => {
   try {
+    // Heal older records that were saved before auto-ranking existed.
+    const examsNeedingRank = await Result.distinct("exam", {
+      $or: [{ rank: { $lte: 0 } }, { rank: null }],
+    });
+
+    for (const examId of examsNeedingRank) {
+      await recalculateExamAnalytics(examId);
+    }
+
     const results = await Result.find()
       .populate({
         path: "student",
@@ -102,7 +161,14 @@ export const deleteResult = async (req, res) => {
       });
     }
 
+    const examId = result.exam;
+
     await result.deleteOne();
+
+    // Keep remaining classmates' ranks correct after a delete.
+    if (examId) {
+      await recalculateExamAnalytics(examId);
+    }
 
     await createAuditLog({
       userId: req.user?._id,
@@ -125,35 +191,12 @@ export const calculateExamAnalytics = async (req, res) => {
   try {
     const { examId } = req.params;
 
-    const results = await Result.find({ exam: examId }).sort({ marks: -1 });
+    const analytics = await recalculateExamAnalytics(examId);
 
-    if (results.length === 0) {
+    if (!analytics) {
       return res.status(404).json({
         message: "No results found for this exam",
       });
-    }
-
-    const marksArray = results.map((result) => result.marks);
-
-    const mean =
-      marksArray.reduce((sum, mark) => sum + mark, 0) / marksArray.length;
-
-    const variance =
-      marksArray.reduce((sum, mark) => sum + Math.pow(mark - mean, 2), 0) /
-      marksArray.length;
-
-    const standardDeviation = Math.sqrt(variance);
-
-    for (let i = 0; i < results.length; i++) {
-      const zScore =
-        standardDeviation === 0
-          ? 0
-          : Number(((results[i].marks - mean) / standardDeviation).toFixed(2));
-
-      results[i].zScore = zScore;
-      results[i].rank = results.length === 1 ? 0 : i + 1;
-
-      await results[i].save();
     }
 
     await createAuditLog({
@@ -175,8 +218,8 @@ export const calculateExamAnalytics = async (req, res) => {
 
     res.status(200).json({
       message: "Exam analytics calculated successfully",
-      mean: Number(mean.toFixed(2)),
-      standardDeviation: Number(standardDeviation.toFixed(2)),
+      mean: analytics.mean,
+      standardDeviation: analytics.standardDeviation,
       results: updatedResults,
     });
   } catch (error) {
