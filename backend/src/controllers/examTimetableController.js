@@ -44,8 +44,8 @@ export const createExamTimetable = async (req, res) => {
 export const getAllExamTimetables = async (req, res) => {
   try {
     const timetables = await ExamTimetable.find()
-      .populate("class", "className")
-      .populate("subject", "subjectName")
+      .populate("class", "className gradeLevel academicYear")
+      .populate("subject", "subjectName subjectCode")
       .sort({ examDate: 1 });
 
     res.status(200).json(timetables);

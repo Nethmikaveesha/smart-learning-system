@@ -159,21 +159,79 @@ const featureConfigs = {
   "/admin/exam-timetables": {
     title: "Exam Timetables",
     description:
-      "Schedule exam dates, times, and rooms. This is separate from marks exams.",
+      "Schedule exam dates, times, and rooms. Select class and subject by name — IDs are sent in the background. This is separate from marks exams.",
     endpoint: "/exam-timetables",
+    tableColumns: [
+      "examName",
+      "class",
+      "subject",
+      "examDate",
+      "startTime",
+      "endTime",
+      "location",
+    ],
     form: {
       endpoint: "/exam-timetables",
       method: "post",
       submitLabel: "Create Timetable",
       fields: [
-        { name: "examName", label: "Exam Name", required: true },
-        { name: "classId", label: "Class ID", required: true },
-        { name: "subjectId", label: "Subject ID", required: true },
-        { name: "examDate", label: "Exam Date", type: "date", required: true },
-        { name: "startTime", label: "Start Time", type: "time", required: true },
-        { name: "endTime", label: "End Time", type: "time", required: true },
-        { name: "location", label: "Location" },
-        { name: "instructions", label: "Instructions" },
+        {
+          name: "examName",
+          label: "Exam Name",
+          required: true,
+          placeholder: "e.g. Term Test 1 - Accounting",
+        },
+        {
+          name: "classId",
+          label: "Class",
+          type: "async-select",
+          required: true,
+          placeholder: "Select class",
+          optionsEndpoint: "/classes",
+          optionValue: "_id",
+          getOptionLabel: formatClassOptionLabel,
+        },
+        {
+          name: "subjectId",
+          label: "Subject",
+          type: "async-select",
+          required: true,
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects",
+          optionValue: "_id",
+          getOptionLabel: (item) =>
+            `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+        },
+        {
+          name: "examDate",
+          label: "Exam Date",
+          type: "date",
+          required: true,
+        },
+        {
+          name: "startTime",
+          label: "Start Time",
+          type: "time",
+          required: true,
+        },
+        {
+          name: "endTime",
+          label: "End Time",
+          type: "time",
+          required: true,
+        },
+        {
+          name: "location",
+          label: "Location",
+          placeholder: "e.g. Main Hall",
+          defaultValue: "Main Hall",
+        },
+        {
+          name: "instructions",
+          label: "Instructions",
+          type: "textarea",
+          placeholder: "Optional instructions for students...",
+        },
       ],
     },
   },
@@ -318,7 +376,60 @@ const featureConfigs = {
   },
   "/admin/settings": {
     title: "Settings",
-    description: "Settings screen is ready for future system configuration APIs.",
+    description:
+      "Configure school-wide system settings. Changes are saved for admin reference and future feature wiring.",
+    endpoint: "/settings",
+    layout: "summary",
+    summaryFields: [
+      { label: "School Name", path: "schoolName" },
+      { label: "Academic Year", path: "academicYear" },
+      { label: "Pass Mark", path: "passMark" },
+      { label: "Support Email", path: "supportEmail" },
+      { label: "Timezone", path: "timezone" },
+    ],
+    form: {
+      endpoint: "/settings",
+      method: "put",
+      submitLabel: "Save Settings",
+      loadEndpoint: "/settings",
+      formTitle: "Update System Settings",
+      formDescription:
+        "Edit school details below. Current values load automatically.",
+      fields: [
+        {
+          name: "schoolName",
+          label: "School Name",
+          required: true,
+          placeholder: "e.g. EduTrack Smart Learning System",
+        },
+        {
+          name: "academicYear",
+          label: "Academic Year",
+          required: true,
+          placeholder: "e.g. 2026",
+        },
+        {
+          name: "passMark",
+          label: "Pass Mark",
+          type: "number",
+          required: true,
+          defaultValue: 40,
+          placeholder: "40",
+        },
+        {
+          name: "supportEmail",
+          label: "Support Email",
+          type: "email",
+          placeholder: "admin@edutrack.lk",
+        },
+        {
+          name: "timezone",
+          label: "Timezone",
+          defaultValue: "Asia/Colombo",
+          placeholder: "Asia/Colombo",
+        },
+      ],
+    },
   },
   "/teacher/classes": {
     title: "My Classes",
@@ -1394,6 +1505,40 @@ function FeatureForm({ form, token, onSaved, onError }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const loadExistingValues = async () => {
+      if (!form.loadEndpoint || !token) return;
+
+      try {
+        setLoadingOptions(true);
+        const res = await api.get(form.loadEndpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const record = res.data?.settings || res.data || {};
+        const nextValues = { ...getFeatureFormInitialValues(form.fields) };
+
+        form.fields.forEach((field) => {
+          if (record[field.name] !== undefined && record[field.name] !== null) {
+            nextValues[field.name] = record[field.name];
+          }
+        });
+
+        setValues(nextValues);
+      } catch (loadError) {
+        onError(
+          loadError.response?.data?.message ||
+            loadError.message ||
+            "Failed to load current settings"
+        );
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+
+    loadExistingValues();
+  }, [form, token, onError]);
+
+  useEffect(() => {
     const loadAsyncOptions = async () => {
       const endpoints = [
         ...new Set(
@@ -1499,7 +1644,19 @@ function FeatureForm({ form, token, onSaved, onError }) {
       });
 
       onSaved(res.data?.message || "Saved successfully.");
-      setValues(getFeatureFormInitialValues(form.fields));
+
+      if (form.loadEndpoint) {
+        const record = res.data?.settings || res.data || payload;
+        const nextValues = { ...getFeatureFormInitialValues(form.fields) };
+        form.fields.forEach((field) => {
+          if (record[field.name] !== undefined && record[field.name] !== null) {
+            nextValues[field.name] = record[field.name];
+          }
+        });
+        setValues(nextValues);
+      } else {
+        setValues(getFeatureFormInitialValues(form.fields));
+      }
     } catch (saveError) {
       onError(saveError.response?.data?.message || saveError.message || "Save failed");
     } finally {
@@ -1513,11 +1670,14 @@ function FeatureForm({ form, token, onSaved, onError }) {
       className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-5 border-b border-slate-100 pb-4">
-        <h2 className="text-lg font-black text-slate-950">Create Record</h2>
+        <h2 className="text-lg font-black text-slate-950">
+          {form.formTitle || "Create Record"}
+        </h2>
         <p className="mt-1 text-sm text-slate-600">
           {loadingOptions
-            ? "Loading class and student lists..."
-            : "Fill the required details and save the new record."}
+            ? "Loading form data..."
+            : form.formDescription ||
+              "Fill the required details and save the new record."}
         </p>
       </div>
 
