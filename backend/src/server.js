@@ -36,6 +36,7 @@ import badgeRoutes from "./routes/badgeRoutes.js";
 import backupRoutes from "./routes/backupRoutes.js";
 import riskRoutes from "./routes/riskRoutes.js";
 import adminDashboardRoutes from "./routes/adminDashboardRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 import {
   startMonthlyReportScheduler,
 } from "./jobs/monthlyReportJob.js";
@@ -113,4 +114,5 @@ app.use("/api/badges", badgeRoutes);
 app.use("/api/backups", backupRoutes);
 app.use("/api/risk", riskRoutes);
 app.use("/api/admin-dashboard", adminDashboardRoutes);
+app.use("/api/settings", settingsRoutes);
 
