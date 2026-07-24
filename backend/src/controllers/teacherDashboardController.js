@@ -6,7 +6,7 @@ import Subject from "../models/Subject.js";
 import EssaySubmission from "../models/EssaySubmission.js";
 import Attendance from "../models/Attendance.js";
 import User from "../models/User.js";
-import { isPassingMark } from "../utils/grading.js";
+import { isPassingMark, getPassMark } from "../utils/grading.js";
 import {
   dedupeResults,
   getSubjectName,
@@ -148,7 +148,10 @@ export const getTeacherDashboard = async (req, res) => {
           )
         : 0;
 
-    const passCount = results.filter((item) => isPassingMark(item.marks)).length;
+    const passMark = await getPassMark();
+    const passCount = results.filter((item) =>
+      isPassingMark(item.marks, passMark)
+    ).length;
     const passRate =
       totalPublishedResults > 0
         ? Number(((passCount / totalPublishedResults) * 100).toFixed(2))

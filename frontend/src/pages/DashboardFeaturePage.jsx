@@ -358,12 +358,26 @@ const featureConfigs = {
   },
   "/admin/database-backup": {
     title: "Database Backup",
-    description: "Generate a new JSON backup from the current database.",
+    description:
+      "Create a JSON snapshot of users, students, results, attendance, classes, exams, settings, and contact messages. Files are stored in backend/database-backups.",
+    endpoint: "/backups",
+    layout: "summary",
+    summaryFields: [
+      { label: "Backup files", path: "count" },
+      { label: "Latest file", path: "latest.fileName" },
+      { label: "Latest created", path: "latest.createdAt" },
+      { label: "Note", path: "note" },
+    ],
     action: {
       endpoint: "/backups",
-      method: "get",
+      method: "post",
       label: "Run Database Backup",
     },
+  },
+  "/admin/contact-messages": {
+    title: "Contact Messages",
+    description: "Inquiries submitted from the public Contact page.",
+    endpoint: "/contact",
   },
   "/admin/reports": {
     title: "Reports",
@@ -377,7 +391,7 @@ const featureConfigs = {
   "/admin/settings": {
     title: "Settings",
     description:
-      "Configure school-wide system settings. Changes are saved for admin reference and future feature wiring.",
+      "Configure school-wide settings. Pass mark is used for grades (S/F), pass rates, and weak-student risk checks.",
     endpoint: "/settings",
     layout: "summary",
     summaryFields: [
@@ -394,7 +408,7 @@ const featureConfigs = {
       loadEndpoint: "/settings",
       formTitle: "Update System Settings",
       formDescription:
-        "Edit school details below. Current values load automatically.",
+        "Edit school details below. Pass mark changes apply to new results and analytics immediately.",
       fields: [
         {
           name: "schoolName",
@@ -930,8 +944,16 @@ function DashboardFeaturePage() {
         downloadBlob(res.data, config.action.downloadName);
         setMessage("Download started successfully.");
       } else {
-        setData(res.data);
         setMessage(res.data?.message || "Action completed successfully.");
+
+        if (config.endpoint) {
+          const refresh = await api.get(config.endpoint, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setData(refresh.data);
+        } else {
+          setData(res.data);
+        }
       }
     } catch (actionError) {
       setError(

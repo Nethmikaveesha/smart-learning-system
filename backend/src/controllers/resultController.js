@@ -5,7 +5,7 @@ import { createAuditLog } from "../utils/createAuditLog.js";
 import {
   calculateGrade,
   isPassingMark,
-  PASS_MARK,
+  getPassMark,
 } from "../utils/grading.js";
 
 /**
@@ -58,11 +58,13 @@ export const addResult = async (req, res) => {
       });
     }
 
+    const passMark = await getPassMark();
+
     await Result.create({
       student,
       exam,
       marks,
-      grade: calculateGrade(marks),
+      grade: calculateGrade(marks, passMark),
       rank: 0,
     });
 
@@ -83,7 +85,7 @@ export const addResult = async (req, res) => {
 
     let riskStatus = "Low";
 
-    if (marks < PASS_MARK || studentProfile.attendancePercentage < 60) {
+    if (marks < passMark || studentProfile.attendancePercentage < 60) {
       riskStatus = "High";
     } else if (marks < 50 || studentProfile.attendancePercentage < 75) {
       riskStatus = "Medium";
@@ -239,6 +241,7 @@ export const detectWeakStudents = async (req, res) => {
       });
     }
 
+    const passMark = await getPassMark();
     const weakStudents = [];
 
     for (const result of results) {
@@ -246,7 +249,7 @@ export const detectWeakStudents = async (req, res) => {
 
       let riskStatus = "Low";
 
-      if (result.marks < PASS_MARK || studentProfile.attendancePercentage < 60) {
+      if (result.marks < passMark || studentProfile.attendancePercentage < 60) {
         riskStatus = "High";
       } else if (result.marks < 50 || studentProfile.attendancePercentage < 75) {
         riskStatus = "Medium";
@@ -302,9 +305,14 @@ export const getAnalyticsSummary = async (req, res) => {
           ).toFixed(2)
         : 0;
 
-    const passCount = results.filter((result) => isPassingMark(result.marks)).length;
+    const passMark = await getPassMark();
+    const passCount = results.filter((result) =>
+      isPassingMark(result.marks, passMark)
+    ).length;
 
-    const failCount = results.filter((result) => !isPassingMark(result.marks)).length;
+    const failCount = results.filter(
+      (result) => !isPassingMark(result.marks, passMark)
+    ).length;
 
     const highRiskStudents = await StudentProfile.countDocuments({
       riskStatus: "High",

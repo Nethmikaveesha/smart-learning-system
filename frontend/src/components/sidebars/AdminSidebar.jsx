@@ -55,6 +55,7 @@ function AdminSidebar() {
         title="System"
         items={[
           { label: "Audit Logs", to: "/admin/audit-logs" },
+          { label: "Contact Messages", to: "/admin/contact-messages" },
           { label: "Database Backup", to: "/admin/database-backup" },
           { label: "Settings", to: "/admin/settings" },
         ]}

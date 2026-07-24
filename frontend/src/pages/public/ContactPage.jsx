@@ -13,6 +13,7 @@ import {
   Phone,
   ShieldCheck,
 } from "lucide-react";
+import api from "../../services/api";
 
 const quickContacts = [
   {
@@ -111,7 +112,7 @@ function ContactPage() {
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
@@ -122,35 +123,39 @@ function ContactPage() {
       return;
     }
 
-    setSending(true);
-    setStatus({ type: "", text: "" });
+    try {
+      setSending(true);
+      setStatus({ type: "", text: "" });
 
-    const body = [
-      `Name: ${form.name.trim()}`,
-      `Email: ${form.email.trim()}`,
-      `Category: ${form.category}`,
-      "",
-      form.message.trim(),
-    ].join("\n");
+      const res = await api.post("/contact", {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        subject: form.subject.trim(),
+        category: form.category,
+        message: form.message.trim(),
+      });
 
-    const mailto = `mailto:support@edutrack.lk?subject=${encodeURIComponent(
-      `[${form.category}] ${form.subject.trim() || "EduTrack inquiry"}`
-    )}&body=${encodeURIComponent(body)}`;
-
-    window.location.href = mailto;
-
-    setStatus({
-      type: "success",
-      text: "Message Ready",
-    });
-    setForm({
-      name: "",
-      email: "",
-      subject: "",
-      category: "General",
-      message: "",
-    });
-    setSending(false);
+      setStatus({
+        type: "success",
+        text: res.data?.message || "Message Ready",
+      });
+      setForm({
+        name: "",
+        email: "",
+        subject: "",
+        category: "General",
+        message: "",
+      });
+    } catch (err) {
+      setStatus({
+        type: "error",
+        text:
+          err.response?.data?.message ||
+          "Could not send your message. Please try again.",
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (

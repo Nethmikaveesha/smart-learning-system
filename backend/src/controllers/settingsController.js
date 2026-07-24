@@ -1,5 +1,6 @@
 import SystemSettings from "../models/SystemSettings.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
+import { clearPassMarkCache } from "../utils/grading.js";
 
 const DEFAULT_SETTINGS = {
   schoolName: "EduTrack Smart Learning System",
@@ -59,6 +60,7 @@ export const updateSystemSettings = async (req, res) => {
     if (timezone !== undefined) settings.timezone = String(timezone).trim();
 
     await settings.save();
+    clearPassMarkCache();
 
     await createAuditLog({
       userId: req.user?._id,
