@@ -4,7 +4,7 @@ function SidebarSection({ title, items }) {
   return (
     <section className="space-y-1">
       {title && (
-        <p className="px-3 pb-2 pt-5 text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
+        <p className="px-3 pb-2 pt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           {title}
         </p>
       )}

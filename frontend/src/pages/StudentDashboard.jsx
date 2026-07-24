@@ -237,9 +237,9 @@ function StudentDashboard() {
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-100 text-slate-700">
                       <tr>
-                        <th className="p-3 font-black">Activity</th>
-                        <th className="p-3 font-black">Subject</th>
-                        <th className="p-3 font-black">Date</th>
+                        <th className="p-3 font-semibold">Activity</th>
+                        <th className="p-3 font-semibold">Subject</th>
+                        <th className="p-3 font-semibold">Date</th>
                       </tr>
                     </thead>
 
@@ -270,7 +270,7 @@ function StudentDashboard() {
 
               <Link
                 to="/student/revision-timetable"
-                className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+                className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
               >
                 View Full Timetable
               </Link>
@@ -291,7 +291,7 @@ function StudentDashboard() {
                         <span className="font-bold text-slate-700">
                           {item.subject}
                         </span>
-                        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
+                        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
                           {item.marks}
                         </span>
                       </div>
@@ -325,7 +325,7 @@ function StudentDashboard() {
 
               <Link
                 to="/student/performance"
-                className="mt-4 inline-flex rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                className="mt-4 inline-flex rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
               >
                 View Performance Tracker
               </Link>
@@ -338,7 +338,7 @@ function StudentDashboard() {
             action={
               <Link
                 to="/student/performance"
-                className="text-sm font-black text-blue-700 hover:underline"
+                className="text-sm font-semibold text-blue-700 hover:underline"
               >
                 View All Results
               </Link>
@@ -351,7 +351,7 @@ function StudentDashboard() {
             <Panel title="Recommended Next Step">
               {recommendation.available && recommendation.title ? (
                 <>
-                  <p className="text-base font-black text-slate-950">
+                  <p className="text-base font-semibold text-slate-950">
                     {recommendation.title}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -359,7 +359,7 @@ function StudentDashboard() {
                   </p>
                   <Link
                     to={recommendation.actionTo}
-                    className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+                    className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
                   >
                     {recommendation.actionLabel}
                   </Link>
@@ -378,7 +378,7 @@ function StudentDashboard() {
                   <Link
                     key={action.to}
                     to={action.to}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-black text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {action.label}
                   </Link>
@@ -396,10 +396,10 @@ function DashboardHeader({ studentName, studentId, className, subjectList }) {
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
           Student Dashboard
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
           Welcome back, {studentName}
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -420,18 +420,18 @@ function DashboardHeader({ studentName, studentId, className, subjectList }) {
 function MetricCard({ label, value, badgeClass }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
       {badgeClass ? (
         <span
-          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-black ${badgeClass}`}
+          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}
         >
           {value || "--"}
         </span>
       ) : (
-        <h2 className="mt-3 truncate text-2xl font-black text-slate-950">
+        <h2 className="mt-3 truncate text-3xl font-bold text-slate-950">
           {value || "--"}
         </h2>
       )}
@@ -444,7 +444,7 @@ function Panel({ title, description, children, action }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-black text-slate-950">{title}</h2>
+          <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
           {description && (
             <p className="mt-1 text-sm leading-6 text-slate-600">
               {description}
@@ -473,10 +473,10 @@ function LatestResultsTable({ results }) {
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-100 text-slate-700">
           <tr>
-            <th className="p-3 font-black">Subject</th>
-            <th className="p-3 font-black">Exam</th>
-            <th className="p-3 font-black">Marks</th>
-            <th className="p-3 font-black">Grade</th>
+            <th className="p-3 font-semibold">Subject</th>
+            <th className="p-3 font-semibold">Exam</th>
+            <th className="p-3 font-semibold">Marks</th>
+            <th className="p-3 font-semibold">Grade</th>
           </tr>
         </thead>
 
@@ -489,11 +489,11 @@ function LatestResultsTable({ results }) {
               <td className="p-3 text-slate-600">
                 {result.exam?.examName || "--"}
               </td>
-              <td className="p-3 font-black text-slate-950">
+              <td className="p-3 font-semibold text-slate-950">
                 {result.marks}
               </td>
               <td className="p-3">
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                   {result.grade || "--"}
                 </span>
               </td>
@@ -508,7 +508,7 @@ function LatestResultsTable({ results }) {
 function InfoStat({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       <p className="mt-1 font-bold text-slate-800">{value || "--"}</p>
@@ -537,7 +537,7 @@ function LoadingPanel() {
 function EmptyState({ title, message }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-black text-slate-800">{title}</p>
+      <p className="text-sm font-semibold text-slate-800">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
     </div>
   );

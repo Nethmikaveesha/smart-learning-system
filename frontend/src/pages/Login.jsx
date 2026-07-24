@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import AuthShell from "../components/AuthShell";
 
 const roleRoutes = {
   admin: "/admin",
@@ -10,15 +11,29 @@ const roleRoutes = {
   parent: "/parent",
 };
 
+const REMEMBER_KEY = "edutrack_remember_email";
+
+const inputClass =
+  "mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100";
+
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBER_KEY);
+    if (saved) {
+      setEmail(saved);
+      setRememberEmail(true);
+    }
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -32,10 +47,17 @@ function Login() {
       setLoading(true);
       setError("");
 
+      const normalizedEmail = email.trim().toLowerCase();
       const res = await api.post("/auth/login", {
-        email: email.trim(),
+        email: normalizedEmail,
         password,
       });
+
+      if (rememberEmail) {
+        localStorage.setItem(REMEMBER_KEY, normalizedEmail);
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
+      }
 
       login(res.data.user, res.data.token);
       navigate(roleRoutes[res.data.user.role] || "/");
@@ -50,117 +72,108 @@ function Login() {
   };
 
   return (
-    <section className="min-h-[calc(100vh-73px)] bg-slate-100">
-      <div className="mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl lg:grid-cols-2">
-        {/* Brand panel */}
-        <div className="hidden bg-slate-950 px-10 py-14 text-white lg:flex lg:flex-col lg:justify-between">
-          <Link to="/" className="text-2xl font-black tracking-tight">
-            EduTrack
+    <AuthShell
+      title="Sign in to EduTrack"
+      subtitle="Enter your email and password to continue."
+      footer={
+        <p className="text-sm text-slate-500">
+          <Link
+            to="/"
+            className="font-semibold text-sky-700 transition hover:text-sky-800"
+          >
+            Back to home
           </Link>
+        </p>
+      }
+    >
+      {error ? (
+        <div
+          role="alert"
+          className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+        >
+          {error}
+        </div>
+      ) : null}
 
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-300">
-              Smart Learning System
-            </p>
-            <h1 className="mt-4 max-w-lg text-5xl font-black leading-tight tracking-tight">
-              Academic progress, clearly managed.
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-slate-300">
-              Secure role-based dashboards for school administration, teaching,
-              learning, and parent monitoring.
-            </p>
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <label className="block text-sm font-semibold text-slate-700">
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            autoFocus
+            className={inputClass}
+          />
+        </label>
+
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="login-password"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Password
+            </label>
+            <Link
+              to="/forgot-password"
+              className="text-sm font-semibold text-sky-700 transition hover:text-sky-800"
+            >
+              Forgot password?
+            </Link>
           </div>
 
-          <p className="text-sm text-slate-400">
-            EduTrack School Management Platform
-          </p>
-        </div>
-
-        {/* Login form panel */}
-        <div className="flex items-center justify-center px-4 py-10 sm:px-8">
-          <div className="w-full max-w-md">
-            <div className="mb-8 lg:hidden">
-              <Link
-                to="/"
-                className="text-2xl font-black tracking-tight text-blue-700"
-              >
-                EduTrack
-              </Link>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/70">
-              <div className="mb-8">
-                <h2 className="text-3xl font-black tracking-tight text-slate-950">
-                  Sign in
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Continue to your dashboard.
-                </p>
-              </div>
-
-              {error && (
-                <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <label className="block text-sm font-bold text-slate-700">
-                  Email
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="name@example.com"
-                    autoComplete="email"
-                    className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
-                </label>
-
-                <label className="block text-sm font-bold text-slate-700">
-                  Password
-                  <div className="relative mt-2">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Enter password"
-                      autoComplete="current-password"
-                      className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-16 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((current) => !current)}
-                      className="absolute inset-y-0 right-0 px-4 text-xs font-black text-slate-500 transition hover:text-slate-900"
-                    >
-                      {showPassword ? "Hide" : "Show"}
-                    </button>
-                  </div>
-                </label>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-lg bg-blue-700 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
-                >
-                  {loading ? "Signing in..." : "Sign in"}
-                </button>
-              </form>
-            </div>
-
-            <p className="mt-6 text-center text-sm text-slate-500">
-              <Link
-                to="/"
-                className="font-bold text-blue-700 transition hover:text-blue-800"
-              >
-                Back to home
-              </Link>
-            </p>
+          <div className="relative mt-2">
+            <input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              className={`${inputClass} mt-0 pr-16`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="absolute inset-y-0 right-0 px-4 text-xs font-semibold text-slate-500 transition hover:text-slate-900"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
           </div>
         </div>
-      </div>
-    </section>
+
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={rememberEmail}
+            onChange={(event) => setRememberEmail(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+          />
+          Remember my email on this device
+        </label>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-sky-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-sky-300"
+        >
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
+
+      <p className="mt-6 border-t border-slate-100 pt-5 text-sm leading-6 text-slate-500">
+        Having trouble signing in?{" "}
+        <Link
+          to="/forgot-password"
+          className="font-semibold text-sky-700 hover:text-sky-800"
+        >
+          Reset your password
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
 

@@ -141,10 +141,10 @@ function PageHeader({ onRefresh }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             ML Monitoring
           </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
             Student Risk Dashboard
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -156,7 +156,7 @@ function PageHeader({ onRefresh }) {
         <button
           type="button"
           onClick={onRefresh}
-          className="w-fit rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+          className="w-fit rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
         >
           Refresh Data
         </button>
@@ -169,7 +169,7 @@ function ModelSection({ title, description, summary, children }) {
   return (
     <section className="mb-8">
       <div className="mb-4">
-        <h2 className="text-2xl font-black tracking-tight text-slate-950">
+        <h2 className="text-3xl font-bold tracking-tight text-slate-950">
           {title}
         </h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
@@ -189,18 +189,18 @@ function ModelSection({ title, description, summary, children }) {
 function MetricCard({ label, value, badgeClass }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
       {badgeClass ? (
         <span
-          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-black ${badgeClass}`}
+          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}
         >
           {value}
         </span>
       ) : (
-        <p className="mt-3 text-3xl font-black text-slate-950">{value}</p>
+        <p className="typo-metric mt-3 text-slate-950">{value}</p>
       )}
     </div>
   );
@@ -284,7 +284,7 @@ function TableShell({ title, emptyMessage, isEmpty, children }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-5">
-        <h3 className="text-lg font-black text-slate-950">{title}</h3>
+        <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
       </div>
 
       {isEmpty ? (
@@ -301,14 +301,14 @@ function TableShell({ title, emptyMessage, isEmpty, children }) {
 }
 
 function TableHead({ children }) {
-  return <th className="whitespace-nowrap p-3 font-black">{children}</th>;
+  return <th className="whitespace-nowrap p-3 font-semibold">{children}</th>;
 }
 
 function TableCell({ children, strong = false }) {
   return (
     <td
       className={`whitespace-nowrap p-3 ${
-        strong ? "font-black text-slate-950" : "text-slate-700"
+        strong ? "font-semibold text-slate-950" : "text-slate-700"
       }`}
     >
       {children || "--"}
@@ -319,7 +319,7 @@ function TableCell({ children, strong = false }) {
 function RiskBadge({ riskLevel }) {
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-black ${getRiskBadgeClass(
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${getRiskBadgeClass(
         riskLevel
       )}`}
     >
@@ -331,7 +331,7 @@ function RiskBadge({ riskLevel }) {
 function ResultBadge({ result }) {
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-black ${
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${
         result === "Pass"
           ? "bg-emerald-100 text-emerald-700"
           : "bg-red-100 text-red-700"

@@ -124,7 +124,7 @@ function TeacherDashboard() {
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-black text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                 >
                   {action.label}
                 </Link>
@@ -175,14 +175,14 @@ function TeacherDashboard() {
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link
                   to="/teacher/submissions"
-                  className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+                  className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
                 >
                   Review Submissions
                 </Link>
 
                 <Link
                   to="/teacher/submissions"
-                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
                 >
                   Open AI Essay Grading
                 </Link>
@@ -205,7 +205,7 @@ function TeacherDashboard() {
                       <span className="font-bold text-slate-700">
                         {item.subject}
                       </span>
-                      <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
+                      <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
                         {item.averageMarks}
                       </span>
                     </div>
@@ -220,7 +220,7 @@ function TeacherDashboard() {
 
               <Link
                 to="/teacher/score-trends"
-                className="mt-4 inline-flex rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                className="mt-4 inline-flex rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
               >
                 View Class Analytics
               </Link>
@@ -279,7 +279,7 @@ function TeacherDashboard() {
 
               <Link
                 to="/teacher/topic-error-analysis"
-                className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+                className="mt-4 inline-flex rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
               >
                 View Full Topic Analysis
               </Link>
@@ -292,7 +292,7 @@ function TeacherDashboard() {
             action={
               <Link
                 to="/teacher/marks"
-                className="text-sm font-black text-blue-700 hover:underline"
+                className="text-sm font-semibold text-blue-700 hover:underline"
               >
                 View All Results
               </Link>
@@ -307,7 +307,7 @@ function TeacherDashboard() {
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-black text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                 >
                   {action.label}
                 </Link>
@@ -325,10 +325,10 @@ function DashboardHeader({ teacherName, classLabel, subjectLabel }) {
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             Teacher Dashboard
           </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
             Welcome, {teacherName}
           </h1>
 
@@ -341,14 +341,14 @@ function DashboardHeader({ teacherName, classLabel, subjectLabel }) {
         <div className="flex flex-wrap gap-3">
           <Link
             to="/teacher/create-paper"
-            className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+            className="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
           >
             Create Paper
           </Link>
 
           <Link
             to="/teacher/submissions"
-            className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+            className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
           >
             Mark Submissions
           </Link>
@@ -363,18 +363,18 @@ function MetricCard({ label, value, badgeClass }) {
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
 
       {badgeClass ? (
         <span
-          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-black ${badgeClass}`}
+          className={`mt-3 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}
         >
           {displayValue}
         </span>
       ) : (
-        <h2 className="mt-3 truncate text-2xl font-black text-slate-950">
+        <h2 className="mt-3 truncate text-3xl font-bold text-slate-950">
           {displayValue}
         </h2>
       )}
@@ -387,7 +387,7 @@ function Panel({ title, description, children, action }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-black text-slate-950">{title}</h2>
+          <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
           {description && (
             <p className="mt-1 text-sm leading-6 text-slate-600">
               {description}
@@ -416,10 +416,10 @@ function RecentResultsTable({ results }) {
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-100 text-slate-700">
           <tr>
-            <th className="p-3 font-black">Student</th>
-            <th className="p-3 font-black">Subject</th>
-            <th className="p-3 font-black">Marks</th>
-            <th className="p-3 font-black">Grade</th>
+            <th className="p-3 font-semibold">Student</th>
+            <th className="p-3 font-semibold">Subject</th>
+            <th className="p-3 font-semibold">Marks</th>
+            <th className="p-3 font-semibold">Grade</th>
           </tr>
         </thead>
 
@@ -430,11 +430,11 @@ function RecentResultsTable({ results }) {
                 {result.student?.user?.fullName || "--"}
               </td>
               <td className="p-3 text-slate-600">{getSubjectName(result)}</td>
-              <td className="p-3 font-black text-slate-950">
+              <td className="p-3 font-semibold text-slate-950">
                 {result.marks ?? "--"}
               </td>
               <td className="p-3">
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                   {result.grade || "--"}
                 </span>
               </td>
@@ -449,7 +449,7 @@ function RecentResultsTable({ results }) {
 function InfoStat({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       <p className="mt-1 font-bold text-slate-800">{value || "--"}</p>
@@ -478,7 +478,7 @@ function LoadingPanel() {
 function EmptyState({ title, message }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-black text-slate-800">{title}</p>
+      <p className="text-sm font-semibold text-slate-800">{title}</p>
       <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
     </div>
   );

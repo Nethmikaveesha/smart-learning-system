@@ -91,7 +91,7 @@ function TeacherTopicErrorAnalysis() {
 
           {data.selectedSubject && (
             <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-              <p className="text-sm font-black text-blue-900">
+              <p className="text-sm font-semibold text-blue-900">
                 Filtered Subject
               </p>
               <p className="mt-1 text-sm font-semibold text-blue-800">
@@ -144,10 +144,10 @@ function PageHeader({ subjects, selectedSubjectId, onSubjectChange }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             Teacher Analytics
           </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
             Topic Error Analysis
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -181,10 +181,10 @@ function PageHeader({ subjects, selectedSubjectId, onSubjectChange }) {
 function MetricCard({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <p className="mt-3 text-3xl font-black text-slate-950">{value}</p>
+      <p className="typo-metric mt-3 text-slate-950">{value}</p>
     </div>
   );
 }
@@ -193,7 +193,7 @@ function TopicChart({ title, description, data, color }) {
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-lg font-black text-slate-950">{title}</h3>
+        <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
         <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
       </div>
 
@@ -231,7 +231,7 @@ function TopicChart({ title, description, data, color }) {
 function AnalyticsList({ title, items, labelKey }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-lg font-black text-slate-950">{title}</h3>
+      <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
 
       {items.length === 0 ? (
         <EmptyPanel message="No data available." compact />
@@ -245,7 +245,7 @@ function AnalyticsList({ title, items, labelKey }) {
               <span className="font-semibold text-slate-700">
                 {item[labelKey] || item.label || "N/A"}
               </span>
-              <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">
+              <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
                 {item.count || 0}
               </span>
             </li>

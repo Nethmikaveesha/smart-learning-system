@@ -982,7 +982,7 @@ function DashboardFeaturePage() {
           type="button"
           onClick={runAction}
           disabled={loading}
-          className="mb-6 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="mb-6 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {loading ? "Working..." : config.action.label}
         </button>
@@ -1048,10 +1048,10 @@ function DashboardFeaturePage() {
 function PageHeader({ role, title, description }) {
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
         {role || "Dashboard"} Workspace
       </p>
-      <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+      <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
         {title}
       </h1>
       {description && (
@@ -1262,7 +1262,7 @@ function RegisterUserForm({
       className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-5 border-b border-slate-100 pb-4">
-        <h2 className="text-lg font-black text-slate-950">Register User</h2>
+        <h2 className="text-xl font-semibold text-slate-950">Register User</h2>
         <p className="mt-1 text-sm text-slate-600">
           Create a secure account and assign role-specific academic details.
         </p>
@@ -1324,7 +1324,7 @@ function RegisterUserForm({
         )}
 
         {rolePreset && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-black text-slate-700">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
             Role: {rolePreset}
           </div>
         )}
@@ -1439,7 +1439,7 @@ function RegisterUserForm({
       <button
         type="submit"
         disabled={saving}
-        className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
         {saving
           ? getCreatingLabel(role)
@@ -1670,7 +1670,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
       className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-5 border-b border-slate-100 pb-4">
-        <h2 className="text-lg font-black text-slate-950">
+        <h2 className="text-xl font-semibold text-slate-950">
           {form.formTitle || "Create Record"}
         </h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -1745,7 +1745,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
       <button
         type="submit"
         disabled={saving || loadingOptions}
-        className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
       >
         {saving ? "Saving..." : form.submitLabel}
       </button>
@@ -1833,7 +1833,7 @@ function PasswordField({
 
       {showStrength && value && (
         <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-          <p className={`font-black ${strengthClass}`}>
+          <p className={`font-semibold ${strengthClass}`}>
             Password strength: {strength.label || "Enter password"}
           </p>
           <ul className="mt-2 space-y-1">
@@ -2028,12 +2028,12 @@ function DataTable({
           <thead className="bg-slate-100 text-slate-700">
             <tr>
               {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap p-3 font-black">
+                <th key={column} className="whitespace-nowrap p-3 font-semibold">
                   {formatLabel(column)}
                 </th>
               ))}
               {rowAction && (
-                <th className="whitespace-nowrap p-3 font-black">Action</th>
+                <th className="whitespace-nowrap p-3 font-semibold">Action</th>
               )}
             </tr>
           </thead>
@@ -2063,7 +2063,7 @@ function DataTable({
                           (row._id || row.id) === currentUserId
                         }
                         onClick={() => disableUser(row)}
-                        className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-black text-white transition hover:bg-red-700 disabled:bg-slate-300"
+                        className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:bg-slate-300"
                       >
                         {actionUserId === (row._id || row.id)
                           ? "Disabling..."
@@ -2076,7 +2076,7 @@ function DataTable({
                         type="button"
                         disabled={actionUserId === (row._id || row.id)}
                         onClick={() => enableUser(row)}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
                       >
                         {actionUserId === (row._id || row.id)
                           ? "Enabling..."
@@ -2111,10 +2111,10 @@ function SummaryPanel({ data, fields }) {
             key={field.label}
             className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {field.label}
             </p>
-            <p className="mt-3 text-2xl font-black text-slate-950">
+            <p className="typo-metric mt-3 text-slate-950">
               {displayValue}
             </p>
           </div>
@@ -2151,7 +2151,7 @@ function GridCardPanel({
           {metaKey && row[metaKey] && (
             <p className="mb-2 text-3xl">{row[metaKey]}</p>
           )}
-          <h3 className="text-lg font-black text-slate-950">
+          <h3 className="text-xl font-semibold text-slate-950">
             {formatCellValue(titleKey, row[titleKey])}
           </h3>
           {descriptionKey && row[descriptionKey] && (
@@ -2181,10 +2181,10 @@ function CardPanel({ data }) {
             key={key}
             className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {formatLabel(key)}
             </p>
-            <p className="mt-3 break-words text-2xl font-black text-slate-950">
+            <p className="typo-metric mt-3 break-words text-slate-950">
               {formatValue(value)}
             </p>
           </div>

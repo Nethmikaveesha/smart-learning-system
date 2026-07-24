@@ -282,15 +282,15 @@ function UserRecordsTable({
     <section className="mt-8">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             Records
           </p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+          <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
             {title}
           </h2>
         </div>
 
-        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
           {rows.length} record{rows.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -304,11 +304,11 @@ function UserRecordsTable({
               <thead className="bg-slate-100 text-slate-700">
                 <tr>
                   {columns.map((column) => (
-                    <th key={column} className="whitespace-nowrap p-3 font-black">
+                    <th key={column} className="whitespace-nowrap p-3 font-semibold">
                       {formatLabel(column)}
                     </th>
                   ))}
-                  <th className="whitespace-nowrap p-3 font-black">Actions</th>
+                  <th className="whitespace-nowrap p-3 font-semibold">Actions</th>
                 </tr>
               </thead>
 
@@ -338,7 +338,7 @@ function UserRecordsTable({
                         <button
                           type="button"
                           onClick={() => openEdit(row)}
-                          className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-black text-white transition hover:bg-blue-800"
+                          className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
                         >
                           Edit
                         </button>
@@ -346,7 +346,7 @@ function UserRecordsTable({
                         <button
                           type="button"
                           onClick={() => deleteRow(row)}
-                          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-black text-white transition hover:bg-red-700"
+                          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700"
                         >
                           Delete
                         </button>
@@ -394,10 +394,10 @@ function EditRecordModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-5 border-b border-slate-100 pb-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             Edit Record
           </p>
-          <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+          <h3 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
             {formValues.fullName || "User Record"}
           </h3>
         </div>
@@ -522,7 +522,7 @@ function EditRecordModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -530,7 +530,7 @@ function EditRecordModal({
           <button
             type="button"
             onClick={onSave}
-            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-black text-white transition hover:bg-slate-800"
+            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             Save Changes
           </button>
@@ -579,7 +579,7 @@ function StatusBadge({ status }) {
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-black ${
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${
         isActive
           ? "bg-emerald-100 text-emerald-700"
           : "bg-slate-200 text-slate-700"
@@ -592,7 +592,7 @@ function StatusBadge({ status }) {
 
 function RoleBadge({ role }) {
   return (
-    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black capitalize text-blue-700">
+    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
       {role || "N/A"}
     </span>
   );
@@ -601,7 +601,7 @@ function RoleBadge({ role }) {
 function EmptyRecords() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-      <p className="text-sm font-black text-slate-800">No records found</p>
+      <p className="text-sm font-semibold text-slate-800">No records found</p>
       <p className="mt-1 text-sm text-slate-600">
         Records will appear here after accounts are created.
       </p>

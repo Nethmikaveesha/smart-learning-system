@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import User from "../models/User.js";
 import Class from "../models/Class.js";
 import StudentProfile from "../models/StudentProfile.js";
@@ -12,6 +13,19 @@ import {
 } from "../utils/resolveReference.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { validateRegistrationInput } from "../utils/registrationValidation.js";
+import { isEmailConfigured, sendEmail } from "../utils/sendEmail.js";
+
+const RESET_TOKEN_HOURS = 1;
+
+function getFrontendBaseUrl() {
+  return (
+    process.env.FRONTEND_URL?.replace(/\/$/, "") || "http://localhost:5173"
+  );
+}
+
+function buildResetLink(rawToken) {
+  return `${getFrontendBaseUrl()}/reset-password?token=${rawToken}`;
+}
 
 export const registerAdmin = async (req, res) => {
   try {
@@ -216,7 +230,15 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!email?.trim() || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
 
     if (!user) {
       return res.status(400).json({
@@ -226,14 +248,11 @@ export const loginUser = async (req, res) => {
 
     if (!user.isActive) {
       return res.status(403).json({
-        message: "This account is inactive. Please contact admin.",
+        message: "This account is inactive. Please contact your school admin.",
       });
     }
 
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -266,6 +285,153 @@ export const loginUser = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+/**
+ * Public: start password reset.
+ * Always returns a generic success message (does not reveal if email exists).
+ * When SMTP is not configured, returns resetLink so local/demo setups still work.
+ */
+export const forgotPassword = async (req, res) => {
+  try {
+    const email = req.body.email?.trim().toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const genericMessage =
+      "If an account exists for that email, password reset instructions have been sent.";
+
+    const user = await User.findOne({ email });
+
+    if (!user || !user.isActive) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = new Date(
+      Date.now() + RESET_TOKEN_HOURS * 60 * 60 * 1000
+    );
+    await user.save();
+
+    const resetLink = buildResetLink(rawToken);
+    let emailSent = false;
+
+    if (isEmailConfigured()) {
+      try {
+        const result = await sendEmail({
+          to: user.email,
+          subject: "EduTrack password reset",
+          text: `Reset your EduTrack password using this link (valid for ${RESET_TOKEN_HOURS} hour):\n\n${resetLink}\n\nIf you did not request this, you can ignore this email.`,
+          html: `
+            <p>Hello ${user.fullName},</p>
+            <p>We received a request to reset your EduTrack password.</p>
+            <p><a href="${resetLink}">Reset your password</a></p>
+            <p>This link expires in ${RESET_TOKEN_HOURS} hour.</p>
+            <p>If you did not request this, you can ignore this email.</p>
+          `,
+        });
+        emailSent = result.sent;
+      } catch (mailError) {
+        console.error("Password reset email failed:", mailError.message);
+        emailSent = false;
+      }
+    }
+
+    // Demo / school setups without SMTP: expose the one-time link so the flow works.
+    const response = {
+      message: emailSent
+        ? "Password reset instructions have been sent to your email."
+        : genericMessage,
+      emailSent,
+    };
+
+    if (!emailSent) {
+      response.resetLink = resetLink;
+      response.resetToken = rawToken;
+      response.demoNote =
+        "Email delivery is not configured. Use the reset link below (valid for 1 hour).";
+      console.info(`[forgot-password] Reset link for ${user.email}: ${resetLink}`);
+    }
+
+    return res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Public: set a new password using the one-time reset token from the email/link.
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    if (!token || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        message: "Token, new password, and confirmation are required",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        message: "New password and confirmation do not match",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    }).select("+passwordResetToken +passwordResetExpires");
+
+    if (!user) {
+      return res.status(400).json({
+        message: "This reset link is invalid or has expired. Request a new one.",
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        message: "This account is inactive. Please contact your school admin.",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    await User.updateOne(
+      { _id: user._id },
+      { $unset: { passwordResetToken: 1, passwordResetExpires: 1 } }
+    );
+
+    await createAuditLog({
+      userId: user._id,
+      action: "UPDATE",
+      module: "Auth",
+      description: "Password reset via forgot-password link",
+    });
+
+    res.status(200).json({
+      message: "Password updated successfully. You can sign in with your new password.",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

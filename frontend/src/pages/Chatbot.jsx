@@ -89,10 +89,10 @@ function Chatbot() {
   return (
     <div className="p-6">
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
           AI Assistant
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
           Learning Chatbot
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -106,7 +106,7 @@ function Chatbot() {
           <div className="border-b border-slate-200 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-black text-slate-950">
+                <p className="text-sm font-semibold text-slate-950">
                   EduTrack Assistant
                 </p>
                 <p className="text-xs font-semibold text-slate-500">
@@ -114,7 +114,7 @@ function Chatbot() {
                 </p>
               </div>
 
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                 Online
               </span>
             </div>
@@ -155,7 +155,7 @@ function Chatbot() {
                 type="button"
                 onClick={() => askQuestion()}
                 disabled={loading || !question.trim()}
-                className="self-end rounded-xl bg-blue-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="self-end rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
                 {loading ? "Sending" : "Send"}
               </button>
@@ -168,7 +168,7 @@ function Chatbot() {
         </div>
 
         <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-black text-slate-950">Quick Prompts</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Quick Prompts</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             Start with a suggested question.
           </p>
