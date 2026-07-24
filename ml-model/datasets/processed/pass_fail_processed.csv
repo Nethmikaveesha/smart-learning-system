@@ -1,4 +1,4 @@
-student_id,attendance_pct,homework_pct,commerce_average_score,study_hours_per_week,pass
+student_id,attendance_pct,homework_pct,midterm_score,study_hours_per_week,pass
 1,59.7,66.5,73.4,6.4,1
 2,74.3,54.7,18.3,1.2,0
 3,81.8,98.9,70.7,11.1,1

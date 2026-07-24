@@ -56,11 +56,11 @@ function DashboardLayout() {
             to={dashboardPaths[role] || "/student"}
             className="flex items-center gap-3"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-700 text-sm font-black text-white shadow-sm">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-700 text-sm font-semibold text-white shadow-sm">
               ET
             </span>
             <span>
-              <span className="block text-xl font-black tracking-tight text-slate-950">
+              <span className="block text-xl font-semibold tracking-tight text-slate-950">
                 EduTrack
               </span>
               <span className="hidden text-xs font-semibold uppercase tracking-wide text-slate-500 sm:block">
@@ -130,7 +130,7 @@ function DashboardLayout() {
         {/* Desktop sidebar */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-slate-200 bg-white lg:block">
           <div className="border-b border-slate-100 p-4">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {role} Menu
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-700">

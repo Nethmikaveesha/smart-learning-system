@@ -57,6 +57,19 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    // Hashed one-time token for forgot-password resets
+    passwordResetToken: {
+      type: String,
+      default: undefined,
+      select: false,
+    },
+
+    passwordResetExpires: {
+      type: Date,
+      default: undefined,
+      select: false,
+    },
   },
   { timestamps: true }
 );

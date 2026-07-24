@@ -5,6 +5,8 @@ import DashboardLayout from "./components/DashboardLayout";
 import PublicLayout from "./components/PublicLayout";
 
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import TeacherTopicErrorAnalysis from "./pages/TeacherTopicErrorAnalysis";
@@ -15,7 +17,11 @@ import ParentRiskAlerts from "./pages/ParentRiskAlerts";
 import EssayGrader from "./pages/EssayGrader";
 import Chatbot from "./pages/Chatbot";
 import RiskDashboard from "./pages/RiskDashboard";
-import PublicPage from "./pages/public/PublicPage";
+import HomePage from "./pages/public/HomePage";
+import AboutPage from "./pages/public/AboutPage";
+import FeaturesPage from "./pages/public/FeaturesPage";
+import ContactPage from "./pages/public/ContactPage";
+import LegalPage from "./pages/public/LegalPage";
 import DashboardFeaturePage from "./pages/DashboardFeaturePage";
 import TeacherEssayReview from "./pages/TeacherEssayReview";
 
@@ -41,12 +47,26 @@ function AppRoutes() {
     <Routes>
       {/* Public website routes */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={<PublicPage page="home" />} />
-        <Route path="/about" element={<PublicPage page="about" />} />
-        <Route path="/features" element={<PublicPage page="features" />} />
-        <Route path="/contact" element={<PublicPage page="contact" />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/privacy" element={<LegalPage page="privacy" />} />
+        <Route path="/terms" element={<LegalPage page="terms" />} />
+        <Route
+          path="/data-protection"
+          element={<LegalPage page="data-protection" />}
+        />
+        <Route
+          path="/accessibility"
+          element={<LegalPage page="accessibility" />}
+        />
       </Route>
+
+      {/* Auth pages (standalone, real-world sign-in flow) */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Admin dashboard routes */}
       <Route

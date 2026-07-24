@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Global app polish */
+/* App-wide base polish — Inter for the whole project */
 * {
   box-sizing: border-box;
 }
@@ -15,12 +15,45 @@ body {
   background: #f8fafc;
   color: #0f172a;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 1rem; /* text-base */
+  font-weight: 400; /* font-normal */
+  line-height: 1.75; /* leading-7 */
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Better focus state for keyboard users */
+/* Prevent images and media from breaking layouts */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Better default text wrapping for long emails, IDs, and generated content */
+p,
+span,
+td,
+th,
+button,
+a {
+  overflow-wrap: anywhere;
+}
+
+/* Professional text selection */
+::selection {
+  background: #dbeafe;
+  color: #0f172a;
+}
+
+/* Keyboard accessibility focus states */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -30,10 +63,36 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-/* Professional selection color */
-::selection {
-  background: #dbeafe;
-  color: #0f172a;
+/* Buttons — text-sm font-semibold */
+button,
+[type="button"],
+[type="submit"],
+[type="reset"] {
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Mobile browsers zoom inputs if font-size is too small */
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Table headers — text-sm font-semibold */
+thead th,
+table th {
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 /* Cleaner scrollbars */
@@ -54,4 +113,98 @@ textarea:focus-visible {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Tables should stay usable on smaller screens */
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  vertical-align: top;
+}
+
+/* Typography helpers used across Home / About / Dashboards */
+.typo-hero {
+  font-size: 3.75rem; /* text-6xl */
+  line-height: 1;
+  font-weight: 900; /* font-black */
+}
+
+.typo-section {
+  font-size: 2.25rem; /* text-4xl */
+  line-height: 2.5rem;
+  font-weight: 700; /* font-bold */
+}
+
+.typo-card {
+  font-size: 1.25rem; /* text-xl */
+  line-height: 1.75rem;
+  font-weight: 600; /* font-semibold */
+}
+
+.typo-body {
+  font-size: 1rem;
+  line-height: 1.75rem;
+  font-weight: 400;
+}
+
+.typo-metric {
+  font-size: 1.875rem; /* text-3xl */
+  line-height: 2.25rem;
+  font-weight: 700; /* font-bold */
+}
+
+@media (max-width: 640px) {
+  .typo-hero {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+  }
+
+  .typo-section {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Public site uses the same Inter stack */
+.public-site {
+  font-family:
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-zoom {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
 }

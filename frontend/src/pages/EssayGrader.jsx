@@ -118,10 +118,10 @@ function EssayGrader() {
   return (
     <div className="p-6">
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
           AI Assessment
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
           Essay Grader
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -139,7 +139,7 @@ function EssayGrader() {
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-black text-slate-950">
+            <h2 className="text-xl font-semibold text-slate-950">
               Submit Essay Answer
             </h2>
             <p className="mt-1 text-sm text-slate-600">
@@ -179,13 +179,13 @@ function EssayGrader() {
 
           {selectedQuestionData && (
             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
-              <p className="text-sm font-black text-blue-900">
+              <p className="text-sm font-semibold text-blue-900">
                 Selected Question
               </p>
               <p className="mt-2 text-sm leading-6 text-blue-800">
                 {selectedQuestionData.question}
               </p>
-              <p className="mt-3 text-xs font-black uppercase tracking-wide text-blue-700">
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-700">
                 {selectedQuestionData.gradeLevel
                   ? `Grade ${selectedQuestionData.gradeLevel} · `
                   : ""}
@@ -216,7 +216,7 @@ function EssayGrader() {
               type="button"
               onClick={handleSubmit}
               disabled={loading || !selectedQuestion || !answer.trim()}
-              className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+              className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-blue-300"
             >
               {loading ? "Grading..." : "Submit Essay"}
             </button>
@@ -236,7 +236,7 @@ function EssayGrader() {
         </div>
 
         <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-black text-slate-950">
+          <h2 className="text-xl font-semibold text-slate-950">
             Submission Guide
           </h2>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
@@ -255,7 +255,7 @@ function EssayGrader() {
 function GuideItem({ title, text }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="font-black text-slate-900">{title}</p>
+      <p className="font-semibold text-slate-900">{title}</p>
       <p className="mt-1 text-sm text-slate-600">{text}</p>
     </div>
   );
@@ -271,15 +271,15 @@ function EvaluationResult({ result }) {
     <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
             AI-Assisted Essay Grader
           </p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
+          <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
             Recommended Score Breakdown
           </h2>
         </div>
 
-        <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-700">
+        <span className="w-fit rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
           {status}
         </span>
       </div>
@@ -307,7 +307,7 @@ function EvaluationResult({ result }) {
               {breakdown.parts.map((part) => (
                 <tr key={part.key} className="border-t border-slate-100">
                   <td className="px-4 py-3">
-                    <p className="font-black text-slate-900">{part.label}</p>
+                    <p className="font-semibold text-slate-900">{part.label}</p>
                     <p className="mt-1 text-xs text-slate-500">{part.description}</p>
                     {part.key === "keywords" && (
                       <p className="mt-2 text-xs text-slate-600">
@@ -329,7 +329,7 @@ function EvaluationResult({ result }) {
       )}
 
       <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-black text-slate-900">Feedback</p>
+        <p className="text-sm font-semibold text-slate-900">Feedback</p>
         <p className="mt-2 text-sm leading-7 text-slate-700">{feedback}</p>
       </div>
 
@@ -341,7 +341,7 @@ function EvaluationResult({ result }) {
 function NlpAnalysis({ analysis }) {
   return (
     <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="text-lg font-black text-slate-950">NLP Analysis</h3>
+      <h3 className="text-xl font-semibold text-slate-950">NLP Analysis</h3>
 
       <div className="mt-4 grid gap-4 md:grid-cols-4">
         <ResultCard label="NLP Marks" value={analysis.marks ?? "--"} />
@@ -382,10 +382,10 @@ function NlpAnalysis({ analysis }) {
 function ResultCard({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <p className="mt-2 text-xl font-black text-slate-950">{value}</p>
+      <p className="typo-metric mt-2 text-slate-950">{value}</p>
     </div>
   );
 }
@@ -393,10 +393,10 @@ function ResultCard({ label, value }) {
 function MiniScore({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <p className="mt-1 font-black text-slate-900">{value}</p>
+      <p className="mt-1 font-semibold text-slate-900">{value}</p>
     </div>
   );
 }
