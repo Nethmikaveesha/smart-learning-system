@@ -1,85 +1,218 @@
 import { NavLink } from "react-router-dom";
 import heroImage from "../../assets/hero.png";
 
-const pageContent = {
+const roleCards = [
+  {
+    title: "Administrators",
+    description: "Manage users, classes, subjects, reports, and system records.",
+  },
+  {
+    title: "Teachers",
+    description: "Create papers, manage marks, review submissions, and track progress.",
+  },
+  {
+    title: "Students",
+    description: "View subjects, exams, revision plans, performance, and learning support.",
+  },
+  {
+    title: "Parents",
+    description: "Monitor attendance, marks, rankings, reports, and academic risk alerts.",
+  },
+];
+
+const featureCards = [
+  "Role-based dashboards",
+  "Attendance and marks tracking",
+  "AI-assisted essay grading",
+  "ML-based academic risk prediction",
+  "Progress reports",
+  "Revision and learning support",
+];
+
+const pageCopy = {
   home: {
+    eyebrow: "Smart Learning System",
     title: "EduTrack",
     subtitle:
-      "A smart learning system for admins, teachers, students, and parents to manage learning progress from one place.",
+      "A secure academic management platform for schools to track learning progress, attendance, results, and student risk through role-based dashboards.",
   },
   about: {
-    title: "About EduTrack",
+    eyebrow: "About",
+    title: "Built for connected academic monitoring",
     subtitle:
-      "EduTrack connects academic records, attendance, AI-assisted feedback, and parent visibility in a role-based learning platform.",
+      "EduTrack helps schools organize academic data and provide clear visibility for administrators, teachers, students, and parents.",
   },
   features: {
-    title: "Features",
+    eyebrow: "Features",
+    title: "Everything organized by user role",
     subtitle:
-      "Dashboards, exam analytics, AI grading, adaptive learning, reports, alerts, flashcards, and performance tracking are organized by user role.",
+      "From user management and exam records to AI learning tools and risk prediction, EduTrack keeps school workflows in one platform.",
   },
   contact: {
-    title: "Contact",
+    eyebrow: "Contact",
+    title: "Coordinate school access with EduTrack",
     subtitle:
-      "School administrators can use EduTrack to coordinate teacher, student, and parent access with clear learning insights.",
+      "EduTrack is designed for school environments where user accounts are created and managed by administrators.",
   },
 };
 
 function PublicPage({ page = "home" }) {
-  const content = pageContent[page] || pageContent.home;
+  const content = pageCopy[page] || pageCopy.home;
 
   return (
-    <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl items-center gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8">
-      <div>
-        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-blue-700">
-          Smart Learning System
-        </p>
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl">
-          {content.title}
-        </h1>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-          {content.subtitle}
-        </p>
+    <div className="bg-white">
+      <section className="mx-auto grid min-h-[calc(100vh-65px)] max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+        {/* Main public page message */}
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
+            {content.eyebrow}
+          </p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          <NavLink
-            to="/login"
-            className="rounded-md bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800"
-          >
-            Login
-          </NavLink>
-          <NavLink
-            to="/features"
-            className="rounded-md border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-white"
-          >
-            View Features
-          </NavLink>
-        </div>
-      </div>
+          <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+            {content.title}
+          </h1>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <img
-          src={heroImage}
-          alt="EduTrack learning dashboard preview"
-          className="h-56 w-full object-cover"
-        />
-        <div className="p-6">
-          <h2 className="text-lg font-bold text-slate-950">
-            Role-based access
-          </h2>
-          <div className="mt-5 grid gap-3">
-            {["Admin", "Teacher", "Student", "Parent"].map((role) => (
-              <div
-                key={role}
-                className="flex items-center justify-between rounded-md bg-slate-50 px-4 py-3"
-              >
-                <span className="font-semibold text-slate-800">{role}</span>
-                <span className="text-sm text-slate-500">Dashboard ready</span>
-              </div>
-            ))}
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
+            {content.subtitle}
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <NavLink
+              to="/login"
+              className="rounded-lg bg-blue-700 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-800"
+            >
+              Login
+            </NavLink>
+
+            <NavLink
+              to="/features"
+              className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+            >
+              View Features
+            </NavLink>
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <StatCard value="4" label="User roles" />
+            <StatCard value="AI" label="Learning support" />
+            <StatCard value="ML" label="Risk prediction" />
           </div>
         </div>
+
+        {/* Visual dashboard preview */}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+          <img
+            src={heroImage}
+            alt="EduTrack dashboard preview"
+            className="h-64 w-full object-cover"
+          />
+
+          <div className="p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                  Platform Access
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Role-based dashboards
+                </h2>
+              </div>
+
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                Active
+              </span>
+            </div>
+
+            <div className="grid gap-3">
+              {roleCards.map((role) => (
+                <div
+                  key={role.title}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <p className="font-black text-slate-900">{role.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {role.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Page-specific lower content */}
+      <section className="border-t border-slate-200 bg-slate-50">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          {page === "contact" ? <ContactSection /> : <FeatureSection />}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FeatureSection() {
+  return (
+    <>
+      <div className="mb-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          Core Capabilities
+        </p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+          Built for daily academic workflows
+        </h2>
       </div>
-    </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {featureCards.map((feature) => (
+          <div
+            key={feature}
+            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="font-black text-slate-950">{feature}</p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ContactSection() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+          Contact
+        </p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+          School administration access
+        </h2>
+        <p className="mt-3 text-sm leading-7 text-slate-600">
+          EduTrack accounts are managed by the school administrator. Contact the
+          system administrator to create teacher, student, or parent accounts.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-sm font-black text-slate-950">Platform Scope</p>
+        <div className="mt-4 space-y-3 text-sm font-semibold text-slate-700">
+          <p>Academic dashboards</p>
+          <p>Student progress monitoring</p>
+          <p>Parent visibility and risk alerts</p>
+          <p>AI and ML supported learning insights</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ value, label }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p className="text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+    </div>
   );
 }
 
