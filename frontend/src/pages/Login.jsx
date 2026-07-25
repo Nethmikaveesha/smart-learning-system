@@ -96,7 +96,7 @@ function Login() {
       ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        <label className="block text-sm font-semibold text-slate-700">
+        <label className="block typo-ui text-slate-700">
           Email
           <input
             type="email"
@@ -113,7 +113,7 @@ function Login() {
           <div className="flex items-center justify-between gap-3">
             <label
               htmlFor="login-password"
-              className="text-sm font-semibold text-slate-700"
+              className="typo-ui text-slate-700"
             >
               Password
             </label>

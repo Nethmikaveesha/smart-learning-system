@@ -90,7 +90,7 @@ function ParentRiskAlerts() {
       setPassFailPrediction(res.data);
     } catch (error) {
       setMlError(
-        error.response?.data?.message || "Pass/Fail ML risk prediction failed"
+        error.response?.data?.message || "Pass / fail progress check failed"
       );
     } finally {
       setMlLoading("");
@@ -126,7 +126,7 @@ function ParentRiskAlerts() {
       setCommercePrediction(res.data);
     } catch (error) {
       setMlError(
-        error.response?.data?.message || "Commerce ML risk prediction failed"
+        error.response?.data?.message || "Subject progress check failed"
       );
     } finally {
       setMlLoading("");
@@ -137,7 +137,7 @@ function ParentRiskAlerts() {
     return (
       <div className="p-6">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-600">
+          <p className="typo-ui text-slate-600">
             Loading risk alerts...
           </p>
         </div>
@@ -183,27 +183,27 @@ function ParentRiskAlerts() {
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">
-              ML Risk Prediction
+            <h2 className="typo-card text-slate-950">
+              Academic Progress Check
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Run machine-learning predictions using the latest student profile,
-              marks, and attendance data.
+              Review the latest attendance, marks, and subject performance to
+              see where extra support may help.
             </p>
           </div>
 
-          <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
-            Smart Screening
+          <span className="w-fit rounded-full bg-blue-50 px-3 py-1 typo-eyebrow text-blue-700">
+            Progress Screening
           </span>
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <PredictionCard
-            title="Pass/Fail Risk Model"
-            description="Predicts whether the student is likely to pass or fail."
+            title="Pass / Fail Outlook"
+            description="Estimates whether the student is on track to pass or may need support."
             meta="Uses attendance, homework, midterm score, and study hours."
-            buttonText="Run Pass/Fail Prediction"
-            loadingText="Predicting..."
+            buttonText="Check Pass / Fail Outlook"
+            loadingText="Checking..."
             color="blue"
             isLoading={mlLoading === "pass-fail"}
             disabled={!studentProfileObjectId}
@@ -211,14 +211,14 @@ function ParentRiskAlerts() {
           >
             {passFailPrediction && (
               <PredictionResult
-                title="Pass/Fail Result"
+                title="Pass / Fail Result"
                 rows={[
                   {
-                    label: "Predicted Result",
+                    label: "Likely Result",
                     value: passFailPrediction.predicted_result,
                   },
                   {
-                    label: "Risk Level",
+                    label: "Support Level",
                     value: passFailPrediction.risk_level,
                     badgeClass: getRiskBadgeClass(passFailPrediction.risk_level),
                   },
@@ -228,11 +228,11 @@ function ParentRiskAlerts() {
           </PredictionCard>
 
           <PredictionCard
-            title="Commerce Risk Model"
-            description="Predicts High Risk, Medium Risk, or Low Risk for A/L Commerce."
+            title="Subject Progress Check"
+            description="Estimates High, Medium, or Low support need for A/L Commerce subjects."
             meta="Uses Accounting, Business Studies, Economics, and attendance."
-            buttonText="Run Commerce Prediction"
-            loadingText="Predicting..."
+            buttonText="Check Subject Progress"
+            loadingText="Checking..."
             color="emerald"
             isLoading={mlLoading === "commerce"}
             disabled={!studentProfileObjectId}
@@ -240,10 +240,10 @@ function ParentRiskAlerts() {
           >
             {commercePrediction && (
               <PredictionResult
-                title="Commerce Risk Result"
+                title="Subject Progress Result"
                 rows={[
                   {
-                    label: "Risk Level",
+                    label: "Support Level",
                     value: commercePrediction.risk_level,
                     badgeClass: getRiskBadgeClass(commercePrediction.risk_level),
                   },
@@ -317,19 +317,19 @@ function PageHeader({
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="typo-eyebrow text-blue-700">
             Parent Dashboard
           </p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-2 typo-page text-slate-950">
             Risk Alerts
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Review rule-based alerts and run ML predictions for {childName}.
+            Review alerts and check academic progress outlook for {childName}.
           </p>
         </div>
 
         {linkedChildren.length > 1 && (
-          <label className="text-sm font-semibold text-slate-600">
+          <label className="typo-ui text-slate-600">
             Viewing Child
             <select
               value={selectedStudentId}
@@ -352,7 +352,7 @@ function PageHeader({
 function SummaryCard({ label, value, badgeClass }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
 
@@ -363,7 +363,7 @@ function SummaryCard({ label, value, badgeClass }) {
           {value || "--"}
         </span>
       ) : (
-        <p className="mt-3 truncate text-xl font-semibold text-slate-950">
+        <p className="mt-3 truncate typo-card text-slate-950">
           {value || "--"}
         </p>
       )}
@@ -392,7 +392,7 @@ function PredictionCard({
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
       <div className="min-h-28">
         <h3 className="text-base font-semibold text-slate-950">{title}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+        <p className="mt-2 typo-body text-slate-600">{description}</p>
         <p className="mt-2 text-xs font-semibold text-slate-500">{meta}</p>
       </div>
 
@@ -444,7 +444,7 @@ function PredictionResult({ title, rows }) {
 function Panel({ title, children }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-xl font-semibold text-slate-950">{title}</h2>
+      <h2 className="mb-4 typo-card text-slate-950">{title}</h2>
       {children}
     </section>
   );
@@ -456,7 +456,7 @@ function InfoStat({ label, value }) {
       <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
         {label}
       </p>
-      <p className="mt-2 text-xl font-semibold text-slate-950">
+      <p className="mt-2 typo-card text-slate-950">
         {value ?? "--"}
       </p>
     </div>

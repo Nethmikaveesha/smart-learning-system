@@ -20,7 +20,7 @@ function PublicFinalCta({ title, text }) {
           </NavLink>
           <NavLink
             to="/contact"
-            className="rounded-md border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+            className="rounded-md border border-slate-300 bg-white px-5 py-3 typo-ui text-slate-800 transition hover:bg-slate-50"
           >
             Contact us
           </NavLink>

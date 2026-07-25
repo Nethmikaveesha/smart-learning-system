@@ -2,8 +2,8 @@ import SidebarSection from "./SidebarSection";
 
 export const adminMobileLinks = [
   { label: "Dashboard", to: "/admin", end: true },
-  { label: "Users", to: "/admin/users" },
-  { label: "Add Admin", to: "/admin/users/add" },
+  { label: "Users", to: "/admin/users", end: true },
+  { label: "Add Admin", to: "/admin/users/add", end: true },
   { label: "Classes", to: "/admin/classes" },
   { label: "Exams", to: "/admin/exams" },
   { label: "Analytics", to: "/admin/system-analytics" },
@@ -23,11 +23,11 @@ function AdminSidebar() {
       <SidebarSection
         title="User Management"
         items={[
-          { label: "Add New Admin", to: "/admin/users/add" },
+          { label: "Add New Admin", to: "/admin/users/add", end: true },
           { label: "Add Teacher", to: "/admin/users/add-teacher" },
           { label: "Add Student", to: "/admin/users/add-student" },
           { label: "Add Parent", to: "/admin/users/add-parent" },
-          { label: "View Users", to: "/admin/users" },
+          { label: "View Users", to: "/admin/users", end: true },
           { label: "Disable User", to: "/admin/users/edit-disable" },
         ]}
       />
@@ -55,6 +55,7 @@ function AdminSidebar() {
         title="System"
         items={[
           { label: "Audit Logs", to: "/admin/audit-logs" },
+          { label: "Contact Messages", to: "/admin/contact-messages" },
           { label: "Database Backup", to: "/admin/database-backup" },
           { label: "Settings", to: "/admin/settings" },
         ]}

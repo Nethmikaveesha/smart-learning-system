@@ -3,7 +3,7 @@ import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
 import Subject from "../models/Subject.js";
 import Exam from "../models/Exam.js";
-import { isPassingMark } from "../utils/grading.js";
+import { isPassingMark, getPassMark } from "../utils/grading.js";
 
 export const getAdminDashboard = async (req, res) => {
   try {
@@ -15,6 +15,7 @@ export const getAdminDashboard = async (req, res) => {
     const totalAdmins = await User.countDocuments({ role: "admin" });
     const totalSubjects = await Subject.countDocuments();
     const totalExams = await Exam.countDocuments();
+    const passMark = await getPassMark();
 
     const results = await Result.find().populate({
       path: "exam",
@@ -26,8 +27,12 @@ export const getAdminDashboard = async (req, res) => {
 
     const totalResults = results.length;
 
-    const passCount = results.filter((result) => isPassingMark(result.marks)).length;
-    const failCount = results.filter((result) => !isPassingMark(result.marks)).length;
+    const passCount = results.filter((result) =>
+      isPassingMark(result.marks, passMark)
+    ).length;
+    const failCount = results.filter(
+      (result) => !isPassingMark(result.marks, passMark)
+    ).length;
 
     const passPercentage =
       totalResults > 0
@@ -52,7 +57,7 @@ export const getAdminDashboard = async (req, res) => {
       subjectStats[subjectName].totalMarks += result.marks;
       subjectStats[subjectName].count += 1;
 
-      if (!isPassingMark(result.marks)) {
+      if (!isPassingMark(result.marks, passMark)) {
         subjectStats[subjectName].failCount += 1;
       }
     });

@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "seed:demo": "node scripts/seedDemoStudent.js"
+    "seed:demo": "node scripts/seedDemoStudent.js",
+    "smoke": "node scripts/smokeTests.js"
   },
   "keywords": [],
   "author": "",

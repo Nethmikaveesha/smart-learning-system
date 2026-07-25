@@ -89,13 +89,13 @@ function Chatbot() {
   return (
     <div className="p-6">
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-          AI Assistant
+        <p className="typo-eyebrow text-blue-700">
+          Study Support
         </p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
-          Learning Chatbot
+        <h1 className="mt-2 typo-page text-slate-950">
+          Study Help
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        <p className="mt-2 max-w-3xl typo-body text-slate-600">
           Ask study questions, request revision guidance, or get help
           understanding academic progress.
         </p>
@@ -127,7 +127,7 @@ function Chatbot() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm">
+                <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 typo-ui text-slate-600 shadow-sm">
                   Thinking...
                 </div>
               </div>
@@ -168,8 +168,8 @@ function Chatbot() {
         </div>
 
         <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-950">Quick Prompts</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
+          <h2 className="typo-card text-slate-950">Quick Prompts</h2>
+          <p className="mt-1 typo-body text-slate-600">
             Start with a suggested question.
           </p>
 

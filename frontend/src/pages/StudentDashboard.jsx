@@ -19,7 +19,7 @@ const QUICK_ACTIONS = [
   { label: "My Subjects", to: "/student/subjects" },
   { label: "Exam Papers", to: "/student/exam-papers" },
   { label: "Submit Answers", to: "/student/essay-grader" },
-  { label: "Ask AI", to: "/chatbot" },
+  { label: "Study Help", to: "/chatbot" },
   { label: "Start Revision", to: "/student/revision-timetable" },
 ];
 
@@ -354,7 +354,7 @@ function StudentDashboard() {
                   <p className="text-base font-semibold text-slate-950">
                     {recommendation.title}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 typo-body text-slate-600">
                     {recommendation.message}
                   </p>
                   <Link
@@ -378,7 +378,7 @@ function StudentDashboard() {
                   <Link
                     key={action.to}
                     to={action.to}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center typo-ui text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {action.label}
                   </Link>
@@ -396,13 +396,13 @@ function DashboardHeader({ studentName, studentId, className, subjectList }) {
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+        <p className="typo-eyebrow text-blue-700">
           Student Dashboard
         </p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+        <h1 className="mt-2 typo-page text-slate-950">
           Welcome back, {studentName}
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        <p className="mt-2 max-w-3xl typo-body text-slate-600">
           Track your marks, attendance, revision tasks, alerts, and learning
           recommendations from one student workspace.
         </p>
@@ -420,7 +420,7 @@ function DashboardHeader({ studentName, studentId, className, subjectList }) {
 function MetricCard({ label, value, badgeClass }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
 
@@ -431,7 +431,7 @@ function MetricCard({ label, value, badgeClass }) {
           {value || "--"}
         </span>
       ) : (
-        <h2 className="mt-3 truncate text-3xl font-bold text-slate-950">
+        <h2 className="mt-3 truncate typo-metric text-slate-950">
           {value || "--"}
         </h2>
       )}
@@ -444,9 +444,9 @@ function Panel({ title, description, children, action }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
+          <h2 className="typo-card text-slate-950">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm leading-6 text-slate-600">
+            <p className="mt-1 typo-body text-slate-600">
               {description}
             </p>
           )}
@@ -508,7 +508,7 @@ function LatestResultsTable({ results }) {
 function InfoStat({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
       <p className="mt-1 font-bold text-slate-800">{value || "--"}</p>
@@ -527,7 +527,7 @@ function AlertBox({ message }) {
 function LoadingPanel() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-600">
+      <p className="typo-ui text-slate-600">
         Loading student dashboard...
       </p>
     </div>
@@ -537,8 +537,8 @@ function LoadingPanel() {
 function EmptyState({ title, message }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
+      <p className="typo-ui text-slate-800">{title}</p>
+      <p className="mt-1 typo-body text-slate-600">{message}</p>
     </div>
   );
 }

@@ -151,7 +151,7 @@ function AdminDashboard() {
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center typo-ui text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                 >
                   {action.label}
                 </Link>
@@ -267,13 +267,13 @@ function DashboardHeader() {
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="typo-eyebrow text-blue-700">
             Admin Dashboard
           </p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-2 typo-page text-slate-950">
             System Overview
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          <p className="mt-2 max-w-3xl typo-body text-slate-600">
             Monitor users, academic performance, attendance, results, and
             system-wide learning risk from one administrative workspace.
           </p>
@@ -303,7 +303,7 @@ function MetricCard({ label, value, to, badgeClass }) {
 
   const card = (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
 
@@ -314,7 +314,7 @@ function MetricCard({ label, value, to, badgeClass }) {
           {displayValue}
         </span>
       ) : (
-        <h2 className="mt-3 truncate text-3xl font-bold text-slate-950">
+        <h2 className="mt-3 truncate typo-metric text-slate-950">
           {displayValue}
         </h2>
       )}
@@ -332,9 +332,9 @@ function Panel({ title, description, children }) {
   return (
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
+        <h2 className="typo-card text-slate-950">{title}</h2>
         {description && (
-          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+          <p className="mt-1 typo-body text-slate-600">{description}</p>
         )}
       </div>
       {children}
@@ -410,7 +410,7 @@ function AlertBox({ message }) {
 function LoadingPanel() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-600">
+      <p className="typo-ui text-slate-600">
         Loading admin dashboard...
       </p>
     </div>
@@ -420,8 +420,8 @@ function LoadingPanel() {
 function EmptyState({ title, message }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
+      <p className="typo-ui text-slate-800">{title}</p>
+      <p className="mt-1 typo-body text-slate-600">{message}</p>
     </div>
   );
 }

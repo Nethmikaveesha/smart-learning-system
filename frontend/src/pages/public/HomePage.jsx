@@ -84,7 +84,7 @@ function HomePage() {
 
         <div className="relative z-10 mx-auto flex min-h-[calc(100vh-65px)] max-w-7xl items-end px-4 pb-16 pt-24 sm:px-6 sm:pb-20 lg:items-center lg:px-8 lg:pb-24">
           <div className="max-w-3xl motion-safe:animate-[home-rise_0.9s_ease-out_both]">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-300">
+            <p className="typo-eyebrow text-sky-300">
               Academic Management Platform
             </p>
 
@@ -124,7 +124,7 @@ function HomePage() {
       <section className="border-t border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:grid lg:grid-cols-[0.95fr_1.05fr] lg:gap-16 lg:px-8 lg:py-20">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">
+            <p className="typo-eyebrow text-sky-700">
               About the Platform
             </p>
             <h2 className="typo-section mt-3 tracking-tight text-slate-950">
@@ -257,7 +257,7 @@ function HomePage() {
             </NavLink>
             <NavLink
               to="/contact"
-              className="inline-flex rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              className="inline-flex rounded-md border border-slate-300 bg-white px-6 py-3 typo-ui text-slate-800 transition hover:bg-slate-50"
             >
               Contact us
             </NavLink>

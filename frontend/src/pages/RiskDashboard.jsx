@@ -58,7 +58,7 @@ function RiskDashboard() {
     return (
       <div className="min-h-screen bg-slate-100 p-6">
         <div className="mx-auto max-w-7xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-600">
+          <p className="typo-ui text-slate-600">
             Loading risk prediction dashboard...
           </p>
         </div>
@@ -141,15 +141,15 @@ function PageHeader({ onRefresh }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-            ML Monitoring
+          <p className="typo-eyebrow text-blue-700">
+            Progress Monitoring
           </p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-2 typo-page text-slate-950">
             Student Risk Dashboard
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Monitor stored machine-learning prediction records from the xAPI
-            benchmark model and the project pass/fail risk model.
+          <p className="mt-2 max-w-3xl typo-body text-slate-600">
+            Monitor stored progress-check records from the benchmark model and
+            the project pass/fail outlook model.
           </p>
         </div>
 
@@ -169,10 +169,10 @@ function ModelSection({ title, description, summary, children }) {
   return (
     <section className="mb-8">
       <div className="mb-4">
-        <h2 className="text-3xl font-bold tracking-tight text-slate-950">
+        <h2 className="typo-metric text-slate-950">
           {title}
         </h2>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        <p className="mt-1 typo-body text-slate-600">{description}</p>
       </div>
 
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -189,7 +189,7 @@ function ModelSection({ title, description, summary, children }) {
 function MetricCard({ label, value, badgeClass }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
 
@@ -284,12 +284,12 @@ function TableShell({ title, emptyMessage, isEmpty, children }) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-5">
-        <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
+        <h3 className="typo-card text-slate-950">{title}</h3>
       </div>
 
       {isEmpty ? (
         <div className="p-6 text-center">
-          <p className="text-sm font-semibold text-slate-600">{emptyMessage}</p>
+          <p className="typo-ui text-slate-600">{emptyMessage}</p>
         </div>
       ) : (
         <div className="overflow-x-auto">

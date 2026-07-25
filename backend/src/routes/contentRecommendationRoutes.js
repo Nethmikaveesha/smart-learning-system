@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createContentRecommendation,
+  generateContentRecommendation,
   getAllContentRecommendations,
   getContentByTopic,
 } from "../controllers/contentRecommendationController.js";
@@ -8,6 +9,13 @@ import {
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.post(
+  "/generate",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  generateContentRecommendation
+);
 
 router.post(
   "/",

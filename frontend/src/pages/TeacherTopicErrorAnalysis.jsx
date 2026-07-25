@@ -144,20 +144,20 @@ function PageHeader({ subjects, selectedSubjectId, onSubjectChange }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="typo-eyebrow text-blue-700">
             Teacher Analytics
           </p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-2 typo-page text-slate-950">
             Topic Error Analysis
           </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          <p className="mt-2 max-w-3xl typo-body text-slate-600">
             Review weak topics, missing concepts, and strong learning areas
             detected from essay submissions.
           </p>
         </div>
 
         {subjects.length > 0 && (
-          <label className="text-sm font-bold text-slate-700">
+          <label className="typo-label text-slate-700">
             Subject
             <select
               value={selectedSubjectId}
@@ -181,7 +181,7 @@ function PageHeader({ subjects, selectedSubjectId, onSubjectChange }) {
 function MetricCard({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
       <p className="typo-metric mt-3 text-slate-950">{value}</p>
@@ -193,8 +193,8 @@ function TopicChart({ title, description, data, color }) {
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+        <h3 className="typo-card text-slate-950">{title}</h3>
+        <p className="mt-1 typo-body text-slate-600">{description}</p>
       </div>
 
       {data.length === 0 ? (
@@ -231,7 +231,7 @@ function TopicChart({ title, description, data, color }) {
 function AnalyticsList({ title, items, labelKey }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
+      <h3 className="typo-card text-slate-950">{title}</h3>
 
       {items.length === 0 ? (
         <EmptyPanel message="No data available." compact />
@@ -267,7 +267,7 @@ function AlertBox({ message }) {
 function LoadingPanel() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-600">
+      <p className="typo-ui text-slate-600">
         Loading topic error analysis...
       </p>
     </div>
@@ -281,7 +281,7 @@ function EmptyPanel({ message, compact = false }) {
         compact ? "mt-4 p-4" : "p-6"
       }`}
     >
-      <p className="text-sm font-semibold text-slate-600">{message}</p>
+      <p className="typo-ui text-slate-600">{message}</p>
     </div>
   );
 }

@@ -106,7 +106,7 @@ function LegalPage({ page = "privacy" }) {
     <div className="public-site bg-white">
       <section className="border-b border-slate-200 bg-[#f8fafc]">
         <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">
+          <p className="typo-eyebrow text-sky-700">
             Legal
           </p>
           <h1 className="typo-section mt-3 tracking-tight text-slate-950">
@@ -122,7 +122,7 @@ function LegalPage({ page = "privacy" }) {
         <div className="mx-auto max-w-3xl space-y-10 px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
           {content.sections.map((section) => (
             <article key={section.heading}>
-              <h2 className="text-xl font-semibold text-slate-950">
+              <h2 className="typo-card text-slate-950">
                 {section.heading}
               </h2>
               <p className="typo-body mt-3 text-slate-600">{section.text}</p>

@@ -66,16 +66,16 @@ function PublicLayout() {
             : "border-transparent bg-white/80 backdrop-blur-md"
         }`}
       >
-        <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:h-[72px] lg:px-8">
+        <nav className="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:h-20 lg:px-8">
           <NavLink to="/" className="group flex shrink-0 items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-sky-700 text-sm font-bold text-white shadow-sm transition group-hover:bg-sky-800">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-sky-700 text-base font-bold text-white shadow-sm transition group-hover:bg-sky-800">
               ET
             </span>
             <span className="flex flex-col leading-none">
-              <span className="text-base font-semibold tracking-tight text-slate-950 sm:text-lg">
+              <span className="text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
                 EduTrack
               </span>
-              <span className="mt-1 hidden text-[11px] font-medium tracking-wide text-slate-500 sm:block">
+              <span className="mt-1.5 hidden text-xs font-medium tracking-wide text-slate-500 sm:block">
                 Smart Learning System
               </span>
             </span>
@@ -88,7 +88,7 @@ function PublicLayout() {
                 to={link.to}
                 end={link.to === "/"}
                 className={({ isActive }) =>
-                  `relative rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
+                  `relative rounded-lg px-3.5 py-2 text-base font-semibold transition ${
                     isActive
                       ? "text-sky-800"
                       : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"
@@ -112,7 +112,7 @@ function PublicLayout() {
           <div className="hidden items-center gap-2 lg:flex">
             <NavLink
               to="/login"
-              className="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.02] hover:bg-sky-800"
+              className="rounded-lg bg-sky-700 px-5 py-2.5 text-base font-semibold text-white shadow-sm transition hover:scale-[1.02] hover:bg-sky-800"
             >
               Sign In
             </NavLink>
@@ -146,7 +146,7 @@ function PublicLayout() {
                 to={link.to}
                 end={link.to === "/"}
                 className={({ isActive }) =>
-                  `block rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                  `block rounded-xl px-4 py-3 text-base font-semibold transition ${
                     isActive
                       ? "bg-sky-50 text-sky-800"
                       : "text-slate-700 hover:bg-slate-50"
@@ -160,13 +160,13 @@ function PublicLayout() {
             <div className="mt-3 grid gap-2 border-t border-slate-100 pt-4">
               <NavLink
                 to="/contact"
-                className="rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-3 text-center text-base font-semibold text-slate-800 transition hover:bg-slate-50"
               >
                 Contact Team
               </NavLink>
               <NavLink
                 to="/login"
-                className="rounded-xl bg-sky-700 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-sky-800"
+                className="rounded-xl bg-sky-700 px-4 py-3 text-center text-base font-semibold text-white transition hover:bg-sky-800"
               >
                 Sign In
               </NavLink>
@@ -190,8 +190,8 @@ function PublicLayout() {
                 <span className="text-lg font-semibold text-white">EduTrack</span>
               </NavLink>
               <p className="mt-4 max-w-sm text-sm leading-7 text-slate-400">
-                AI-assisted academic management platform for Sri Lankan GCE A/L
-                Commerce education.
+                Academic management platform for Sri Lankan GCE A/L Commerce
+                education.
               </p>
             </div>
 
@@ -245,7 +245,7 @@ function PublicLayout() {
 
           <div className="mt-12 grid gap-8 border-t border-slate-800 pt-8 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <p className="typo-eyebrow text-slate-500">
                 Contact
               </p>
               <div className="mt-3 space-y-2 text-sm">
@@ -278,7 +278,7 @@ function PublicLayout() {
 function FooterColumn({ title, children }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+      <p className="typo-eyebrow text-slate-500">
         {title}
       </p>
       <div className="mt-4 flex flex-col gap-3">{children}</div>

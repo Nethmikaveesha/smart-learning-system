@@ -24,6 +24,12 @@ import ContactPage from "./pages/public/ContactPage";
 import LegalPage from "./pages/public/LegalPage";
 import DashboardFeaturePage from "./pages/DashboardFeaturePage";
 import TeacherEssayReview from "./pages/TeacherEssayReview";
+import TeacherScoreTrends from "./pages/TeacherScoreTrends";
+import TeacherContentProvider from "./pages/TeacherContentProvider";
+import StudentAdaptiveLearning from "./pages/StudentAdaptiveLearning";
+import StudentFlashcards from "./pages/StudentFlashcards";
+import StudentPerformanceTracker from "./pages/StudentPerformanceTracker";
+import AdminSystemAnalytics from "./pages/AdminSystemAnalytics";
 
 // This component protects dashboard routes.
 // If the user is not logged in, it redirects to the login page.
@@ -78,6 +84,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<AdminDashboard />} />
+        <Route path="system-analytics" element={<AdminSystemAnalytics />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
@@ -96,6 +103,8 @@ function AppRoutes() {
           element={<TeacherTopicErrorAnalysis />}
         />
         <Route path="essay-review" element={<TeacherEssayReview />} />
+        <Route path="score-trends" element={<TeacherScoreTrends />} />
+        <Route path="content-provider" element={<TeacherContentProvider />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
@@ -110,6 +119,9 @@ function AppRoutes() {
       >
         <Route index element={<StudentDashboard />} />
         <Route path="essay-grader" element={<EssayGrader />} />
+        <Route path="adaptive-learning" element={<StudentAdaptiveLearning />} />
+        <Route path="flashcards" element={<StudentFlashcards />} />
+        <Route path="performance" element={<StudentPerformanceTracker />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
@@ -130,7 +142,7 @@ function AppRoutes() {
       >
         <Route index element={<ParentDashboard />} />
 
-        {/* Sidebar Risk Alerts page with ML prediction buttons */}
+        {/* Parent progress alerts with outlook checks */}
         <Route path="risk-alerts" element={<ParentRiskAlerts />} />
 
         {/* Other parent sidebar pages use the reusable feature page */}
@@ -148,7 +160,7 @@ function AppRoutes() {
         <Route path="/chatbot" element={<Chatbot />} />
       </Route>
 
-      {/* Standalone ML research/demo dashboard */}
+      {/* Standalone research/demo risk monitoring page */}
       <Route path="/risk-dashboard" element={<RiskDashboard />} />
 
       {/* Unknown routes redirect to public home */}

@@ -13,6 +13,7 @@ import {
   Phone,
   ShieldCheck,
 } from "lucide-react";
+import api from "../../services/api";
 
 const quickContacts = [
   {
@@ -111,7 +112,7 @@ function ContactPage() {
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
@@ -122,35 +123,39 @@ function ContactPage() {
       return;
     }
 
-    setSending(true);
-    setStatus({ type: "", text: "" });
+    try {
+      setSending(true);
+      setStatus({ type: "", text: "" });
 
-    const body = [
-      `Name: ${form.name.trim()}`,
-      `Email: ${form.email.trim()}`,
-      `Category: ${form.category}`,
-      "",
-      form.message.trim(),
-    ].join("\n");
+      const res = await api.post("/contact", {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        subject: form.subject.trim(),
+        category: form.category,
+        message: form.message.trim(),
+      });
 
-    const mailto = `mailto:support@edutrack.lk?subject=${encodeURIComponent(
-      `[${form.category}] ${form.subject.trim() || "EduTrack inquiry"}`
-    )}&body=${encodeURIComponent(body)}`;
-
-    window.location.href = mailto;
-
-    setStatus({
-      type: "success",
-      text: "Message Ready",
-    });
-    setForm({
-      name: "",
-      email: "",
-      subject: "",
-      category: "General",
-      message: "",
-    });
-    setSending(false);
+      setStatus({
+        type: "success",
+        text: res.data?.message || "Message Ready",
+      });
+      setForm({
+        name: "",
+        email: "",
+        subject: "",
+        category: "General",
+        message: "",
+      });
+    } catch (err) {
+      setStatus({
+        type: "error",
+        text:
+          err.response?.data?.message ||
+          "Could not send your message. Please try again.",
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -163,13 +168,13 @@ function ContactPage() {
         />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">
+            <p className="typo-eyebrow text-sky-700">
               Contact
             </p>
             <h1 className="typo-section mt-4 tracking-tight text-balance text-slate-950">
               Contact EduTrack
             </h1>
-            <p className="mt-3 text-xl font-semibold text-slate-800">
+            <p className="mt-3 typo-card text-slate-800">
               We&apos;re ready to support your academic journey.
             </p>
             <p className="typo-body mx-auto mt-5 max-w-2xl text-pretty text-slate-600">
@@ -193,7 +198,7 @@ function ContactPage() {
                 <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
                   <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                 </span>
-                <p className="mt-5 text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
+                <p className="mt-5 typo-eyebrow text-slate-500">
                   {label}
                 </p>
                 {href ? (
@@ -222,7 +227,7 @@ function ContactPage() {
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12 lg:px-8 lg:py-20">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70 sm:p-8">
             <h2 className="typo-card text-slate-950">Send us a message</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 typo-body text-slate-600">
               Complete the form below and our team will respond as soon as
               possible.
             </p>
@@ -248,7 +253,7 @@ function ContactPage() {
             ) : null}
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
-              <label className="block text-sm font-semibold text-slate-700">
+              <label className="block typo-ui text-slate-700">
                 Name
                 <input
                   type="text"
@@ -260,7 +265,7 @@ function ContactPage() {
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-slate-700">
+              <label className="block typo-ui text-slate-700">
                 Email
                 <input
                   type="email"
@@ -272,7 +277,7 @@ function ContactPage() {
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-slate-700">
+              <label className="block typo-ui text-slate-700">
                 Subject
                 <input
                   type="text"
@@ -283,7 +288,7 @@ function ContactPage() {
                 />
               </label>
 
-              <label className="block text-sm font-semibold text-slate-700">
+              <label className="block typo-ui text-slate-700">
                 Category
                 <select
                   value={form.category}
@@ -298,7 +303,7 @@ function ContactPage() {
                 </select>
               </label>
 
-              <label className="block text-sm font-semibold text-slate-700">
+              <label className="block typo-ui text-slate-700">
                 Message
                 <textarea
                   value={form.message}
@@ -323,7 +328,7 @@ function ContactPage() {
           <aside className="space-y-8 rounded-3xl border border-slate-200 bg-[#f8fafc] p-6 sm:p-8">
             <div>
               <h3 className="typo-card text-slate-950">Office Information</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mt-2 typo-body text-slate-600">
                 Reach us directly using the details below.
               </p>
             </div>
@@ -442,7 +447,7 @@ function ContactPage() {
                 Colombo, Sri Lanka
               </p>
             </div>
-            <p className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <p className="inline-flex items-center gap-2 typo-ui text-slate-700">
               <MapPinned className="h-4 w-4 text-sky-700" aria-hidden />
               EduTrack Headquarters
             </p>
@@ -480,7 +485,7 @@ function ContactPage() {
             </a>
             <NavLink
               to="/features"
-              className="rounded-md border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              className="rounded-md border border-slate-300 bg-white px-5 py-3 typo-ui text-slate-800 transition hover:bg-slate-50"
             >
               Explore Platform
             </NavLink>
@@ -499,7 +504,7 @@ function OfficeItem({ icon: Icon, label, lines, href }) {
           <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         </span>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          <p className="typo-eyebrow text-slate-500">
             {label}
           </p>
           {lines.map((line) =>
