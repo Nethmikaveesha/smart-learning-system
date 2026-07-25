@@ -35,7 +35,7 @@ function TeacherSidebar() {
         title="Class Operations"
         items={[
           { label: "Student Submissions", to: "/teacher/submissions" },
-          { label: "AI Essay Grading", to: "/teacher/essay-review" },
+          { label: "Essay Review", to: "/teacher/essay-review" },
           { label: "Create Exam", to: "/teacher/exams" },
           { label: "Marks Management", to: "/teacher/marks" },
           { label: "Attendance Management", to: "/teacher/attendance" },
@@ -55,7 +55,7 @@ function TeacherSidebar() {
       <SidebarSection
         title="Support"
         items={[
-          { label: "AI Content Provider", to: "/teacher/content-provider" },
+          { label: "Content Provider", to: "/teacher/content-provider" },
           { label: "Reports", to: "/teacher/reports" },
           { label: "Notifications", to: "/teacher/notifications" },
           { label: "Profile", to: "/teacher/profile" },

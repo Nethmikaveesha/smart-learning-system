@@ -10,7 +10,7 @@ function PublicPageHero({ eyebrow, title, subtitle, actions }) {
       />
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">
+          <p className="typo-eyebrow text-sky-700">
             {eyebrow}
           </p>
           <h1 className="typo-section mt-3 tracking-tight text-balance text-slate-950">

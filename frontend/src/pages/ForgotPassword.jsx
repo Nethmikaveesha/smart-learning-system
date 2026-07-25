@@ -110,14 +110,14 @@ function ForgotPassword() {
               setResult(null);
               setEmail("");
             }}
-            className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+            className="typo-ui text-slate-600 hover:text-slate-900"
           >
             Use a different email
           </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          <label className="block text-sm font-semibold text-slate-700">
+          <label className="block typo-ui text-slate-700">
             Email
             <input
               type="email"

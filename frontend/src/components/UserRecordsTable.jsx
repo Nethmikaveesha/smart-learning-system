@@ -271,7 +271,7 @@ function UserRecordsTable({
   if (loading) {
     return (
       <section className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-slate-600">
+        <p className="typo-ui text-slate-600">
           Loading records...
         </p>
       </section>
@@ -282,10 +282,10 @@ function UserRecordsTable({
     <section className="mt-8">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="typo-eyebrow text-blue-700">
             Records
           </p>
-          <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+          <h2 className="mt-1 typo-card text-slate-950">
             {title}
           </h2>
         </div>
@@ -394,10 +394,10 @@ function EditRecordModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-5 border-b border-slate-100 pb-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="typo-eyebrow text-blue-700">
             Edit Record
           </p>
-          <h3 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+          <h3 className="mt-1 typo-card text-slate-950">
             {formValues.fullName || "User Record"}
           </h3>
         </div>
@@ -522,7 +522,7 @@ function EditRecordModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 px-4 py-2 typo-ui text-slate-700 transition hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -542,7 +542,7 @@ function EditRecordModal({
 
 function EditSelectField({ label, value, onChange, options, placeholder }) {
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       <select
         value={value || ""}
@@ -562,7 +562,7 @@ function EditSelectField({ label, value, onChange, options, placeholder }) {
 
 function EditField({ label, value, onChange }) {
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       <input
         type="text"
@@ -601,7 +601,7 @@ function RoleBadge({ role }) {
 function EmptyRecords() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-      <p className="text-sm font-semibold text-slate-800">No records found</p>
+      <p className="typo-ui text-slate-800">No records found</p>
       <p className="mt-1 text-sm text-slate-600">
         Records will appear here after accounts are created.
       </p>

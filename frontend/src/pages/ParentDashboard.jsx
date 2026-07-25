@@ -39,7 +39,7 @@ function ParentDashboard() {
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [error, setError] = useState("");
 
-  // ML prediction states
+  // Progress check states
   const [mlLoading, setMlLoading] = useState("");
   const [mlError, setMlError] = useState("");
   const [passFailPrediction, setPassFailPrediction] = useState(null);
@@ -142,7 +142,7 @@ function ParentDashboard() {
     } catch (predictionError) {
       setMlError(
         predictionError.response?.data?.message ||
-          "Failed to run Pass/Fail risk prediction"
+          "Failed to run pass / fail progress check"
       );
     } finally {
       setMlLoading("");
@@ -171,7 +171,7 @@ function ParentDashboard() {
     } catch (predictionError) {
       setMlError(
         predictionError.response?.data?.message ||
-          "Failed to run Commerce risk prediction"
+          "Failed to run subject progress check"
       );
     } finally {
       setMlLoading("");
@@ -234,10 +234,10 @@ function ParentDashboard() {
           <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="typo-eyebrow text-slate-400">
                   Student Profile
                 </p>
-                <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                <h2 className="mt-2 typo-card text-slate-950">
                   {childName}
                 </h2>
 
@@ -264,23 +264,23 @@ function ParentDashboard() {
           </section>
 
           <Panel
-            title="ML Risk Prediction"
-            description="Run machine-learning predictions using the latest academic and attendance data."
+            title="Academic Progress Check"
+            description="Review the latest attendance and marks to see where extra support may help."
             action={
               <Link
                 to="/parent/risk-alerts"
                 className="text-sm font-semibold text-blue-700 hover:underline"
               >
-                Open Risk Alerts
+                Open Progress Alerts
               </Link>
             }
           >
             <div className="grid gap-4 lg:grid-cols-2">
               <PredictionCard
-                title="Pass/Fail Risk Model"
-                description="Predicts whether the student is likely to pass or fail."
-                buttonText="Run Pass/Fail Prediction"
-                loadingText="Predicting..."
+                title="Pass / Fail Outlook"
+                description="Estimates whether the student is on track to pass or may need support."
+                buttonText="Check Pass / Fail Outlook"
+                loadingText="Checking..."
                 color="blue"
                 isLoading={mlLoading === "pass-fail"}
                 disabled={!studentProfileObjectId}
@@ -290,11 +290,11 @@ function ParentDashboard() {
                   <PredictionResult
                     rows={[
                       {
-                        label: "Result",
+                        label: "Likely Result",
                         value: passFailPrediction.predicted_result,
                       },
                       {
-                        label: "Risk Level",
+                        label: "Support Level",
                         value: passFailPrediction.risk_level,
                         badgeClass: getRiskBadgeClass(
                           passFailPrediction.risk_level
@@ -306,10 +306,10 @@ function ParentDashboard() {
               </PredictionCard>
 
               <PredictionCard
-                title="Commerce Risk Model"
-                description="Predicts High, Medium, or Low academic risk for A/L Commerce."
-                buttonText="Run Commerce Prediction"
-                loadingText="Predicting..."
+                title="Subject Progress Check"
+                description="Estimates High, Medium, or Low support need for A/L Commerce subjects."
+                buttonText="Check Subject Progress"
+                loadingText="Checking..."
                 color="emerald"
                 isLoading={mlLoading === "commerce"}
                 disabled={!studentProfileObjectId}
@@ -319,7 +319,7 @@ function ParentDashboard() {
                   <PredictionResult
                     rows={[
                       {
-                        label: "Risk Level",
+                        label: "Support Level",
                         value: commercePrediction.risk_level,
                         badgeClass: getRiskBadgeClass(
                           commercePrediction.risk_level
@@ -444,7 +444,7 @@ function ParentDashboard() {
                   <p className="text-base font-semibold text-slate-950">
                     {data.recommendedAction.title}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 typo-body text-slate-600">
                     {data.recommendedAction.message}
                   </p>
 
@@ -539,7 +539,7 @@ function ParentDashboard() {
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center typo-ui text-slate-800 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                 >
                   {action.label}
                 </Link>
@@ -563,21 +563,20 @@ function DashboardHeader({
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          <p className="typo-eyebrow text-blue-700">
             Parent Dashboard
           </p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-2 typo-page text-slate-950">
             {childName}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Monitor academic progress, attendance, alerts, and ML-based risk
-            predictions from one place.
+          <p className="mt-2 typo-body text-slate-600">
+            Monitor academic progress, attendance, and alerts from one place.
           </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           {linkedChildren.length > 1 && (
-            <label className="text-sm font-semibold text-slate-600">
+            <label className="typo-ui text-slate-600">
               Viewing Child
               <select
                 value={selectedStudentId}
@@ -609,7 +608,7 @@ function DashboardHeader({
 function MetricCard({ label, value, badgeClass }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
 
@@ -620,7 +619,7 @@ function MetricCard({ label, value, badgeClass }) {
           {value || "--"}
         </span>
       ) : (
-        <h2 className="mt-3 truncate text-3xl font-bold text-slate-950">
+        <h2 className="mt-3 truncate typo-metric text-slate-950">
           {value || "--"}
         </h2>
       )}
@@ -631,7 +630,7 @@ function MetricCard({ label, value, badgeClass }) {
 function ProfileItem({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
       <p className="mt-1 font-bold text-slate-800">{value || "--"}</p>
@@ -644,9 +643,9 @@ function Panel({ title, description, children, action }) {
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-950">{title}</h2>
+          <h2 className="typo-card text-slate-950">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm leading-6 text-slate-600">
+            <p className="mt-1 typo-body text-slate-600">
               {description}
             </p>
           )}
@@ -727,10 +726,10 @@ function PredictionResult({ rows }) {
 function InfoStat({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
-      <p className="mt-2 text-xl font-semibold text-slate-950">
+      <p className="mt-2 typo-card text-slate-950">
         {value ?? "--"}
       </p>
     </div>
@@ -752,8 +751,8 @@ function AlertBox({ message, compact = false }) {
 function EmptyState({ title, message }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-600">{message}</p>
+      <p className="typo-ui text-slate-800">{title}</p>
+      <p className="mt-1 typo-body text-slate-600">{message}</p>
     </div>
   );
 }
@@ -761,7 +760,7 @@ function EmptyState({ title, message }) {
 function LoadingPanel() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-600">
+      <p className="typo-ui text-slate-600">
         Loading parent dashboard...
       </p>
     </div>

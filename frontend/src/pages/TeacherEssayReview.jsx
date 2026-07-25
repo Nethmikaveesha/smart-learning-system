@@ -3,7 +3,7 @@ import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 /**
- * Teacher review page for AI-Assisted Essay Grader.
+ * Teacher review page for student essay submissions.
  * Shows recommended part marks (keywords + structure) and lets teachers modify them.
  */
 function TeacherEssayReview() {
@@ -123,7 +123,7 @@ function TeacherEssayReview() {
 
   if (loading) {
     return (
-      <div className="p-6 text-sm font-semibold text-slate-600">
+      <div className="p-6 typo-ui text-slate-600">
         Loading essay submissions...
       </div>
     );
@@ -132,14 +132,14 @@ function TeacherEssayReview() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-          AI-Assisted Essay Grader
+        <p className="typo-eyebrow text-blue-700">
+          Essay Review
         </p>
-        <h1 className="mt-1 text-4xl font-bold tracking-tight text-slate-950">
+        <h1 className="mt-1 typo-page text-slate-950">
           Review & Modify Marks
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          AI recommends scores from keywords and essay structure. Teachers can
+        <p className="mt-2 max-w-3xl typo-body text-slate-600">
+          Suggested scores are based on keywords and essay structure. You can
           modify each part, then approve the final mark.
         </p>
       </div>
@@ -187,7 +187,7 @@ function TeacherEssayReview() {
                       {question}
                     </p>
                     <p className="mt-2 text-xs font-bold text-slate-500">
-                      AI: {item.marks ?? "--"} · Status: {item.status}
+                      Suggested: {item.marks ?? "--"} · Status: {item.status}
                     </p>
                   </button>
                 );
@@ -200,7 +200,7 @@ function TeacherEssayReview() {
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-semibold text-slate-950">
+                    <h2 className="typo-card text-slate-950">
                       {selected.student?.user?.fullName || "Student"}
                     </h2>
                     <p className="mt-1 text-sm text-slate-600">
@@ -213,7 +213,7 @@ function TeacherEssayReview() {
                 </div>
 
                 <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="typo-eyebrow text-slate-400">
                     Student Answer
                   </p>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-800">
@@ -223,8 +223,8 @@ function TeacherEssayReview() {
 
                 {selected.feedback && (
                   <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                      AI Feedback
+                    <p className="typo-eyebrow text-blue-700">
+                      Suggested Feedback
                     </p>
                     <p className="mt-2 text-sm leading-7 text-blue-900">
                       {selected.feedback}
@@ -234,7 +234,7 @@ function TeacherEssayReview() {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="text-xl font-semibold text-slate-950">
+                <h3 className="typo-card text-slate-950">
                   Part-wise Marks
                 </h3>
                 <p className="mt-1 text-sm text-slate-600">
@@ -254,7 +254,7 @@ function TeacherEssayReview() {
                         <tr>
                           <th className="px-3 py-2">Part</th>
                           <th className="px-3 py-2">Max</th>
-                          <th className="px-3 py-2">AI Recommended</th>
+                          <th className="px-3 py-2">Suggested</th>
                           <th className="px-3 py-2">Teacher Mark</th>
                         </tr>
                       </thead>
@@ -319,7 +319,7 @@ function TeacherEssayReview() {
 
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                   <ScoreCard
-                    label="AI Recommended Total"
+                    label="Suggested Total"
                     value={selected.markBreakdown?.recommendedTotal ?? selected.marks}
                   />
                   <ScoreCard label="Teacher Total" value={teacherTotal ?? "--"} />
@@ -333,7 +333,7 @@ function TeacherEssayReview() {
                   />
                 </div>
 
-                <label className="mt-5 block text-sm font-bold text-slate-700">
+                <label className="mt-5 block typo-label text-slate-700">
                   Teacher Feedback
                   <textarea
                     value={teacherFeedback}
@@ -363,7 +363,7 @@ function TeacherEssayReview() {
 function ScoreCard({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
       <p className="typo-metric mt-2 text-slate-950">{value}</p>

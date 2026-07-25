@@ -309,3 +309,140 @@ export const getTeacherTopicErrorAnalytics = async (req, res) => {
     });
   }
 };
+
+/**
+ * Score trends across exams for the teacher's classes/subjects.
+ * Supports optional subject + student filters for an interactive chart.
+ */
+export const getTeacherScoreTrends = async (req, res) => {
+  try {
+    const scope = await getTeacherScope(req.user._id);
+    const { subjectId, studentId } = req.query;
+
+    const examFilter = {
+      class: { $in: scope.classIds },
+      subject: { $in: scope.subjectIds },
+    };
+
+    if (subjectId) {
+      examFilter.subject = subjectId;
+    }
+
+    const exams = await Exam.find(examFilter)
+      .populate("subject", "subjectName subjectCode")
+      .populate("class", "className")
+      .sort({ examDate: 1 });
+
+    const examIds = exams.map((exam) => exam._id);
+
+    const resultFilter = {
+      exam: { $in: examIds },
+      student: { $in: scope.studentIds },
+    };
+
+    if (studentId) {
+      resultFilter.student = studentId;
+    }
+
+    const results = await Result.find(resultFilter)
+      .populate("student", "studentId")
+      .populate({
+        path: "student",
+        populate: { path: "user", select: "fullName" },
+      });
+
+    const resultsByExam = new Map();
+    for (const result of results) {
+      const key = result.exam.toString();
+      if (!resultsByExam.has(key)) resultsByExam.set(key, []);
+      resultsByExam.get(key).push(result);
+    }
+
+    const passMark = await getPassMark();
+
+    const classTrend = exams.map((exam) => {
+      const examResults = resultsByExam.get(exam._id.toString()) || [];
+      const averageMarks =
+        examResults.length > 0
+          ? Number(
+              (
+                examResults.reduce((sum, item) => sum + Number(item.marks || 0), 0) /
+                examResults.length
+              ).toFixed(2)
+            )
+          : null;
+
+      return {
+        examId: exam._id,
+        examName: exam.examName,
+        examDate: exam.examDate,
+        label: exam.examName,
+        shortLabel:
+          exam.examName.length > 18
+            ? `${exam.examName.slice(0, 16)}…`
+            : exam.examName,
+        subject: exam.subject?.subjectName || "Subject",
+        className: exam.class?.className || "Class",
+        averageMarks,
+        resultCount: examResults.length,
+        passCount: examResults.filter((item) =>
+          isPassingMark(item.marks, passMark)
+        ).length,
+      };
+    });
+
+    const chartPoints = classTrend
+      .filter((point) => point.averageMarks !== null)
+      .map((point) => ({
+        name: point.shortLabel,
+        examName: point.examName,
+        averageMarks: point.averageMarks,
+        resultCount: point.resultCount,
+        examDate: point.examDate,
+      }));
+
+    const studentsWithNames = await StudentProfile.find({
+      _id: { $in: scope.studentIds },
+    })
+      .populate("user", "fullName")
+      .select("studentId user")
+      .sort({ studentId: 1 });
+
+    res.status(200).json({
+      success: true,
+      subjects: scope.subjects,
+      classes: scope.classes,
+      students: studentsWithNames.map((student) => ({
+        _id: student._id,
+        studentId: student.studentId,
+        fullName: student.user?.fullName || student.studentId,
+      })),
+      selectedSubjectId: subjectId || "",
+      selectedStudentId: studentId || "",
+      examCount: exams.length,
+      resultCount: results.length,
+      passMark,
+      classTrend,
+      chartPoints,
+      latestAverage:
+        chartPoints.length > 0
+          ? chartPoints[chartPoints.length - 1].averageMarks
+          : null,
+      overallAverage:
+        chartPoints.length > 0
+          ? Number(
+              (
+                chartPoints.reduce((sum, point) => sum + point.averageMarks, 0) /
+                chartPoints.length
+              ).toFixed(2)
+            )
+          : null,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to load score trends",
+      error: error.message,
+    });
+  }
+};

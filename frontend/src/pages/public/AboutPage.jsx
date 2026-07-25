@@ -121,7 +121,7 @@ function AboutPage() {
         />
         <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">
+            <p className="typo-eyebrow text-sky-700">
               About
             </p>
             <h1 className="typo-section mt-4 tracking-tight text-balance text-slate-950">
@@ -142,7 +142,7 @@ function AboutPage() {
       <section className="border-b border-slate-200 bg-[#f3f4f6]">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16 lg:px-8 lg:py-20">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-700">
+            <p className="typo-eyebrow text-sky-700">
               Our Mission
             </p>
             <h2 className="typo-section mt-3 tracking-tight text-slate-950">
@@ -278,7 +278,7 @@ function AboutPage() {
                     : ""
                 }`}
               >
-                <p className="text-4xl font-bold tracking-tight text-slate-950">
+                <p className="typo-section text-slate-950">
                   {stat.value}
                 </p>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
@@ -294,7 +294,7 @@ function AboutPage() {
       <section className="border-b border-slate-800 bg-slate-950 text-white">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20 lg:px-8 lg:py-20">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-400">
+            <p className="typo-eyebrow text-sky-400">
               Built with academic purpose
             </p>
 
@@ -345,7 +345,7 @@ function AboutPage() {
             </NavLink>
             <NavLink
               to="/login"
-              className="rounded-md border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              className="rounded-md border border-slate-300 bg-white px-5 py-3 typo-ui text-slate-800 transition hover:bg-slate-50"
             >
               Sign In
             </NavLink>

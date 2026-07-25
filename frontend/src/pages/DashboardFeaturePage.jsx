@@ -347,11 +347,6 @@ const featureConfigs = {
     title: "Question Paper Details",
     endpoint: "/essays/questions",
   },
-  "/admin/system-analytics": {
-    title: "System Analytics",
-    endpoint: "/results/analytics-summary",
-    layout: "cards",
-  },
   "/admin/audit-logs": {
     title: "Audit Logs",
     endpoint: "/audit-logs",
@@ -549,7 +544,7 @@ const featureConfigs = {
           name: "modelAnswer",
           label: "Model Answer",
           type: "textarea",
-          placeholder: "Ideal answer used by AI / NLP grading...",
+          placeholder: "Ideal answer used for marking guidance...",
         },
       ],
     },
@@ -689,33 +684,6 @@ const featureConfigs = {
     title: "Weak Student Detection",
     endpoint: "/risk-notifications",
   },
-  "/teacher/score-trends": {
-    title: "Score Trends",
-    endpoint: "/results/analytics-summary",
-    layout: "cards",
-  },
-  "/teacher/content-provider": {
-    title: "AI Content Provider",
-    endpoint: "/content-recommendations",
-    form: {
-      endpoint: "/content-recommendations",
-      method: "post",
-      submitLabel: "Add Content",
-      fields: [
-        { name: "subject", label: "Subject ID", required: true },
-        { name: "topic", label: "Topic", required: true },
-        { name: "noteTitle", label: "Note Title", required: true },
-        { name: "noteDescription", label: "Note Description", type: "textarea", required: true },
-        { name: "videoLink", label: "Video Link" },
-        {
-          name: "difficultyLevel",
-          label: "Difficulty",
-          type: "select",
-          options: ["Medium", "Easy", "Hard"],
-        },
-      ],
-    },
-  },
   "/teacher/reports": {
     title: "Reports",
     endpoint: "/results/analytics-summary",
@@ -735,26 +703,6 @@ const featureConfigs = {
     description: "Available essay questions for practice and submission.",
     endpoint: "/essays/questions",
     tableColumns: ["question", "maxMarks", "createdAt"],
-  },
-  "/student/adaptive-learning": {
-    title: "Adaptive Learning",
-    description: "Personalized recommendations for weaker subjects.",
-    endpoint: "/adaptive-learning",
-    dataPath: "adaptivePlan",
-    tableColumns: ["subject", "marks", "recommendation"],
-    emptyMessage: (response) =>
-      !response?.hasExamResults
-        ? "Recommendations will appear after your first examination."
-        : "No weak subjects detected. Great job!",
-  },
-  "/student/performance": {
-    title: "Performance Tracker",
-    description: "Your examination marks, grades, and rankings.",
-    endpoint: "/student-dashboard",
-    dataPath: "results",
-    tableColumns: ["exam", "marks", "grade", "rank", "zScore"],
-    emptyMessage: "No academic performance data available.",
-    emptyIcon: "📊",
   },
   "/student/revision-timetable": {
     title: "Revision Timetable",
@@ -783,14 +731,6 @@ const featureConfigs = {
     emptyMessage:
       "Complete exams and maintain high performance to earn badges.",
   },
-  "/student/flashcards": {
-    title: "Flashcards",
-    description: "Practice questions for active recall revision.",
-    endpoint: "/flashcards",
-    tableColumns: ["topic", "question", "answer", "difficulty"],
-    emptyMessage:
-      "Flashcards will appear after your teacher uploads learning materials.",
-  },
   "/student/attendance-vs-marks": {
     title: "Attendance vs Marks",
     description: "How your attendance relates to your average marks.",
@@ -805,7 +745,7 @@ const featureConfigs = {
     endpoint: "/content-recommendations",
     tableColumns: ["noteTitle", "topic", "difficultyLevel", "noteDescription"],
     emptyMessage:
-      "AI recommendations will be generated after sufficient academic data is available.",
+      "Study recommendations will appear after enough academic data is available.",
   },
   "/student/change-password": {
     title: "Change Password",
@@ -1070,14 +1010,14 @@ function DashboardFeaturePage() {
 function PageHeader({ role, title, description }) {
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+      <p className="typo-eyebrow text-blue-700">
         {role || "Dashboard"} Workspace
       </p>
-      <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+      <h1 className="mt-2 typo-page text-slate-950">
         {title}
       </h1>
       {description && (
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        <p className="mt-2 max-w-3xl typo-body text-slate-600">
           {description}
         </p>
       )}
@@ -1101,7 +1041,7 @@ function StatusMessage({ type, message }) {
 function LoadingPanel() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-semibold text-slate-600">Loading data...</p>
+      <p className="typo-ui text-slate-600">Loading data...</p>
     </div>
   );
 }
@@ -1284,7 +1224,7 @@ function RegisterUserForm({
       className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-5 border-b border-slate-100 pb-4">
-        <h2 className="text-xl font-semibold text-slate-950">Register User</h2>
+        <h2 className="typo-card text-slate-950">Register User</h2>
         <p className="mt-1 text-sm text-slate-600">
           Create a secure account and assign role-specific academic details.
         </p>
@@ -1346,7 +1286,7 @@ function RegisterUserForm({
         )}
 
         {rolePreset && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 typo-ui text-slate-700">
             Role: {rolePreset}
           </div>
         )}
@@ -1692,7 +1632,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
       className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-5 border-b border-slate-100 pb-4">
-        <h2 className="text-xl font-semibold text-slate-950">
+        <h2 className="typo-card text-slate-950">
           {form.formTitle || "Create Record"}
         </h2>
         <p className="mt-1 text-sm text-slate-600">
@@ -1712,7 +1652,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
             field.dependsOn && !values[field.dependsOn];
 
           return (
-            <label key={field.name} className="text-sm font-bold text-slate-700">
+            <label key={field.name} className="typo-label text-slate-700">
               {field.label}
               {field.required && <span className="text-red-600"> *</span>}
 
@@ -1786,7 +1726,7 @@ function FormTextField({
   error = "",
 }) {
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       {required && <span className="text-red-600"> *</span>}
       <input
@@ -1799,7 +1739,7 @@ function FormTextField({
           error ? "border-red-400" : "border-slate-300"
         }`}
       />
-      {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
+      {error && <p className="mt-1 typo-caption font-semibold text-red-600">{error}</p>}
     </label>
   );
 }
@@ -1828,7 +1768,7 @@ function PasswordField({
       : "text-slate-500";
 
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       {required && <span className="text-red-600"> *</span>}
       <div className="relative mt-1">
@@ -1851,7 +1791,7 @@ function PasswordField({
         </button>
       </div>
 
-      {error && <p className="mt-1 text-xs font-semibold text-red-600">{error}</p>}
+      {error && <p className="mt-1 typo-caption font-semibold text-red-600">{error}</p>}
 
       {showStrength && value && (
         <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
@@ -1887,7 +1827,7 @@ function TextField({
   required = false,
 }) {
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       <input
         type={type}
@@ -1910,7 +1850,7 @@ function OptionSelectField({
   placeholder = "Select option",
 }) {
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       <select
         name={name}
@@ -1931,7 +1871,7 @@ function OptionSelectField({
 
 function SelectField({ label, name, value, onChange, options }) {
   return (
-    <label className="text-sm font-bold text-slate-700">
+    <label className="typo-label text-slate-700">
       {label}
       <select
         name={name}
@@ -2133,10 +2073,10 @@ function SummaryPanel({ data, fields }) {
             key={field.label}
             className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <p className="typo-eyebrow text-slate-400">
               {field.label}
             </p>
-            <p className="typo-metric mt-3 text-slate-950">
+            <p className="typo-value mt-2 text-slate-950">
               {displayValue}
             </p>
           </div>
@@ -2171,13 +2111,13 @@ function GridCardPanel({
           className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
         >
           {metaKey && row[metaKey] && (
-            <p className="mb-2 text-3xl">{row[metaKey]}</p>
+            <p className="mb-2 typo-value text-slate-700">{row[metaKey]}</p>
           )}
-          <h3 className="text-xl font-semibold text-slate-950">
+          <h3 className="typo-card text-slate-950">
             {formatCellValue(titleKey, row[titleKey])}
           </h3>
           {descriptionKey && row[descriptionKey] && (
-            <p className="mt-2 text-sm leading-6 text-slate-600">
+            <p className="mt-2 typo-body text-slate-600">
               {formatCellValue(descriptionKey, row[descriptionKey])}
             </p>
           )}
@@ -2203,10 +2143,10 @@ function CardPanel({ data }) {
             key={key}
             className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <p className="typo-eyebrow text-slate-400">
               {formatLabel(key)}
             </p>
-            <p className="typo-metric mt-3 break-words text-slate-950">
+            <p className="typo-value mt-2 text-slate-950">
               {formatValue(value)}
             </p>
           </div>
@@ -2219,7 +2159,7 @@ function EmptyState({ message = "No data available yet.", icon }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
       {icon && <div className="mb-2 text-3xl">{icon}</div>}
-      <p className="text-sm font-semibold text-slate-600">{message}</p>
+      <p className="typo-ui text-slate-600">{message}</p>
     </div>
   );
 }

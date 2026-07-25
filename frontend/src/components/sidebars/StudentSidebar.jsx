@@ -4,7 +4,7 @@ export const studentMobileLinks = [
   { label: "Dashboard", to: "/student", end: true },
   { label: "Subjects", to: "/student/subjects" },
   { label: "Papers", to: "/student/exam-papers" },
-  { label: "AI Chatbot", to: "/chatbot" },
+  { label: "Study Help", to: "/chatbot" },
   { label: "Progress", to: "/student/performance" },
   { label: "Materials", to: "/student/study-materials" },
 ];
@@ -24,8 +24,8 @@ function StudentSidebar() {
       <SidebarSection
         title="Learning Tools"
         items={[
-          { label: "Adaptive Learning", to: "/student/adaptive-learning" },
-          { label: "AI Chatbot", to: "/chatbot" },
+          { label: "Study Plan", to: "/student/adaptive-learning" },
+          { label: "Study Help", to: "/chatbot" },
           { label: "Revision Timetable", to: "/student/revision-timetable" },
           { label: "Flashcards", to: "/student/flashcards" },
           { label: "Study Materials", to: "/student/study-materials" },

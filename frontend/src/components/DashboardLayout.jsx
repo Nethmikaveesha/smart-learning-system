@@ -48,7 +48,7 @@ function DashboardLayout() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="dashboard-app min-h-screen bg-slate-100 text-slate-900">
       {/* Top dashboard navbar */}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="flex min-h-16 items-center justify-between px-4 lg:px-6">
@@ -56,14 +56,12 @@ function DashboardLayout() {
             to={dashboardPaths[role] || "/student"}
             className="flex items-center gap-3"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-700 text-sm font-semibold text-white shadow-sm">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-700 typo-ui text-white shadow-sm">
               ET
             </span>
             <span>
-              <span className="block text-xl font-semibold tracking-tight text-slate-950">
-                EduTrack
-              </span>
-              <span className="hidden text-xs font-semibold uppercase tracking-wide text-slate-500 sm:block">
+              <span className="block typo-card text-slate-950">EduTrack</span>
+              <span className="hidden typo-eyebrow text-slate-500 sm:block">
                 {roleLabels[role]} Workspace
               </span>
             </span>
@@ -73,7 +71,7 @@ function DashboardLayout() {
             <NavLink
               to={`/${role}/notifications`}
               className={({ isActive }) =>
-                `rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                `rounded-lg border px-3 py-2 typo-ui transition ${
                   isActive
                     ? "border-blue-200 bg-blue-50 text-blue-700"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -85,9 +83,9 @@ function DashboardLayout() {
 
             <NavLink
               to={`/${role}/profile`}
-              className="hidden items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 sm:flex"
+              className="hidden items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 typo-ui text-slate-700 transition hover:bg-slate-200 sm:flex"
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-900 typo-caption font-bold text-white">
                 {initials}
               </span>
               <span className="max-w-36 truncate">{displayName}</span>
@@ -96,7 +94,7 @@ function DashboardLayout() {
             <button
               type="button"
               onClick={logout}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
+              className="rounded-lg bg-red-600 px-4 py-2 typo-ui font-bold text-white shadow-sm transition hover:bg-red-700"
             >
               Logout
             </button>
@@ -113,7 +111,7 @@ function DashboardLayout() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `shrink-0 rounded-lg px-3 py-2 text-sm font-bold transition ${
+                `shrink-0 rounded-lg px-3 py-2 typo-ui transition ${
                   isActive
                     ? "bg-blue-700 text-white shadow-sm"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -130,12 +128,8 @@ function DashboardLayout() {
         {/* Desktop sidebar */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-slate-200 bg-white lg:block">
           <div className="border-b border-slate-100 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {role} Menu
-            </p>
-            <p className="mt-1 text-sm font-semibold text-slate-700">
-              Manage your workspace
-            </p>
+            <p className="typo-eyebrow text-slate-400">{role} Menu</p>
+            <p className="mt-1 typo-ui text-slate-700">Manage your workspace</p>
           </div>
 
           <div className="p-4">

@@ -7,6 +7,7 @@ import {
 import {
   attendanceMarksCorrelation,
   attendanceGradesCorrelation,
+  getInstitutionalTrends,
 } from "../controllers/analyticsController.js";
 
 const router = express.Router();
@@ -27,6 +28,13 @@ router.get(
   protect,
   authorizeRoles("admin", "teacher", "student", "parent"),
   attendanceGradesCorrelation
+);
+
+router.get(
+  "/institutional-trends",
+  protect,
+  authorizeRoles("admin"),
+  getInstitutionalTrends
 );
 
 export default router;

@@ -107,7 +107,7 @@ function EssayGrader() {
     return (
       <div className="p-6">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-slate-600">
+          <p className="typo-ui text-slate-600">
             Loading essay grader...
           </p>
         </div>
@@ -118,15 +118,15 @@ function EssayGrader() {
   return (
     <div className="p-6">
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-          AI Assessment
+        <p className="typo-eyebrow text-blue-700">
+          Essay Submission
         </p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-950">
+        <h1 className="mt-2 typo-page text-slate-950">
           Essay Grader
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Submit essay answers and receive AI-assisted evaluation with marks,
-          feedback, and NLP analysis.
+        <p className="mt-2 max-w-3xl typo-body text-slate-600">
+          Submit essay answers to receive marks, feedback, and a detailed
+          answer breakdown.
         </p>
       </section>
 
@@ -139,7 +139,7 @@ function EssayGrader() {
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 border-b border-slate-100 pb-4">
-            <h2 className="text-xl font-semibold text-slate-950">
+            <h2 className="typo-card text-slate-950">
               Submit Essay Answer
             </h2>
             <p className="mt-1 text-sm text-slate-600">
@@ -147,7 +147,7 @@ function EssayGrader() {
             </p>
           </div>
 
-          <label className="block text-sm font-bold text-slate-700">
+          <label className="block typo-label text-slate-700">
             Essay Question
             <select
               value={selectedQuestion}
@@ -185,7 +185,7 @@ function EssayGrader() {
               <p className="mt-2 text-sm leading-6 text-blue-800">
                 {selectedQuestionData.question}
               </p>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <p className="mt-3 typo-eyebrow text-blue-700">
                 {selectedQuestionData.gradeLevel
                   ? `Grade ${selectedQuestionData.gradeLevel} · `
                   : ""}
@@ -194,7 +194,7 @@ function EssayGrader() {
             </div>
           )}
 
-          <label className="mt-5 block text-sm font-bold text-slate-700">
+          <label className="mt-5 block typo-label text-slate-700">
             Your Answer
             <textarea
               value={answer}
@@ -236,7 +236,7 @@ function EssayGrader() {
         </div>
 
         <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-950">
+          <h2 className="typo-card text-slate-950">
             Submission Guide
           </h2>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
@@ -271,10 +271,10 @@ function EvaluationResult({ result }) {
     <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-5 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-            AI-Assisted Essay Grader
+          <p className="typo-eyebrow text-blue-700">
+            Essay Marking
           </p>
-          <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">
+          <h2 className="mt-1 typo-card text-slate-950">
             Recommended Score Breakdown
           </h2>
         </div>
@@ -341,10 +341,10 @@ function EvaluationResult({ result }) {
 function NlpAnalysis({ analysis }) {
   return (
     <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
-      <h3 className="text-xl font-semibold text-slate-950">NLP Analysis</h3>
+      <h3 className="typo-card text-slate-950">Answer Analysis</h3>
 
       <div className="mt-4 grid gap-4 md:grid-cols-4">
-        <ResultCard label="NLP Marks" value={analysis.marks ?? "--"} />
+        <ResultCard label="Suggested Marks" value={analysis.marks ?? "--"} />
         <ResultCard
           label="Semantic Similarity"
           value={formatPercent(analysis.semanticSimilarity)}
@@ -382,7 +382,7 @@ function NlpAnalysis({ analysis }) {
 function ResultCard({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
       <p className="typo-metric mt-2 text-slate-950">{value}</p>
@@ -393,7 +393,7 @@ function ResultCard({ label, value }) {
 function MiniScore({ label, value }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="typo-eyebrow text-slate-400">
         {label}
       </p>
       <p className="mt-1 font-semibold text-slate-900">{value}</p>

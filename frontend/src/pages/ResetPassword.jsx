@@ -118,7 +118,7 @@ function ResetPassword() {
           ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            <label className="block text-sm font-semibold text-slate-700">
+            <label className="block typo-ui text-slate-700">
               New password
               <div className="relative mt-2">
                 <input
@@ -140,7 +140,7 @@ function ResetPassword() {
               </div>
             </label>
 
-            <label className="block text-sm font-semibold text-slate-700">
+            <label className="block typo-ui text-slate-700">
               Confirm new password
               <input
                 type={showPassword ? "text" : "password"}

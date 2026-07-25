@@ -12,7 +12,7 @@ function AuthShell({
   panelText = "Access your dashboard to track progress, manage records, and stay connected with your learning workspace.",
 }) {
   return (
-    <section className="min-h-screen bg-[#eef2f7]">
+    <section className="dashboard-app min-h-screen bg-[#eef2f7]">
       <div className="mx-auto grid min-h-screen max-w-6xl lg:grid-cols-2">
         <aside className="relative hidden overflow-hidden bg-slate-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between">
           <div
@@ -25,38 +25,38 @@ function AuthShell({
               <span className="grid h-10 w-10 place-items-center rounded-md bg-sky-600 text-sm font-bold">
                 ET
               </span>
-              <span className="text-xl font-semibold tracking-tight">
+              <span className="typo-card">
                 EduTrack
               </span>
             </Link>
           </div>
 
           <div className="relative z-10 max-w-md">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
+            <p className="typo-eyebrow text-sky-300">
               Smart Learning System
             </p>
-            <h1 className="mt-4 text-4xl font-bold tracking-tight">{panelTitle}</h1>
-            <p className="mt-4 text-base font-normal leading-7 text-slate-300">
+            <h1 className="mt-4 typo-section">{panelTitle}</h1>
+            <p className="mt-4 typo-body text-slate-300">
               {panelText}
             </p>
 
-            <ul className="mt-8 space-y-3 text-sm text-slate-300">
+            <ul className="mt-8 space-y-3 typo-ui font-normal text-slate-300">
               <li className="flex gap-3">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
                 Secure sign-in for your personal dashboard
               </li>
               <li className="flex gap-3">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
                 Track attendance, exams, and learning progress
               </li>
               <li className="flex gap-3">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
                 Reset your password anytime if you get locked out
               </li>
             </ul>
           </div>
 
-          <p className="relative z-10 text-sm text-slate-500">
+          <p className="relative z-10 typo-caption text-slate-500">
             EduTrack — Smart Learning System
           </p>
         </aside>
@@ -68,13 +68,13 @@ function AuthShell({
                 <span className="grid h-9 w-9 place-items-center rounded-md bg-sky-700 text-sm font-bold text-white">
                   ET
                 </span>
-                <span className="text-xl font-semibold tracking-tight text-slate-950">
+                <span className="typo-card text-slate-950">
                   EduTrack
                 </span>
               </Link>
               <Link
                 to="/"
-                className="text-sm font-semibold text-slate-500 hover:text-slate-900"
+                className="typo-ui text-slate-500 hover:text-slate-900"
               >
                 Home
               </Link>
@@ -82,11 +82,11 @@ function AuthShell({
 
             <div className="rounded-2xl border border-slate-200/80 bg-white p-8 shadow-lg shadow-slate-200/60">
               <div className="mb-7">
-                <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+                <h2 className="typo-card text-slate-950">
                   {title}
                 </h2>
                 {subtitle ? (
-                  <p className="mt-2 text-base font-normal leading-7 text-slate-600">
+                  <p className="mt-2 typo-body text-slate-600">
                     {subtitle}
                   </p>
                 ) : null}
