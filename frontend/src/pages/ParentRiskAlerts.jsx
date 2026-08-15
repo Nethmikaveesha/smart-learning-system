@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import api from "../services/api";
+import api, {
+  generateCommerceRisk,
+  getStudentCommerceRiskHistory,
+  predictPassFailRisk,
+} from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-// These values are used only when the system does not have enough real data.
-// Real attendance and subject marks are taken from the parent dashboard API.
+// Pass/Fail secondary model still needs homework/study defaults when not collected.
 const DEFAULT_PASS_FAIL_INPUT = {
   homework_pct: 75,
   study_hours_per_week: 8,
@@ -21,6 +24,8 @@ function ParentRiskAlerts() {
   const [mlError, setMlError] = useState("");
   const [passFailPrediction, setPassFailPrediction] = useState(null);
   const [commercePrediction, setCommercePrediction] = useState(null);
+  const [commerceHistory, setCommerceHistory] = useState([]);
+
 
   useEffect(() => {
     const fetchParentDashboard = async () => {
@@ -61,13 +66,41 @@ function ParentRiskAlerts() {
 
   const subjectMarks = useMemo(() => data?.subjectPerformance || [], [data]);
 
-  const findSubjectMarks = (keyword, fallback) => {
+  const findSubjectMarks = (keyword) => {
     const matchedSubject = subjectMarks.find((item) =>
       item.subject?.toLowerCase().includes(keyword)
     );
 
-    return matchedSubject?.marks ?? fallback;
+    return matchedSubject?.marks ?? null;
   };
+
+  const loadCommerceHistory = async (profileId) => {
+    if (!profileId) {
+      setCommerceHistory([]);
+      return;
+    }
+
+    try {
+      const res = await getStudentCommerceRiskHistory(profileId);
+      const rows = res.data?.data || [];
+      setCommerceHistory(rows);
+      if (rows[0]) {
+        setCommercePrediction({
+          risk_level: rows[0].riskLevel,
+          saved_data: rows[0],
+        });
+      }
+    } catch {
+      setCommerceHistory([]);
+    }
+  };
+
+  useEffect(() => {
+    if (studentProfileObjectId) {
+      loadCommerceHistory(studentProfileObjectId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentProfileObjectId]);
 
   const runPassFailPrediction = async () => {
     try {
@@ -79,13 +112,10 @@ function ParentRiskAlerts() {
         return;
       }
 
-      const res = await api.post(
-        `/risk/final-predict-auto/${studentProfileObjectId}`,
-        DEFAULT_PASS_FAIL_INPUT,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await predictPassFailRisk(studentProfileObjectId, {
+        ...DEFAULT_PASS_FAIL_INPUT,
+        attendance_pct: attendanceValue,
+      });
 
       setPassFailPrediction(res.data);
     } catch (error) {
@@ -107,23 +137,33 @@ function ParentRiskAlerts() {
         return;
       }
 
-      // Commerce model uses A/L Commerce subject marks and attendance.
-      const commerceInput = {
-        Accounting_Score: findSubjectMarks("account", 72),
-        Business_Studies_Score: findSubjectMarks("business", 68),
-        Economics_Score: findSubjectMarks("economic", 61),
-        Attendance_Percentage: attendanceValue || 78,
-      };
+      const accounting = findSubjectMarks("account");
+      const business = findSubjectMarks("business");
+      const economics = findSubjectMarks("economic");
 
-      const res = await api.post(
-        `/risk/multi-class-predict-auto/${studentProfileObjectId}`,
-        commerceInput,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      if (accounting == null || business == null || economics == null) {
+        setMlError(
+          "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction"
+        );
+        return;
+      }
+
+      if (!attendanceValue) {
+        setMlError(
+          "Attendance records are required before generating a risk prediction"
+        );
+        return;
+      }
+
+      const res = await generateCommerceRisk(studentProfileObjectId, {
+        Accounting_Score: accounting,
+        Business_Studies_Score: business,
+        Economics_Score: economics,
+        Attendance_Percentage: attendanceValue,
+      });
 
       setCommercePrediction(res.data);
+      await loadCommerceHistory(studentProfileObjectId);
     } catch (error) {
       setMlError(
         error.response?.data?.message || "Subject progress check failed"
@@ -256,6 +296,58 @@ function ParentRiskAlerts() {
         {mlError && (
           <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
             {mlError}
+          </div>
+        )}
+
+        {commerceHistory.length > 0 && (
+          <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Saved Commerce Stream Model history (this child only)
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-white text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2">Risk</th>
+                    <th className="px-3 py-2">ACC</th>
+                    <th className="px-3 py-2">BS</th>
+                    <th className="px-3 py-2">ECO</th>
+                    <th className="px-3 py-2">Attendance</th>
+                    <th className="px-3 py-2">Source</th>
+                    <th className="px-3 py-2">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commerceHistory.slice(0, 5).map((row) => (
+                    <tr key={row._id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 font-semibold">{row.riskLevel}</td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.accountingScore ?? "--"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.businessStudiesScore ?? "--"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.economicsScore ?? "--"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.attendancePercentage ?? "--"}%
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.predictionSource || "Automatic"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.createdAt
+                          ? new Date(row.createdAt).toLocaleString("en-GB")
+                          : "--"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>

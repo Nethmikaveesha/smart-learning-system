@@ -18,8 +18,19 @@ export const predictPassFailRisk = (studentProfileId, data = {}) => {
   return api.post(`/risk/final-predict-auto/${studentProfileId}`, data);
 };
 
+/** Run automatic Commerce Stream Model prediction and save to MongoDB. */
 export const predictCommerceRisk = (studentProfileId, data = {}) => {
   return api.post(`/risk/multi-class-predict-auto/${studentProfileId}`, data);
 };
+
+export const generateCommerceRisk = (studentProfileId, data = {}) =>
+  api.post(`/risk/multi-class-predict-auto/${studentProfileId}`, data);
+
+/** Staff list of saved Commerce predictions */
+export const getCommerceRisks = () => api.get("/risk/commerce");
+
+/** One student's Commerce prediction history (ownership enforced on API) */
+export const getStudentCommerceRiskHistory = (studentProfileId) =>
+  api.get(`/risk/commerce/student/${studentProfileId}`);
 
 export default api;

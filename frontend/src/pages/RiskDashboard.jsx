@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import api from "../services/api";
+import api, { getCommerceRisks } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 function RiskDashboard() {
@@ -21,7 +21,7 @@ function RiskDashboard() {
       const [xapiResponse, finalResponse, commerceResponse] = await Promise.all([
         api.get("/risk", { headers }),
         api.get("/risk/final", { headers }),
-        api.get("/risk/commerce", { headers }),
+        getCommerceRisks(),
       ]);
 
       setXapiRisks(xapiResponse.data.data || []);
@@ -52,7 +52,7 @@ function RiskDashboard() {
           await Promise.all([
             api.get("/risk", { headers }),
             api.get("/risk/final", { headers }),
-            api.get("/risk/commerce", { headers }),
+            getCommerceRisks(),
           ]);
         if (cancelled) return;
         setXapiRisks(xapiResponse.data.data || []);
@@ -323,34 +323,43 @@ function CommerceRiskTable({ risks }) {
     >
       <thead className="bg-slate-100 text-slate-700">
         <tr>
-          <TableHead>Student ID</TableHead>
+          <TableHead>Student</TableHead>
           <TableHead>Accounting</TableHead>
           <TableHead>Business Studies</TableHead>
           <TableHead>Economics</TableHead>
           <TableHead>Attendance</TableHead>
           <TableHead>Risk Level</TableHead>
+          <TableHead>Source</TableHead>
           <TableHead>Date</TableHead>
         </tr>
       </thead>
 
       <tbody>
-        {risks.map((risk) => (
-          <tr key={risk._id} className="border-t border-slate-200 bg-white">
-            <TableCell>{risk.studentId}</TableCell>
-            <TableCell>{risk.inputData?.Accounting_Score ?? "--"}</TableCell>
-            <TableCell>
-              {risk.inputData?.Business_Studies_Score ?? "--"}
-            </TableCell>
-            <TableCell>{risk.inputData?.Economics_Score ?? "--"}</TableCell>
-            <TableCell>
-              {formatPercentValue(risk.inputData?.Attendance_Percentage)}
-            </TableCell>
-            <TableCell>
-              <RiskBadge riskLevel={risk.riskLevel} />
-            </TableCell>
-            <TableCell>{formatDate(risk.createdAt)}</TableCell>
-          </tr>
-        ))}
+        {risks.map((risk) => {
+          const studentName =
+            risk.studentProfile?.user?.fullName ||
+            risk.studentId ||
+            "--";
+
+          return (
+            <tr key={risk._id} className="border-t border-slate-200 bg-white">
+              <TableCell strong>{studentName}</TableCell>
+              <TableCell>{risk.inputData?.accountingScore ?? "--"}</TableCell>
+              <TableCell>
+                {risk.inputData?.businessStudiesScore ?? "--"}
+              </TableCell>
+              <TableCell>{risk.inputData?.economicsScore ?? "--"}</TableCell>
+              <TableCell>
+                {formatPercentValue(risk.inputData?.attendancePercentage)}
+              </TableCell>
+              <TableCell>
+                <RiskBadge riskLevel={risk.riskLevel} />
+              </TableCell>
+              <TableCell>{risk.predictionSource || "Automatic"}</TableCell>
+              <TableCell>{formatDate(risk.createdAt)}</TableCell>
+            </tr>
+          );
+        })}
       </tbody>
     </TableShell>
   );

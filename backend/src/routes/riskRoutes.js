@@ -64,14 +64,39 @@ function requireCommerceMarks(studentData) {
 
   const missing = required.filter((key) => {
     const value = studentData[key];
-    return value === undefined || value === null || value === "" || Number.isNaN(Number(value));
+    return (
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      Number.isNaN(Number(value))
+    );
   });
 
   if (missing.length) {
-    return `Missing or invalid Commerce marks: ${missing.join(", ")}. Enter Accounting, Business Studies, Economics scores and attendance percentage.`;
+    return `Missing or invalid Commerce marks: ${missing.join(
+      ", "
+    )}. Enter Accounting, Business Studies, Economics scores and attendance percentage.`;
+  }
+
+  const values = required.map((key) => Number(studentData[key]));
+  if (values.some((value) => value < 0 || value > 100)) {
+    return "All marks and attendance must be between 0 and 100";
   }
 
   return null;
+}
+
+function toCommerceInputData(values) {
+  return {
+    accountingScore: Number(values.Accounting_Score),
+    businessStudiesScore: Number(values.Business_Studies_Score),
+    economicsScore: Number(values.Economics_Score),
+    attendancePercentage: Number(values.Attendance_Percentage),
+  };
+}
+
+function isValidRiskLevel(riskLevel) {
+  return ["Low Risk", "Medium Risk", "High Risk"].includes(riskLevel);
 }
 
 // Every /api/risk route requires a valid login token.
@@ -213,18 +238,66 @@ router.get(
   authorizeRoles("admin", "teacher"),
   async (req, res) => {
     try {
-      const risks = await CommerceRisk.find().sort({ createdAt: -1 });
+      const predictions = await CommerceRisk.find()
+        .populate({
+          path: "studentProfile",
+          populate: {
+            path: "user",
+            select: "fullName email",
+          },
+        })
+        .sort({ createdAt: -1 });
 
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         model: "Commerce Stream Model",
-        count: risks.length,
-        data: risks,
+        count: predictions.length,
+        data: predictions,
       });
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Failed to fetch Commerce risk predictions",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * One student's Commerce prediction history.
+ * Parent/student may only read their own linked profile.
+ */
+router.get(
+  "/commerce/student/:studentProfileId",
+  authorizeRoles("admin", "teacher", "student", "parent"),
+  async (req, res) => {
+    try {
+      const access = await assertCanAccessStudentProfile(
+        req,
+        req.params.studentProfileId
+      );
+
+      if (!access.ok) {
+        return res.status(access.status).json({
+          success: false,
+          message: access.message,
+        });
+      }
+
+      const predictions = await CommerceRisk.find({
+        studentProfile: req.params.studentProfileId,
+      }).sort({ createdAt: -1 });
+
+      return res.status(200).json({
+        success: true,
+        count: predictions.length,
+        data: predictions,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch student risk history",
         error: error.message,
       });
     }
@@ -331,9 +404,30 @@ router.post(
   authorizeRoles("admin", "teacher"),
   async (req, res) => {
     try {
-      const { studentId, studentProfileId, ...studentData } = req.body;
+      const {
+        studentProfileId,
+        studentId,
+        Accounting_Score,
+        Business_Studies_Score,
+        Economics_Score,
+        Attendance_Percentage,
+      } = req.body;
 
-      const validationError = requireCommerceMarks(studentData);
+      if (!studentProfileId || !studentId) {
+        return res.status(400).json({
+          success: false,
+          message: "Student profile and student ID are required",
+        });
+      }
+
+      const values = {
+        Accounting_Score,
+        Business_Studies_Score,
+        Economics_Score,
+        Attendance_Percentage,
+      };
+
+      const validationError = requireCommerceMarks(values);
       if (validationError) {
         return res.status(400).json({
           success: false,
@@ -341,45 +435,53 @@ router.post(
         });
       }
 
+      const payload = {
+        Accounting_Score: Number(Accounting_Score),
+        Business_Studies_Score: Number(Business_Studies_Score),
+        Economics_Score: Number(Economics_Score),
+        Attendance_Percentage: Number(Attendance_Percentage),
+      };
+
       const mlResponse = await axios.post(
         `${ML_API_URL}/predict-multi-class-risk`,
-        {
-          Accounting_Score: Number(studentData.Accounting_Score),
-          Business_Studies_Score: Number(studentData.Business_Studies_Score),
-          Economics_Score: Number(studentData.Economics_Score),
-          Attendance_Percentage: Number(studentData.Attendance_Percentage),
-        },
+        payload,
         {
           headers: { "Content-Type": "application/json" },
           timeout: 10000,
         }
       );
 
-      const saved = await CommerceRisk.create({
-        studentId: studentId || "manual",
-        studentProfile: studentProfileId || undefined,
-        inputData: studentData,
-        riskLevel: mlResponse.data.risk_level,
-        mlResponse: mlResponse.data,
+      const riskLevel = mlResponse.data.risk_level;
+
+      if (!isValidRiskLevel(riskLevel)) {
+        return res.status(502).json({
+          success: false,
+          message: "ML service returned an invalid risk level",
+        });
+      }
+
+      const savedPrediction = await CommerceRisk.create({
+        studentProfile: studentProfileId,
+        studentId: String(studentId).trim(),
+        inputData: toCommerceInputData(payload),
+        riskLevel,
+        predictionSource: "Manual",
         predictedBy: req.user?._id,
       });
 
-      res.status(200).json({
+      return res.status(201).json({
         success: true,
+        message: "Commerce risk prediction completed",
         model: "Commerce Stream Model",
-        studentId,
-        inputData: studentData,
-        risk_level: mlResponse.data.risk_level,
-        ml_response: mlResponse.data,
-        saved_data: saved,
+        risk_level: riskLevel,
+        data: savedPrediction,
+        saved_data: savedPrediction,
       });
     } catch (error) {
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
-        message: "Commerce ML risk prediction failed",
-        error: error.message,
-        upstreamStatus: error.response?.status || null,
-        upstreamData: error.response?.data || null,
+        message: "Commerce risk prediction failed",
+        error: error.response?.data?.message || error.message,
       });
     }
   }
@@ -429,6 +531,7 @@ router.post(
         return matchedResult?.marks ?? null;
       };
 
+      // No silent defaults (65/75) — missing marks must fail clearly.
       const accountingMark =
         req.body.Accounting_Score ??
         req.body.accountingScore ??
@@ -443,6 +546,18 @@ router.post(
         req.body.Economics_Score ??
         req.body.economicsScore ??
         getSubjectMark("economics");
+
+      if (
+        accountingMark == null ||
+        businessStudiesMark == null ||
+        economicsMark == null
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction",
+        });
+      }
 
       const totalAttendance = await Attendance.countDocuments({
         student: studentProfileId,
@@ -465,27 +580,28 @@ router.post(
         studentProfile.attendancePercentage ??
         null;
 
-      const studentData = {
-        Accounting_Score: accountingMark,
-        Business_Studies_Score: businessStudiesMark,
-        Economics_Score: economicsMark,
-        Attendance_Percentage: attendancePercentage,
+      if (attendancePercentage == null) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Attendance records are required before generating a risk prediction",
+        });
+      }
+
+      const payload = {
+        Accounting_Score: Number(accountingMark),
+        Business_Studies_Score: Number(businessStudiesMark),
+        Economics_Score: Number(economicsMark),
+        Attendance_Percentage: Number(attendancePercentage),
       };
 
-      const validationError = requireCommerceMarks(studentData);
+      const validationError = requireCommerceMarks(payload);
       if (validationError) {
         return res.status(400).json({
           success: false,
           message: validationError,
         });
       }
-
-      const payload = {
-        Accounting_Score: Number(studentData.Accounting_Score),
-        Business_Studies_Score: Number(studentData.Business_Studies_Score),
-        Economics_Score: Number(studentData.Economics_Score),
-        Attendance_Percentage: Number(studentData.Attendance_Percentage),
-      };
 
       const mlResponse = await axios.post(
         `${ML_API_URL}/predict-multi-class-risk`,
@@ -496,32 +612,39 @@ router.post(
         }
       );
 
-      const saved = await CommerceRisk.create({
-        studentId: studentProfile.user?.toString() || studentProfileId,
+      const riskLevel = mlResponse.data.risk_level;
+
+      if (!isValidRiskLevel(riskLevel)) {
+        return res.status(502).json({
+          success: false,
+          message: "ML service returned an invalid risk level",
+        });
+      }
+
+      const savedPrediction = await CommerceRisk.create({
         studentProfile: studentProfileId,
-        inputData: payload,
-        riskLevel: mlResponse.data.risk_level,
-        mlResponse: mlResponse.data,
+        studentId: studentProfile.studentId || String(studentProfile.user || studentProfileId),
+        inputData: toCommerceInputData(payload),
+        riskLevel,
+        predictionSource: "Automatic",
         predictedBy: req.user?._id,
       });
 
       // Keep profile riskStatus in sync for teacher dashboards (High / Medium / Low).
-      const shortStatus = String(mlResponse.data.risk_level || "")
-        .replace(/ Risk$/i, "")
-        .trim();
+      const shortStatus = String(riskLevel).replace(/ Risk$/i, "").trim();
       if (["High", "Medium", "Low"].includes(shortStatus)) {
         studentProfile.riskStatus = shortStatus;
         await studentProfile.save();
       }
-      res.status(200).json({
+
+      return res.status(201).json({
         success: true,
-        message: "Commerce Stream Model prediction completed",
+        message: "Commerce risk prediction completed",
         model: "Commerce Stream Model",
         studentProfileId,
         inputData: payload,
-        risk_level: mlResponse.data.risk_level,
-        ml_response: mlResponse.data,
-        saved_data: saved,
+        risk_level: riskLevel,
+        saved_data: savedPrediction,
       });
     } catch (error) {
       console.error(
@@ -530,7 +653,7 @@ router.post(
         error.response?.data || error.message
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Commerce ML risk prediction failed",
         error: error.message,
