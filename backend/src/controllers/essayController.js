@@ -309,10 +309,23 @@ export const approveEssaySubmission = async (req, res) => {
         ? Number(finalMarks)
         : submission.marks;
 
-    submission.finalMarks = resolvedFinalMarks;
+    const maxMarks = Number(submission.question?.maxMarks) || 0;
+    if (Number.isNaN(Number(resolvedFinalMarks))) {
+      return res.status(400).json({
+        message: "finalMarks must be a valid number",
+      });
+    }
+
+    // Never allow scores above the paper maximum (or below zero).
+    const clampedFinalMarks = Math.min(
+      maxMarks,
+      Math.max(0, Number(resolvedFinalMarks))
+    );
+
+    submission.finalMarks = clampedFinalMarks;
     submission.teacherFeedback = teacherFeedback || submission.teacherFeedback;
     submission.status =
-      Number(resolvedFinalMarks) === Number(submission.marks)
+      Number(clampedFinalMarks) === Number(submission.marks)
         ? "Approved"
         : "Modified";
 

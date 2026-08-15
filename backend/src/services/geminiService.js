@@ -64,7 +64,11 @@ Return ONLY valid JSON:
       .replace(/```/g, "")
       .trim();
 
-    return JSON.parse(cleanText);
+    const parsed = JSON.parse(cleanText);
+    return {
+      ...parsed,
+      marks: clampEssayMarks(parsed.marks, maxMarks),
+    };
   } catch (error) {
     console.log("Gemini Error:", error.message);
 
@@ -76,6 +80,13 @@ Return ONLY valid JSON:
     };
   }
 };
+
+function clampEssayMarks(rawMarks, maxMarks) {
+  const numeric = Number(rawMarks);
+  const ceiling = Number(maxMarks);
+  if (Number.isNaN(numeric) || Number.isNaN(ceiling)) return 0;
+  return Math.min(ceiling, Math.max(0, numeric));
+}
 
 export const analyzeEssayTopicsWithGemini = async (
   question,
@@ -392,7 +403,8 @@ export const askCommerceChatbotWithGemini = async (question) => {
 You are a helpful Sri Lankan GCE A/L Commerce tutor.
 
 Answer the student's question clearly and briefly.
-Focus only on Accounting, Business Studies, Economics, study planning, attendance, marks, and exam preparation.
+Focus ONLY on Accounting, Business Studies, Economics, study planning, attendance, marks, and exam preparation.
+If the question is outside that scope or inappropriate, reply with a short refusal telling the student to ask a Commerce study question instead.
 
 Student Question:
 ${question}

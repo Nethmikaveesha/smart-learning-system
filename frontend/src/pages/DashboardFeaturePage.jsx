@@ -145,6 +145,64 @@ const featureConfigs = {
         },
       ],
     },
+    extraForms: [
+      {
+        endpoint: "/classes",
+        method: "put",
+        idField: "classId",
+        submitLabel: "Update Class",
+        formTitle: "Edit Class",
+        formDescription:
+          "Select an existing class, change the fields, then save.",
+        fields: [
+          {
+            name: "classId",
+            label: "Class to edit",
+            type: "async-select",
+            required: true,
+            omitFromPayload: true,
+            optionsEndpoint: "/classes",
+            optionValue: "_id",
+            getOptionLabel: formatClassOptionLabel,
+          },
+          {
+            name: "gradeLevel",
+            label: "Grade Level",
+            type: "select",
+            required: true,
+            options: [
+              { value: "12", label: "Grade 12" },
+              { value: "13", label: "Grade 13" },
+            ],
+          },
+          {
+            name: "className",
+            label: "Class Name",
+            required: true,
+            placeholder: "e.g. 12 Commerce A",
+          },
+          {
+            name: "stream",
+            label: "Stream",
+            type: "select",
+            required: true,
+            defaultValue: "Commerce",
+            options: [{ value: "Commerce", label: "Commerce Stream Model" }],
+          },
+          {
+            name: "academicYear",
+            label: "Academic Year",
+            required: true,
+            placeholder: "e.g. 2026",
+          },
+          {
+            name: "assignedTeacher",
+            label: "Assigned Teacher ID",
+            placeholder: "Optional MongoDB User _id",
+          },
+        ],
+      },
+    ],
   },
   "/admin/subjects": {
     title: "Subjects",
@@ -168,6 +226,47 @@ const featureConfigs = {
         },
       ],
     },
+    extraForms: [
+      {
+        endpoint: "/subjects",
+        method: "put",
+        idField: "subjectId",
+        submitLabel: "Update Subject",
+        formTitle: "Edit Subject",
+        formDescription:
+          "Select a subject, update name/code/teacher, then save.",
+        fields: [
+          {
+            name: "subjectId",
+            label: "Subject to edit",
+            type: "async-select",
+            required: true,
+            omitFromPayload: true,
+            optionsEndpoint: "/subjects",
+            optionValue: "_id",
+            getOptionLabel: (item) =>
+              `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+          },
+          {
+            name: "subjectName",
+            label: "Subject Name",
+            required: true,
+            placeholder: "Accounting / Business Studies / Economics",
+          },
+          {
+            name: "subjectCode",
+            label: "Subject Code",
+            required: true,
+            placeholder: "ACC101 / BS101 / ECO101",
+          },
+          {
+            name: "assignedTeacher",
+            label: "Assigned Teacher ID",
+            placeholder: "Optional MongoDB User _id",
+          },
+        ],
+      },
+    ],
   },
   "/admin/teacher-assignments": {
     title: "Teacher Assignments",
@@ -252,6 +351,101 @@ const featureConfigs = {
         },
       ],
     },
+    extraForms: [
+      {
+        endpoint: "/exam-timetables",
+        method: "put",
+        idField: "timetableId",
+        submitLabel: "Update Timetable",
+        formTitle: "Edit Exam Timetable",
+        formDescription: "Select a timetable entry and update its details.",
+        fields: [
+          {
+            name: "timetableId",
+            label: "Timetable to edit",
+            type: "async-select",
+            required: true,
+            omitFromPayload: true,
+            optionsEndpoint: "/exam-timetables",
+            optionValue: "_id",
+            getOptionLabel: (item) =>
+              `${item.examName || "Exam"} — ${item.class?.className || "Class"}`,
+          },
+          {
+            name: "examName",
+            label: "Exam Name",
+            required: true,
+            placeholder: "e.g. Term Test 1 - Accounting",
+          },
+          {
+            name: "classId",
+            label: "Class",
+            type: "async-select",
+            required: true,
+            placeholder: "Select class",
+            optionsEndpoint: "/classes",
+            optionValue: "_id",
+            getOptionLabel: formatClassOptionLabel,
+          },
+          {
+            name: "subjectId",
+            label: "Subject",
+            type: "async-select",
+            required: true,
+            placeholder: "Select subject",
+            optionsEndpoint: "/subjects",
+            optionValue: "_id",
+            getOptionLabel: (item) =>
+              `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
+          },
+          {
+            name: "examDate",
+            label: "Exam Date",
+            type: "date",
+            required: true,
+          },
+          {
+            name: "startTime",
+            label: "Start Time",
+            type: "time",
+            required: true,
+          },
+          {
+            name: "endTime",
+            label: "End Time",
+            type: "time",
+            required: true,
+          },
+          {
+            name: "location",
+            label: "Location",
+            placeholder: "e.g. Main Hall",
+            defaultValue: "Main Hall",
+          },
+        ],
+      },
+      {
+        endpoint: "/exam-timetables",
+        method: "delete",
+        idField: "timetableId",
+        submitLabel: "Delete Timetable",
+        formTitle: "Delete Exam Timetable",
+        formDescription: "Select a timetable entry to permanently remove it.",
+        fields: [
+          {
+            name: "timetableId",
+            label: "Timetable to delete",
+            type: "async-select",
+            required: true,
+            omitFromPayload: true,
+            optionsEndpoint: "/exam-timetables",
+            optionValue: "_id",
+            getOptionLabel: (item) =>
+              `${item.examName || "Exam"} — ${item.class?.className || "Class"}`,
+          },
+        ],
+      },
+    ],
   },
   "/admin/exams": {
     title: "Exams",
@@ -372,7 +566,7 @@ const featureConfigs = {
   "/admin/database-backup": {
     title: "Database Backup",
     description:
-      "Create a JSON snapshot of users, students, results, attendance, classes, exams, settings, and contact messages. Files are stored in backend/database-backups.",
+      "Create a JSON snapshot of users, students, results, attendance, classes, exams, settings, and contact messages. Files are stored in backend/database-backups. Restore replaces current core collections from a selected file.",
     endpoint: "/backups",
     layout: "summary",
     summaryFields: [
@@ -386,6 +580,29 @@ const featureConfigs = {
       method: "post",
       label: "Run Database Backup",
     },
+    extraForms: [
+      {
+        endpoint: "/backups/restore",
+        method: "post",
+        submitLabel: "Restore Selected Backup",
+        formTitle: "Restore Database Backup",
+        formDescription:
+          "Warning: restore overwrites users, classes, subjects, students, exams, results, attendance, settings, and contact messages from the selected JSON file.",
+        fields: [
+          {
+            name: "fileName",
+            label: "Backup file",
+            type: "async-select",
+            required: true,
+            optionsEndpoint: "/backups",
+            optionValue: "fileName",
+            optionsPath: "backups",
+            getOptionLabel: (item) =>
+              `${item.fileName} (${item.sizeKb || "?"} KB)`,
+          },
+        ],
+      },
+    ],
   },
   "/admin/contact-messages": {
     title: "Contact Messages",
@@ -579,7 +796,7 @@ const featureConfigs = {
   "/teacher/marks": {
     title: "Marks Management",
     description:
-      "Select an exam and student by name, enter marks, then save. Grade and risk status are calculated automatically by the API.",
+      "Select an exam and student by name, enter marks, then save. Grade and risk status are calculated automatically by the API. Use Edit Result to correct an existing mark.",
     endpoint: "/results",
     tableColumns: ["student", "exam", "marks", "grade", "rank", "zScore"],
     form: {
@@ -636,6 +853,43 @@ const featureConfigs = {
         },
       ],
     },
+    extraForms: [
+      {
+        endpoint: "/results",
+        method: "put",
+        idField: "resultId",
+        submitLabel: "Update Result Marks",
+        formTitle: "Edit Existing Result",
+        formDescription:
+          "Select a saved result and enter the corrected marks (0–100).",
+        fields: [
+          {
+            name: "resultId",
+            label: "Result to edit",
+            type: "async-select",
+            required: true,
+            omitFromPayload: true,
+            optionsEndpoint: "/results",
+            optionValue: "_id",
+            getOptionLabel: (item) => {
+              const studentName =
+                item.student?.user?.fullName ||
+                item.student?.studentId ||
+                "Student";
+              const examName = item.exam?.examName || "Exam";
+              return `${studentName} — ${examName} (${item.marks})`;
+            },
+          },
+          {
+            name: "marks",
+            label: "Corrected Marks",
+            type: "number",
+            required: true,
+            placeholder: "e.g. 72",
+          },
+        ],
+      },
+    ],
   },
   "/teacher/attendance": {
     title: "Attendance Management",
@@ -943,6 +1197,19 @@ function DashboardFeaturePage() {
           onError={setError}
         />
       )}
+
+      {(config.extraForms || []).map((extraForm) => (
+        <FeatureForm
+          key={extraForm.formTitle || extraForm.endpoint}
+          form={extraForm}
+          token={token}
+          onSaved={(savedMessage) => {
+            setMessage(savedMessage);
+            setRefreshKey((current) => current + 1);
+          }}
+          onError={setError}
+        />
+      ))}
 
       {config.registerForm && (
         <RegisterUserForm
@@ -1592,6 +1859,8 @@ function FeatureForm({ form, token, onSaved, onError }) {
       const payload = {};
 
       form.fields.forEach((field) => {
+        if (field.omitFromPayload) return;
+
         const value = values[field.name];
 
         if (field.transform === "csv") {
@@ -1622,10 +1891,21 @@ function FeatureForm({ form, token, onSaved, onError }) {
         payload[field.name] = value;
       });
 
+      const baseEndpoint = form.endpoint.replace(/\/$/, "");
+      const requestUrl =
+        form.idField && values[form.idField]
+          ? `${baseEndpoint}/${values[form.idField]}`
+          : baseEndpoint;
+
+      if (form.idField && !values[form.idField]) {
+        onError(`Select a record for ${form.idField} before saving.`);
+        return;
+      }
+
       const res = await api.request({
-        url: form.endpoint,
+        url: requestUrl,
         method: form.method,
-        data: payload,
+        data: form.method?.toLowerCase() === "delete" ? undefined : payload,
         headers: { Authorization: `Bearer ${token}` },
       });
 

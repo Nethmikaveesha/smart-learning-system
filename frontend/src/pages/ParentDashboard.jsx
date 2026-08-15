@@ -95,6 +95,7 @@ function ParentDashboard() {
     try {
       const res = await api.get("/reports/student-report", {
         headers: { Authorization: `Bearer ${token}` },
+        params: selectedStudentId ? { studentId: selectedStudentId } : {},
         responseType: "blob",
       });
 
@@ -104,7 +105,10 @@ function ParentDashboard() {
 
       const link = document.createElement("a");
       link.href = fileURL;
-      link.setAttribute("download", "student-progress-report.pdf");
+      link.setAttribute(
+        "download",
+        `${selectedStudentId || "student"}-progress-report.pdf`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   createSubject,
+  updateSubject,
   getAllSubjects,
 } from "../controllers/subjectController.js";
 
@@ -12,18 +13,8 @@ import {
 
 const router = express.Router();
 
-router.post(
-  "/",
-  protect,
-  authorizeRoles("admin"),
-  createSubject
-);
-
-router.get(
-  "/",
-  protect,
-  authorizeRoles("admin", "teacher"),
-  getAllSubjects
-);
+router.post("/", protect, authorizeRoles("admin"), createSubject);
+router.put("/:id", protect, authorizeRoles("admin"), updateSubject);
+router.get("/", protect, authorizeRoles("admin", "teacher"), getAllSubjects);
 
 export default router;

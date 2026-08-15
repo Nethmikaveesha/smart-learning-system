@@ -123,6 +123,62 @@ export const listDatabaseBackups = () => {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 };
 
+/**
+ * Restore a JSON backup created by runDatabaseBackup.
+ * fileName must be a basename under backend/database-backups (no path traversal).
+ */
+export const restoreDatabaseBackup = async (fileName) => {
+  const safeName = path.basename(String(fileName || ""));
+
+  if (!safeName || safeName !== fileName || !safeName.endsWith(".json")) {
+    throw new Error("Invalid backup file name");
+  }
+
+  const filePath = path.join(backupDirectory, safeName);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error("Backup file not found");
+  }
+
+  const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  const data = parsed?.data;
+
+  if (!data || typeof data !== "object") {
+    throw new Error("Backup file is missing a data section");
+  }
+
+  // Restore order: parents first, then dependent collections.
+  const steps = [
+    { key: "users", model: User },
+    { key: "classes", model: Class },
+    { key: "subjects", model: Subject },
+    { key: "students", model: StudentProfile },
+    { key: "exams", model: Exam },
+    { key: "results", model: Result },
+    { key: "attendance", model: Attendance },
+    { key: "settings", model: SystemSettings },
+    { key: "contactMessages", model: ContactMessage },
+  ];
+
+  const restored = {};
+
+  for (const step of steps) {
+    const rows = Array.isArray(data[step.key]) ? data[step.key] : [];
+    await step.model.deleteMany({});
+    if (rows.length > 0) {
+      await step.model.insertMany(rows, { ordered: false });
+    }
+    restored[step.key] = rows.length;
+  }
+
+  return {
+    success: true,
+    fileName: safeName,
+    restored,
+    createdAt: parsed.createdAt || null,
+  };
+};
+
 export const getBackupDirectory = () => backupDirectory;
 
 export const startDatabaseBackupScheduler = () => {

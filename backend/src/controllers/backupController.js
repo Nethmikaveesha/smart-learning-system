@@ -1,6 +1,7 @@
 import {
   runDatabaseBackup,
   listDatabaseBackups,
+  restoreDatabaseBackup,
 } from "../jobs/databaseBackupJob.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 
@@ -51,6 +52,41 @@ export const listBackups = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to list backups",
+      error: error.message,
+    });
+  }
+};
+
+export const restoreBackup = async (req, res) => {
+  try {
+    const { fileName } = req.body;
+
+    if (!fileName) {
+      return res.status(400).json({
+        success: false,
+        message: "fileName is required",
+      });
+    }
+
+    const result = await restoreDatabaseBackup(fileName);
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Database Backup",
+      description: `Backup restored: ${result.fileName}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Database restored from ${result.fileName}`,
+      restore: result,
+    });
+  } catch (error) {
+    const status = /not found|invalid|missing/i.test(error.message) ? 400 : 500;
+    res.status(status).json({
+      success: false,
+      message: "Database restore failed",
       error: error.message,
     });
   }

@@ -40,9 +40,64 @@ export const createClass = async (req, res) => {
   }
 };
 
+export const updateClass = async (req, res) => {
+  try {
+    const existing = await Class.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    const {
+      className,
+      academicYear,
+      assignedTeacher,
+      gradeLevel,
+      stream,
+      medium,
+    } = req.body;
+
+    const nextClassName =
+      className !== undefined ? String(className).trim() : existing.className;
+
+    const resolvedGradeLevel =
+      gradeLevel !== undefined || className !== undefined
+        ? normalizeGradeLevel(gradeLevel ?? existing.gradeLevel, nextClassName)
+        : existing.gradeLevel;
+
+    if (![12, 13].includes(resolvedGradeLevel)) {
+      return res.status(400).json({
+        message: "gradeLevel is required and must be 12 or 13",
+      });
+    }
+
+    existing.className = nextClassName;
+    if (academicYear !== undefined) {
+      existing.academicYear = String(academicYear).trim();
+    }
+    existing.gradeLevel = resolvedGradeLevel;
+    if (stream !== undefined) existing.stream = stream || "Commerce";
+    if (medium !== undefined) existing.medium = medium || "English";
+    if (assignedTeacher !== undefined) {
+      existing.assignedTeacher = assignedTeacher || undefined;
+    }
+
+    await existing.save();
+
+    const populated = await Class.findById(existing._id)
+      .populate("assignedTeacher", "fullName email role")
+      .populate("students", "fullName email role");
+
+    res.status(200).json({
+      message: "Class updated successfully",
+      class: populated,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getAllClasses = async (req, res) => {
   try {
-    // Heal older class records that were created before gradeLevel existed.
     const classesWithoutGrade = await Class.find({
       $or: [{ gradeLevel: { $exists: false } }, { gradeLevel: null }],
     });

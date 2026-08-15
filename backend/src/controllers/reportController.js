@@ -6,13 +6,24 @@ import { runMonthlyReportGeneration } from "../jobs/monthlyReportJob.js";
 export const generateStudentReport = async (req, res) => {
   try {
     const parentId = req.user._id;
+    const requestedStudentId = req.query.studentId;
 
-    const student = await StudentProfile.findOne({ parent: parentId })
+    // Prefer the selected child; fall back to the first linked child.
+    const query = { parent: parentId };
+    if (requestedStudentId) {
+      query.studentId = requestedStudentId;
+    }
+
+    const student = await StudentProfile.findOne(query)
       .populate("user", "fullName email")
       .populate("class", "className");
 
     if (!student) {
-      return res.status(404).json({ message: "Student not found" });
+      return res.status(404).json({
+        message: requestedStudentId
+          ? "Selected child not found for this parent"
+          : "Student not found",
+      });
     }
 
     const results = await Result.find({ student: student._id })
@@ -64,7 +75,6 @@ export const generateStudentReport = async (req, res) => {
   }
 };
 
-
 export const testMonthlyReportGeneration = async (req, res) => {
   try {
     const result = await runMonthlyReportGeneration();
@@ -75,10 +85,7 @@ export const testMonthlyReportGeneration = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error(
-      "Monthly Report Test Error:",
-      error.message
-    );
+    console.error("Monthly Report Test Error:", error.message);
 
     return res.status(500).json({
       success: false,

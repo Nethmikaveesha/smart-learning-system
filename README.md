@@ -140,6 +140,11 @@ node testing/apiTests.js     # security + role + risk auth (backend running)
 - UAT feedback form from teacher/student/parent/admin
 - Deploy to Vercel + Render + Atlas (or document local install as evidence)
 
+### Ranking and correlation notes (for viva / thesis)
+- **Equal marks:** after sorting by marks descending, ranks are consecutive (`1, 2, 3…`). Tied scores do **not** share the same rank number — document this as the system rule in your thesis.
+- **Attendance–marks correlation:** the analytics API builds paired chart points (attendance % vs marks) for graphs. It does not compute a Pearson *r* coefficient; calculate *r* manually from the same pairs for thesis evidence if required.
+- **Single-student class:** mean equals that student’s marks, SD = 0, Z-score = 0, rank = 1.
+
 ### Project Structure
 
 ```text

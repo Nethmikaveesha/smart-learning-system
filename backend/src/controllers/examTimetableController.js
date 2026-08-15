@@ -56,9 +56,31 @@ export const getAllExamTimetables = async (req, res) => {
 
 export const updateExamTimetable = async (req, res) => {
   try {
+    const {
+      examName,
+      classId,
+      subjectId,
+      examDate,
+      startTime,
+      endTime,
+      location,
+      instructions,
+    } = req.body;
+
+    const update = {
+      ...(examName !== undefined ? { examName } : {}),
+      ...(classId !== undefined ? { class: classId } : {}),
+      ...(subjectId !== undefined ? { subject: subjectId } : {}),
+      ...(examDate !== undefined ? { examDate } : {}),
+      ...(startTime !== undefined ? { startTime } : {}),
+      ...(endTime !== undefined ? { endTime } : {}),
+      ...(location !== undefined ? { location } : {}),
+      ...(instructions !== undefined ? { instructions } : {}),
+    };
+
     const timetable = await ExamTimetable.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      update,
       { new: true }
     );
 
