@@ -55,6 +55,7 @@ router.get(
 router.get(
   "/questions",
   protect,
+  authorizeRoles("admin", "teacher", "student"),
   getEssayQuestions
 );
 router.get(

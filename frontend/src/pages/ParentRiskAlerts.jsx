@@ -185,7 +185,8 @@ function ParentRiskAlerts() {
       await loadCommerceHistory(studentProfileObjectId);
     } catch (error) {
       setMlError(
-        error.response?.data?.message || "Subject progress check failed"
+        error.response?.data?.message ||
+          "Commerce Stream Model prediction failed"
       );
     } finally {
       setMlLoading("");
@@ -287,10 +288,10 @@ function ParentRiskAlerts() {
           </PredictionCard>
 
           <PredictionCard
-            title="Subject Progress Check"
-            description="Estimates High, Medium, or Low support need for A/L Commerce subjects."
+            title="Commerce Stream Model"
+            description="Primary A/L Commerce risk screen: High, Medium, or Low support need."
             meta="Uses Accounting, Business Studies, Economics, and attendance."
-            buttonText="Check Subject Progress"
+            buttonText="Check Commerce Stream Risk"
             loadingText="Checking..."
             color="emerald"
             isLoading={mlLoading === "commerce"}
@@ -299,7 +300,7 @@ function ParentRiskAlerts() {
           >
             {commercePrediction && (
               <PredictionResult
-                title="Subject Progress Result"
+                title="Commerce Stream Result"
                 rows={[
                   {
                     label: "Support Level",

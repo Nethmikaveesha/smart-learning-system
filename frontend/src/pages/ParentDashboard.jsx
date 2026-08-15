@@ -115,12 +115,12 @@ function ParentDashboard() {
     }
   };
 
-  const findSubjectMarks = (keyword, fallback) => {
+  const findSubjectMarks = (keyword) => {
     const matchedSubject = data?.subjectPerformance?.find((item) =>
       item.subject?.toLowerCase().includes(keyword)
     );
 
-    return matchedSubject?.marks ?? fallback;
+    return matchedSubject?.marks ?? null;
   };
 
   const runPassFailPrediction = async () => {
@@ -133,10 +133,10 @@ function ParentDashboard() {
         return;
       }
 
-      const res = await predictPassFailRisk(
-        studentProfileObjectId,
-        DEFAULT_PASS_FAIL_INPUT
-      );
+      const res = await predictPassFailRisk(studentProfileObjectId, {
+        ...DEFAULT_PASS_FAIL_INPUT,
+        attendance_pct: data?.attendancePercentage,
+      });
 
       setPassFailPrediction(res.data);
     } catch (predictionError) {
@@ -159,19 +159,36 @@ function ParentDashboard() {
         return;
       }
 
-      // Commerce model expects A/L Commerce marks and attendance percentage.
+      const accounting = findSubjectMarks("account");
+      const business = findSubjectMarks("business");
+      const economics = findSubjectMarks("economic");
+
+      if (accounting == null || business == null || economics == null) {
+        setMlError(
+          "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction"
+        );
+        return;
+      }
+
+      if (!data?.attendancePercentage) {
+        setMlError(
+          "Attendance records are required before generating a risk prediction"
+        );
+        return;
+      }
+
       const res = await predictCommerceRisk(studentProfileObjectId, {
-        Accounting_Score: findSubjectMarks("account", 72),
-        Business_Studies_Score: findSubjectMarks("business", 68),
-        Economics_Score: findSubjectMarks("economic", 61),
-        Attendance_Percentage: data?.attendancePercentage || 78,
+        Accounting_Score: accounting,
+        Business_Studies_Score: business,
+        Economics_Score: economics,
+        Attendance_Percentage: data.attendancePercentage,
       });
 
       setCommercePrediction(res.data);
     } catch (predictionError) {
       setMlError(
         predictionError.response?.data?.message ||
-          "Failed to run subject progress check"
+          "Failed to run Commerce Stream Model prediction"
       );
     } finally {
       setMlLoading("");
@@ -306,9 +323,9 @@ function ParentDashboard() {
               </PredictionCard>
 
               <PredictionCard
-                title="Subject Progress Check"
-                description="Estimates High, Medium, or Low support need for A/L Commerce subjects."
-                buttonText="Check Subject Progress"
+                title="Commerce Stream Model"
+                description="Primary A/L Commerce risk screen: High, Medium, or Low support need."
+                buttonText="Check Commerce Stream Risk"
                 loadingText="Checking..."
                 color="emerald"
                 isLoading={mlLoading === "commerce"}

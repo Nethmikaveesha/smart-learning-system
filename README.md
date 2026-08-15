@@ -103,8 +103,10 @@ The project uses three ML models.
 | --- | --- | --- |
 | MongoDB | 27017 | local or Atlas |
 | Backend | **5001** | `cd backend && cp .env.example .env && npm install && npm run dev` |
-| ML (Flask) | **5000** | `cd ml-model && pip install -r requirements.txt && python app.py` |
+| ML (Flask) | **5000** | `cd ml-model && pip install -r requirements.txt && python3 train_all.py && python3 app.py` |
 | Frontend | **5173** | `cd frontend && npm install && npm run dev` |
+
+Train once before starting Flask: `python3 train_all.py` writes Pass/Fail + Commerce models into `ml-model/models/` (those `.pkl` files are gitignored). Optional local debug: `FLASK_DEBUG=1 python3 app.py`.
 
 Fill `backend/.env` with `MONGO_URI`, `JWT_SECRET`, optional `GEMINI_API_KEY`, and `CORS_ORIGINS=http://localhost:5173`.
 

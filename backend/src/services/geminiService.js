@@ -3,11 +3,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
-console.log("API Key Exists:", !!process.env.GEMINI_API_KEY);
-console.log(
-  "API Key Prefix:",
-  process.env.GEMINI_API_KEY?.substring(0, 5)
-);
+// Do not log GEMINI_API_KEY (or any prefix) — secrets must stay out of stdout/logs.
+if (!process.env.GEMINI_API_KEY) {
+  console.warn("GEMINI_API_KEY is not set; Gemini features will fail until configured.");
+}
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY

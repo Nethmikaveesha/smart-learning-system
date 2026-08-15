@@ -27,6 +27,7 @@ function StudentSidebar() {
         title="Progress"
         items={[
           { label: "Performance Tracker", to: "/student/performance" },
+          { label: "Commerce Stream Model", to: "/student/commerce-risk" },
           { label: "Achievement Badges", to: "/student/badges" },
           { label: "Attendance vs Marks", to: "/student/attendance-vs-marks" },
         ]}

@@ -224,8 +224,9 @@ function PageHeader({ onRefresh }) {
             Student Risk Dashboard
           </h1>
           <p className="mt-2 max-w-3xl typo-body text-slate-600">
-            Monitor stored progress-check records from the benchmark model and
-            the project pass/fail outlook model.
+            Primary records come from the Commerce Stream Model (ACC / BS / ECO
+            + attendance). Pass/Fail outlook is secondary; the xAPI benchmark is
+            optional comparison only.
           </p>
         </div>
 

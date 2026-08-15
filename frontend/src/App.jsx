@@ -29,6 +29,7 @@ import TeacherContentProvider from "./pages/TeacherContentProvider";
 import StudentAdaptiveLearning from "./pages/StudentAdaptiveLearning";
 import StudentFlashcards from "./pages/StudentFlashcards";
 import StudentPerformanceTracker from "./pages/StudentPerformanceTracker";
+import StudentCommerceRisk from "./pages/StudentCommerceRisk";
 import AdminSystemAnalytics from "./pages/AdminSystemAnalytics";
 
 // This component protects dashboard routes.
@@ -122,6 +123,7 @@ function AppRoutes() {
         <Route path="adaptive-learning" element={<StudentAdaptiveLearning />} />
         <Route path="flashcards" element={<StudentFlashcards />} />
         <Route path="performance" element={<StudentPerformanceTracker />} />
+        <Route path="commerce-risk" element={<StudentCommerceRisk />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 

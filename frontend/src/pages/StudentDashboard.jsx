@@ -19,6 +19,7 @@ const QUICK_ACTIONS = [
   { label: "My Subjects", to: "/student/subjects" },
   { label: "Exam Papers", to: "/student/exam-papers" },
   { label: "Submit Answers", to: "/student/essay-grader" },
+  { label: "Commerce Stream Model", to: "/student/commerce-risk" },
   { label: "Study Help", to: "/chatbot" },
   { label: "Start Revision", to: "/student/revision-timetable" },
 ];
