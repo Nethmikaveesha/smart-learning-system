@@ -7,6 +7,7 @@ import {
   getSubjectName,
   sortResultsByLatest,
 } from "../utils/studentResults.js";
+import { buildSubjectPerformance } from "../utils/subjectPerformance.js";
 
 async function getAttendanceSummary(studentId, attendancePercentage) {
   const records = await Attendance.find({ student: studentId });
@@ -173,20 +174,10 @@ export const getParentDashboard = async (req, res) => {
         };
       });
 
-    const subjectPerformance = studentProfile.subjects
-      .map((subject) => {
-        const subjectResult = results.find(
-          (result) =>
-            result.exam?.subject?._id?.toString() === subject._id.toString() ||
-            result.exam?.subject?.toString() === subject._id.toString()
-        );
-
-        return {
-          subject: subject.subjectName,
-          marks: subjectResult ? subjectResult.marks : null,
-        };
-      })
-      .filter((item) => item.marks !== null);
+    const subjectPerformance = buildSubjectPerformance(
+      studentProfile.subjects,
+      results
+    );
 
     const attendanceSummary = await getAttendanceSummary(
       studentProfile._id,

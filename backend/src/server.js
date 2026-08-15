@@ -90,6 +90,17 @@ const loginLimiter = rateLimit({
 app.use("/api/auth/login", loginLimiter);
 app.use("/api/auth", authRoutes);
 
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: "Too many contact messages. Please try again later.",
+  },
+});
+app.use("/api/contact", contactLimiter);
+
 app.get("/", (req, res) => {
   res.send("Smart Learning System API Running");
 });

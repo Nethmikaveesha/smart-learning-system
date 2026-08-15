@@ -11,6 +11,7 @@ import {
   applyTeacherPartMarks,
   buildMarkBreakdown,
 } from "../utils/essayMarkBreakdown.js";
+import StudentProfile from "../models/StudentProfile.js";
 
 const withTimeout = (promise, ms, fallback) =>
   Promise.race([
@@ -62,6 +63,18 @@ export const createMarkingScheme = async (req, res) => {
   try {
     const { question, keywords, modelAnswer } = req.body;
 
+    if (!question || !modelAnswer?.trim()) {
+      return res.status(400).json({
+        message: "question and modelAnswer are required",
+      });
+    }
+
+    if (!Array.isArray(keywords) || keywords.length === 0) {
+      return res.status(400).json({
+        message: "keywords must be a non-empty array",
+      });
+    }
+
     const markingScheme = await MarkingScheme.create({
       question,
       keywords,
@@ -84,15 +97,40 @@ export const createMarkingScheme = async (req, res) => {
   }
 };
 
+export const getMarkingSchemes = async (req, res) => {
+  try {
+    const schemes = await MarkingScheme.find()
+      .populate("question", "question maxMarks subject gradeLevel")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(schemes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const submitEssay = async (req, res) => {
   try {
-    const { studentId, questionId, answer } = req.body;
+    const { questionId, answer } = req.body;
 
-    if (!studentId || !questionId || !answer?.trim()) {
+    if (!questionId || !answer?.trim()) {
       return res.status(400).json({
-        message: "studentId, questionId, and answer are required",
+        message: "questionId and answer are required",
       });
     }
+
+    // Always bind submission to the logged-in student's own profile (no IDOR).
+    const studentProfile = await StudentProfile.findOne({
+      user: req.user._id,
+    }).select("_id");
+
+    if (!studentProfile) {
+      return res.status(404).json({
+        message: "Student profile not found for the logged-in user",
+      });
+    }
+
+    const studentId = studentProfile._id;
 
     const essayQuestion = await EssayQuestion.findById(questionId);
 

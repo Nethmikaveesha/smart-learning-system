@@ -2,9 +2,16 @@ import StudentProfile from "../models/StudentProfile.js";
 
 export const getRiskNotifications = async (req, res) => {
   try {
-    const riskStudents = await StudentProfile.find({
+    const filter = {
       riskStatus: { $in: ["High", "Medium"] },
-    })
+    };
+
+    // Parents only see their own linked children — never school-wide PII.
+    if (req.user?.role === "parent") {
+      filter.parent = req.user._id;
+    }
+
+    const riskStudents = await StudentProfile.find(filter)
       .populate("user", "fullName email")
       .populate("class", "className")
       .populate("parent", "fullName email");

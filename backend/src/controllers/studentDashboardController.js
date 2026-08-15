@@ -5,6 +5,7 @@ import {
   dedupeResults,
   sortResultsByLatest,
 } from "../utils/studentResults.js";
+import { buildSubjectPerformance } from "../utils/subjectPerformance.js";
 
 export const getStudentDashboard = async (req, res) => {
   try {
@@ -35,6 +36,10 @@ export const getStudentDashboard = async (req, res) => {
     });
 
     const results = sortResultsByLatest(dedupeResults(rawResults));
+    const subjectPerformance = buildSubjectPerformance(
+      studentProfile.subjects,
+      results
+    );
 
     const attendanceRecords = await Attendance.find({
       student: studentProfile._id,
@@ -44,6 +49,7 @@ export const getStudentDashboard = async (req, res) => {
       student: studentProfile,
       latestResult: results[0] || null,
       results,
+      subjectPerformance,
       attendancePercentage: studentProfile.attendancePercentage,
       currentZScore: studentProfile.currentZScore,
       riskStatus: studentProfile.riskStatus,

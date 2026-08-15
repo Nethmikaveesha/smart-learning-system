@@ -11,48 +11,12 @@ import {
   protect,
   authorizeRoles,
 } from "../middleware/authMiddleware.js";
+import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
 
 const router = express.Router();
 
 // Flask ML API base URL.
 const ML_API_URL = process.env.ML_API_URL || "http://127.0.0.1:5000";
-
-/**
- * Students/parents may only run predictions for their own linked profile.
- * Admins and teachers can access any student profile.
- */
-async function assertCanAccessStudentProfile(req, studentProfileId) {
-  const profile = await StudentProfile.findById(studentProfileId);
-
-  if (!profile) {
-    return {
-      ok: false,
-      status: 404,
-      message: "Student profile not found",
-    };
-  }
-
-  const role = req.user?.role;
-  const userId = String(req.user?._id || "");
-
-  if (role === "admin" || role === "teacher") {
-    return { ok: true, profile };
-  }
-
-  if (role === "student" && String(profile.user) === userId) {
-    return { ok: true, profile };
-  }
-
-  if (role === "parent" && String(profile.parent) === userId) {
-    return { ok: true, profile };
-  }
-
-  return {
-    ok: false,
-    status: 403,
-    message: "Access denied for this student profile",
-  };
-}
 
 function requireCommerceMarks(studentData) {
   const required = [
@@ -111,6 +75,20 @@ router.post(
   async (req, res) => {
     try {
       const { studentId, ...studentData } = req.body;
+
+      if (!studentId) {
+        return res.status(400).json({
+          success: false,
+          message: "studentId is required",
+        });
+      }
+
+      if (!studentData || Object.keys(studentData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "xAPI feature fields are required in the request body",
+        });
+      }
 
       const mlResponse = await axios.post(
         `${ML_API_URL}/predict-risk`,
@@ -177,6 +155,34 @@ router.post(
   async (req, res) => {
     try {
       const { studentId, ...studentData } = req.body;
+
+      if (!studentId) {
+        return res.status(400).json({
+          success: false,
+          message: "studentId is required",
+        });
+      }
+
+      const required = [
+        "attendance_pct",
+        "homework_pct",
+        "midterm_score",
+        "study_hours_per_week",
+      ];
+      const missing = required.filter(
+        (key) =>
+          studentData[key] === undefined ||
+          studentData[key] === null ||
+          studentData[key] === "" ||
+          Number.isNaN(Number(studentData[key]))
+      );
+
+      if (missing.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Missing or invalid Pass/Fail fields: ${missing.join(", ")}`,
+        });
+      }
 
       const mlResponse = await axios.post(
         `${ML_API_URL}/predict-final-risk`,
@@ -420,6 +426,24 @@ router.post(
         });
       }
 
+      const profile = await StudentProfile.findById(studentProfileId);
+      if (!profile) {
+        return res.status(404).json({
+          success: false,
+          message: "Student profile not found",
+        });
+      }
+
+      if (
+        profile.studentId &&
+        String(profile.studentId).trim() !== String(studentId).trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "studentId does not match the selected student profile",
+        });
+      }
+
       const values = {
         Accounting_Score,
         Business_Studies_Score,
@@ -467,6 +491,14 @@ router.post(
         riskLevel,
         predictionSource: "Manual",
         predictedBy: req.user?._id,
+      });
+
+      // Keep profile riskStatus in sync with primary Commerce Stream Model.
+      const shortRisk = String(riskLevel).replace(/ Risk$/i, "");
+      await StudentProfile.findByIdAndUpdate(studentProfileId, {
+        riskStatus: ["High", "Medium", "Low"].includes(shortRisk)
+          ? shortRisk
+          : profile.riskStatus,
       });
 
       return res.status(201).json({

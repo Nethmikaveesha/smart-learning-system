@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   addResult,
+  updateResult,
   getAllResults,
   deleteResult,
   calculateExamAnalytics,
@@ -30,14 +31,15 @@ router.get(
   getAllResults
 );
 
-router.delete(
-  "/:id",
+router.get(
+  "/analytics-summary",
   protect,
-  authorizeRoles("admin"),
-  deleteResult
+  authorizeRoles("admin", "teacher"),
+  getAnalyticsSummary
 );
 
- router.put(
+// Static path segments must come before /:id.
+router.put(
   "/analytics/:examId",
   protect,
   authorizeRoles("admin", "teacher"),
@@ -50,11 +52,19 @@ router.put(
   authorizeRoles("admin", "teacher"),
   detectWeakStudents
 );
-router.get(
-  "/analytics-summary",
+
+router.put(
+  "/:id",
   protect,
   authorizeRoles("admin", "teacher"),
-  getAnalyticsSummary
+  updateResult
+);
+
+router.delete(
+  "/:id",
+  protect,
+  authorizeRoles("admin"),
+  deleteResult
 );
 
 export default router;

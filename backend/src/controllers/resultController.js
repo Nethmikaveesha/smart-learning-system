@@ -49,6 +49,19 @@ export const addResult = async (req, res) => {
   try {
     const { student, exam, marks } = req.body;
 
+    if (!student || !exam || marks === undefined || marks === null || marks === "") {
+      return res.status(400).json({
+        message: "student, exam, and marks are required",
+      });
+    }
+
+    const numericMarks = Number(marks);
+    if (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > 100) {
+      return res.status(400).json({
+        message: "marks must be a number between 0 and 100",
+      });
+    }
+
     const existingResult = await Result.findOne({ student, exam });
 
     if (existingResult) {
@@ -63,8 +76,8 @@ export const addResult = async (req, res) => {
     await Result.create({
       student,
       exam,
-      marks,
-      grade: calculateGrade(marks, passMark),
+      marks: numericMarks,
+      grade: calculateGrade(numericMarks, passMark),
       rank: 0,
     });
 
@@ -81,31 +94,22 @@ export const addResult = async (req, res) => {
       })
       .populate("exam", "examName");
 
-    const studentProfile = await StudentProfile.findById(student);
-
-    let riskStatus = "Low";
-
-    if (marks < passMark || studentProfile.attendancePercentage < 60) {
-      riskStatus = "High";
-    } else if (marks < 50 || studentProfile.attendancePercentage < 75) {
-      riskStatus = "Medium";
-    }
-
+    // Do not overwrite Commerce Stream Model riskStatus with mark heuristics.
+    // Only refresh the student's current Z-score from this exam result.
     await StudentProfile.findByIdAndUpdate(student, {
-      riskStatus,
+      currentZScore: result.zScore,
     });
 
     await createAuditLog({
       userId: req.user?._id,
       action: "CREATE",
       module: "Results",
-      description: `Result added with ${marks} marks. Risk status updated to ${riskStatus}. Rank/Z-score recalculated.`,
+      description: `Result added with ${numericMarks} marks. Rank/Z-score recalculated.`,
     });
 
     res.status(201).json({
       message: "Result added successfully",
       result,
-      riskStatus,
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -118,6 +122,60 @@ export const addResult = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+export const updateResult = async (req, res) => {
+  try {
+    const { marks } = req.body;
+
+    if (marks === undefined || marks === null || marks === "") {
+      return res.status(400).json({ message: "marks are required" });
+    }
+
+    const numericMarks = Number(marks);
+    if (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > 100) {
+      return res.status(400).json({
+        message: "marks must be a number between 0 and 100",
+      });
+    }
+
+    const existing = await Result.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Result not found" });
+    }
+
+    const passMark = await getPassMark();
+    existing.marks = numericMarks;
+    existing.grade = calculateGrade(numericMarks, passMark);
+    await existing.save();
+
+    await recalculateExamAnalytics(existing.exam);
+
+    const result = await Result.findById(existing._id)
+      .populate({
+        path: "student",
+        populate: { path: "user", select: "fullName" },
+      })
+      .populate("exam", "examName");
+
+    await StudentProfile.findByIdAndUpdate(result.student._id || result.student, {
+      currentZScore: result.zScore,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Results",
+      description: `Result updated to ${numericMarks} marks. Rank/Z-score recalculated.`,
+    });
+
+    res.status(200).json({
+      message: "Result updated successfully",
+      result,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

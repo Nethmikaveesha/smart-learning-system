@@ -11,6 +11,12 @@ export const createExam = async (req, res) => {
       totalMarks,
     } = req.body;
 
+    if (!examName?.trim() || !classId || !subjectId || !examDate) {
+      return res.status(400).json({
+        message: "examName, classId, subjectId, and examDate are required",
+      });
+    }
+
     const exam = await Exam.create({
       examName,
       class: classId,

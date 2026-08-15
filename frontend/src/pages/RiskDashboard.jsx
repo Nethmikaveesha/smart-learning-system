@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import api, { getCommerceRisks } from "../services/api";
+import api, { getCommerceRisks, predictCommerceRisk } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
 function RiskDashboard() {
@@ -7,6 +7,10 @@ function RiskDashboard() {
   const [xapiRisks, setXapiRisks] = useState([]);
   const [finalRisks, setFinalRisks] = useState([]);
   const [commerceRisks, setCommerceRisks] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [selectedProfileId, setSelectedProfileId] = useState("");
+  const [runLoading, setRunLoading] = useState(false);
+  const [runMessage, setRunMessage] = useState("");
   const [loading, setLoading] = useState(() => Boolean(token));
   const [error, setError] = useState(() =>
     token ? "" : "Please sign in as admin or teacher to view risk records."
@@ -18,15 +22,18 @@ function RiskDashboard() {
       setError("");
 
       const headers = { Authorization: `Bearer ${token}` };
-      const [xapiResponse, finalResponse, commerceResponse] = await Promise.all([
-        api.get("/risk", { headers }),
-        api.get("/risk/final", { headers }),
-        getCommerceRisks(),
-      ]);
+      const [xapiResponse, finalResponse, commerceResponse, profilesResponse] =
+        await Promise.all([
+          api.get("/risk", { headers }),
+          api.get("/risk/final", { headers }),
+          getCommerceRisks(),
+          api.get("/student-profiles", { headers }),
+        ]);
 
       setXapiRisks(xapiResponse.data.data || []);
       setFinalRisks(finalResponse.data.data || []);
       setCommerceRisks(commerceResponse.data.data || []);
+      setProfiles(Array.isArray(profilesResponse.data) ? profilesResponse.data : []);
     } catch (err) {
       console.error("Failed to fetch risk data:", err);
       setError(
@@ -48,16 +55,20 @@ function RiskDashboard() {
           setError("");
         }
         const headers = { Authorization: `Bearer ${token}` };
-        const [xapiResponse, finalResponse, commerceResponse] =
+        const [xapiResponse, finalResponse, commerceResponse, profilesResponse] =
           await Promise.all([
             api.get("/risk", { headers }),
             api.get("/risk/final", { headers }),
             getCommerceRisks(),
+            api.get("/student-profiles", { headers }),
           ]);
         if (cancelled) return;
         setXapiRisks(xapiResponse.data.data || []);
         setFinalRisks(finalResponse.data.data || []);
         setCommerceRisks(commerceResponse.data.data || []);
+        setProfiles(
+          Array.isArray(profilesResponse.data) ? profilesResponse.data : []
+        );
       } catch (err) {
         if (cancelled) return;
         setError(
@@ -72,6 +83,29 @@ function RiskDashboard() {
       cancelled = true;
     };
   }, [token]);
+
+  const runStaffCommercePrediction = async () => {
+    if (!selectedProfileId) {
+      setRunMessage("Select a student profile first.");
+      return;
+    }
+
+    try {
+      setRunLoading(true);
+      setRunMessage("");
+      const res = await predictCommerceRisk(selectedProfileId);
+      setRunMessage(
+        `Commerce Stream Model result: ${res.data?.risk_level || "saved"}`
+      );
+      await fetchRiskData();
+    } catch (err) {
+      setRunMessage(
+        err.response?.data?.message || "Commerce prediction failed"
+      );
+    } finally {
+      setRunLoading(false);
+    }
+  };
 
   const xapiSummary = useMemo(
     () => ({
@@ -175,6 +209,46 @@ function RiskDashboard() {
             },
           ]}
         >
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-900">
+              Run Commerce Stream prediction (staff)
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              Uses saved ACC / BS / ECO marks and attendance for the selected
+              student. Result is stored in CommerceRisk.
+            </p>
+            <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end">
+              <label className="flex-1 text-xs font-semibold text-slate-600">
+                Student
+                <select
+                  value={selectedProfileId}
+                  onChange={(event) => setSelectedProfileId(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800"
+                >
+                  <option value="">Select student profile</option>
+                  {profiles.map((profile) => (
+                    <option key={profile._id} value={profile._id}>
+                      {profile.user?.fullName || "Student"} (
+                      {profile.studentId || profile._id})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={runStaffCommercePrediction}
+                disabled={runLoading || !selectedProfileId}
+                className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {runLoading ? "Running..." : "Run prediction"}
+              </button>
+            </div>
+            {runMessage && (
+              <p className="mt-3 text-sm font-medium text-slate-700">
+                {runMessage}
+              </p>
+            )}
+          </div>
           <CommerceRiskTable risks={commerceRisks} />
         </ModelSection>
 

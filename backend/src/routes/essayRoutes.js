@@ -2,6 +2,7 @@ import express from "express";
 import {
   createEssayQuestion,
   createMarkingScheme,
+  getMarkingSchemes,
   submitEssay,
   approveEssaySubmission,
   getAllEssaySubmissions,
@@ -21,7 +22,6 @@ router.post(
   protect,
   authorizeRoles("admin", "teacher"),
   createEssayQuestion
-  
 );
 
 router.post(
@@ -29,6 +29,13 @@ router.post(
   protect,
   authorizeRoles("admin", "teacher"),
   createMarkingScheme
+);
+
+router.get(
+  "/marking-schemes",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  getMarkingSchemes
 );
 
 router.post(
@@ -58,10 +65,12 @@ router.get(
   authorizeRoles("admin", "teacher", "student"),
   getEssayQuestions
 );
+
 router.get(
   "/topic-error-analytics",
   protect,
   authorizeRoles("teacher", "admin"),
   getTeacherTopicErrorAnalytics
 );
+
 export default router;

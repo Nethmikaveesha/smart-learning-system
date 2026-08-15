@@ -1,11 +1,18 @@
 import StudentProfile from "../models/StudentProfile.js";
 import User from "../models/User.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
-import { resolveClass, resolveOrCreateClass } from "../utils/resolveReference.js";
+import { resolveOrCreateClass } from "../utils/resolveReference.js";
+import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
 
 export const createStudentProfile = async (req, res) => {
   try {
     const { user, studentId, className, parent, subjects } = req.body;
+
+    if (!user || !studentId) {
+      return res.status(400).json({
+        message: "user and studentId are required",
+      });
+    }
 
     const existingProfile = await StudentProfile.findOne({
       $or: [{ studentId }, { user }],
@@ -22,12 +29,17 @@ export const createStudentProfile = async (req, res) => {
       ? await resolveOrCreateClass(className)
       : null;
 
+    const subjectIds =
+      Array.isArray(subjects) && subjects.length > 0
+        ? subjects
+        : await ensureCommerceSubjectIds();
+
     const profile = await StudentProfile.create({
       user,
       studentId,
       class: classRecord?._id,
       parent,
-      subjects,
+      subjects: subjectIds,
     });
 
     await createAuditLog({
@@ -66,8 +78,16 @@ export const getAllStudentProfiles = async (req, res) => {
 
 export const updateStudentProfile = async (req, res) => {
   try {
-    const { studentId, className, academicYear, fullName, email, phoneNumber, status } =
-      req.body;
+    const {
+      studentId,
+      className,
+      academicYear,
+      fullName,
+      email,
+      phoneNumber,
+      status,
+      subjects,
+    } = req.body;
 
     const profile = await StudentProfile.findById(req.params.id);
 
@@ -87,6 +107,7 @@ export const updateStudentProfile = async (req, res) => {
         ...(studentId !== undefined ? { studentId } : {}),
         ...(classRecord ? { class: classRecord._id } : {}),
         ...(academicYear !== undefined ? { academicYear } : {}),
+        ...(subjects !== undefined ? { subjects } : {}),
       },
       { new: true }
     )

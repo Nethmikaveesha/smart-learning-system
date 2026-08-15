@@ -14,6 +14,7 @@ import {
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { validateRegistrationInput } from "../utils/registrationValidation.js";
 import { isEmailConfigured, sendEmail } from "../utils/sendEmail.js";
+import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
 
 const RESET_TOKEN_HOURS = 1;
 
@@ -197,6 +198,8 @@ export const registerUser = async (req, res) => {
         class: classRecord?._id || undefined,
         parent: parent || undefined,
         academicYear,
+        // Commerce stream students always get ACC / BS / ECO linked.
+        subjects: await ensureCommerceSubjectIds(),
       });
       createdProfileId = profile._id;
 

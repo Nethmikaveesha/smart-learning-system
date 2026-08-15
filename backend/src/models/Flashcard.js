@@ -28,6 +28,12 @@ const flashcardSchema = new mongoose.Schema(
       enum: ["Easy", "Medium", "Hard"],
       default: "Medium",
     },
+
+    // Who created the card — students only see their own generated cards.
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );
