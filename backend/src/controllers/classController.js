@@ -26,6 +26,8 @@ export const createClass = async (req, res) => {
       className: String(className).trim(),
       academicYear: String(academicYear).trim(),
       gradeLevel: resolvedGradeLevel,
+      stream: req.body.stream || "Commerce",
+      medium: req.body.medium || "English",
       assignedTeacher: assignedTeacher || undefined,
     });
 

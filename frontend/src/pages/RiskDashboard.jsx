@@ -1,37 +1,77 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
-
-const API_BASE_URL = "http://localhost:5001/api";
+import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function RiskDashboard() {
+  const { token } = useAuth();
   const [xapiRisks, setXapiRisks] = useState([]);
   const [finalRisks, setFinalRisks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [commerceRisks, setCommerceRisks] = useState([]);
+  const [loading, setLoading] = useState(() => Boolean(token));
+  const [error, setError] = useState(() =>
+    token ? "" : "Please sign in as admin or teacher to view risk records."
+  );
 
   const fetchRiskData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [xapiResponse, finalResponse] = await Promise.all([
-        axios.get(`${API_BASE_URL}/risk`),
-        axios.get(`${API_BASE_URL}/risk/final`),
+      const headers = { Authorization: `Bearer ${token}` };
+      const [xapiResponse, finalResponse, commerceResponse] = await Promise.all([
+        api.get("/risk", { headers }),
+        api.get("/risk/final", { headers }),
+        api.get("/risk/commerce", { headers }),
       ]);
 
       setXapiRisks(xapiResponse.data.data || []);
       setFinalRisks(finalResponse.data.data || []);
+      setCommerceRisks(commerceResponse.data.data || []);
     } catch (err) {
       console.error("Failed to fetch risk data:", err);
-      setError("Failed to load risk prediction data.");
+      setError(
+        err.response?.data?.message || "Failed to load risk prediction data."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRiskData();
-  }, []);
+    if (!token) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!cancelled) {
+          setLoading(true);
+          setError("");
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+        const [xapiResponse, finalResponse, commerceResponse] =
+          await Promise.all([
+            api.get("/risk", { headers }),
+            api.get("/risk/final", { headers }),
+            api.get("/risk/commerce", { headers }),
+          ]);
+        if (cancelled) return;
+        setXapiRisks(xapiResponse.data.data || []);
+        setFinalRisks(finalResponse.data.data || []);
+        setCommerceRisks(commerceResponse.data.data || []);
+      } catch (err) {
+        if (cancelled) return;
+        setError(
+          err.response?.data?.message || "Failed to load risk prediction data."
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const xapiSummary = useMemo(
     () => ({
@@ -52,6 +92,17 @@ function RiskDashboard() {
       low: finalRisks.filter((item) => item.riskLevel === "Low Risk").length,
     }),
     [finalRisks]
+  );
+
+  const commerceSummary = useMemo(
+    () => ({
+      total: commerceRisks.length,
+      high: commerceRisks.filter((item) => item.riskLevel === "High Risk").length,
+      medium: commerceRisks.filter((item) => item.riskLevel === "Medium Risk")
+        .length,
+      low: commerceRisks.filter((item) => item.riskLevel === "Low Risk").length,
+    }),
+    [commerceRisks]
   );
 
   if (loading) {
@@ -100,6 +151,31 @@ function RiskDashboard() {
           ]}
         >
           <XapiRiskTable risks={xapiRisks} />
+        </ModelSection>
+
+        <ModelSection
+          title="Commerce Stream Model"
+          description="A/L Commerce multi-class risk using Accounting, Business Studies, Economics and attendance."
+          summary={[
+            { label: "Total Predictions", value: commerceSummary.total },
+            {
+              label: "High Risk",
+              value: commerceSummary.high,
+              badgeClass: "bg-red-100 text-red-700",
+            },
+            {
+              label: "Medium Risk",
+              value: commerceSummary.medium,
+              badgeClass: "bg-amber-100 text-amber-700",
+            },
+            {
+              label: "Low Risk",
+              value: commerceSummary.low,
+              badgeClass: "bg-emerald-100 text-emerald-700",
+            },
+          ]}
+        >
+          <CommerceRiskTable risks={commerceRisks} />
         </ModelSection>
 
         <ModelSection
@@ -227,6 +303,48 @@ function XapiRiskTable({ risks }) {
           <tr key={risk._id} className="border-t border-slate-200 bg-white">
             <TableCell>{risk.studentId}</TableCell>
             <TableCell strong>{risk.performanceClass}</TableCell>
+            <TableCell>
+              <RiskBadge riskLevel={risk.riskLevel} />
+            </TableCell>
+            <TableCell>{formatDate(risk.createdAt)}</TableCell>
+          </tr>
+        ))}
+      </tbody>
+    </TableShell>
+  );
+}
+
+function CommerceRiskTable({ risks }) {
+  return (
+    <TableShell
+      title="Commerce Stream Model Records"
+      emptyMessage="No Commerce Stream Model predictions saved yet."
+      isEmpty={risks.length === 0}
+    >
+      <thead className="bg-slate-100 text-slate-700">
+        <tr>
+          <TableHead>Student ID</TableHead>
+          <TableHead>Accounting</TableHead>
+          <TableHead>Business Studies</TableHead>
+          <TableHead>Economics</TableHead>
+          <TableHead>Attendance</TableHead>
+          <TableHead>Risk Level</TableHead>
+          <TableHead>Date</TableHead>
+        </tr>
+      </thead>
+
+      <tbody>
+        {risks.map((risk) => (
+          <tr key={risk._id} className="border-t border-slate-200 bg-white">
+            <TableCell>{risk.studentId}</TableCell>
+            <TableCell>{risk.inputData?.Accounting_Score ?? "--"}</TableCell>
+            <TableCell>
+              {risk.inputData?.Business_Studies_Score ?? "--"}
+            </TableCell>
+            <TableCell>{risk.inputData?.Economics_Score ?? "--"}</TableCell>
+            <TableCell>
+              {formatPercentValue(risk.inputData?.Attendance_Percentage)}
+            </TableCell>
             <TableCell>
               <RiskBadge riskLevel={risk.riskLevel} />
             </TableCell>

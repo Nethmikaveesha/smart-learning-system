@@ -160,8 +160,15 @@ function AppRoutes() {
         <Route path="/chatbot" element={<Chatbot />} />
       </Route>
 
-      {/* Standalone research/demo risk monitoring page */}
-      <Route path="/risk-dashboard" element={<RiskDashboard />} />
+      {/* Staff-only risk monitoring page */}
+      <Route
+        path="/risk-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "teacher"]}>
+            <RiskDashboard />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Unknown routes redirect to public home */}
       <Route path="*" element={<Navigate to="/" />} />

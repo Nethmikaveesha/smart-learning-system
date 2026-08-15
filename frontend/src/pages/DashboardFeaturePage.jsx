@@ -122,7 +122,15 @@ const featureConfigs = {
           name: "className",
           label: "Class Name",
           required: true,
-          placeholder: "e.g. Commerce A or 12 Commerce A",
+          placeholder: "e.g. 12 Commerce A",
+        },
+        {
+          name: "stream",
+          label: "Stream",
+          type: "select",
+          required: true,
+          defaultValue: "Commerce",
+          options: [{ value: "Commerce", label: "Commerce Stream Model" }],
         },
         {
           name: "academicYear",
@@ -146,8 +154,18 @@ const featureConfigs = {
       method: "post",
       submitLabel: "Create Subject",
       fields: [
-        { name: "subjectName", label: "Subject Name", required: true },
-        { name: "subjectCode", label: "Subject Code", required: true },
+        {
+          name: "subjectName",
+          label: "Subject Name",
+          required: true,
+          placeholder: "Accounting / Business Studies / Economics",
+        },
+        {
+          name: "subjectCode",
+          label: "Subject Code",
+          required: true,
+          placeholder: "ACC101 / BS101 / ECO101",
+        },
       ],
     },
   },
@@ -1336,6 +1354,10 @@ function RegisterUserForm({
 
         {role === "student" && (
           <>
+            <div className="md:col-span-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 typo-ui text-sky-900">
+              Stream: <strong>Commerce Stream Model</strong> — core subjects
+              Accounting, Business Studies, Economics
+            </div>
             <FormTextField
               label="Student ID"
               name="studentId"
@@ -1349,10 +1371,12 @@ function RegisterUserForm({
               name="className"
               value={values.className}
               onChange={(_, value) => updateClassName(value)}
-              placeholder="Select class"
+              placeholder="Select class (e.g. 12 Commerce A)"
               options={classes.map((classItem) => ({
                 value: classItem.className,
-                label: classItem.className,
+                label: `${classItem.className}${
+                  classItem.stream ? ` · ${classItem.stream}` : " · Commerce"
+                }`,
               }))}
             />
             <OptionSelectField

@@ -18,6 +18,20 @@ export const protect = async (req, res, next) => {
 
       req.user = await User.findById(decoded.id).select("-password");
 
+      // Deleted / missing user
+      if (!req.user) {
+        return res.status(401).json({
+          message: "Not authorized. User account was not found.",
+        });
+      }
+
+      // Inactive / disabled accounts cannot use protected APIs
+      if (!req.user.isActive) {
+        return res.status(403).json({
+          message: "This account is inactive. Please contact your school admin.",
+        });
+      }
+
       next();
     } else {
       return res.status(401).json({
