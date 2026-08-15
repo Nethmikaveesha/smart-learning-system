@@ -1,9 +1,15 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import AdminSidebar, { adminMobileLinks } from "./sidebars/AdminSidebar";
-import TeacherSidebar, { teacherMobileLinks } from "./sidebars/TeacherSidebar";
-import StudentSidebar, { studentMobileLinks } from "./sidebars/StudentSidebar";
-import ParentSidebar, { parentMobileLinks } from "./sidebars/ParentSidebar";
+import AdminSidebar from "./sidebars/AdminSidebar";
+import TeacherSidebar from "./sidebars/TeacherSidebar";
+import StudentSidebar from "./sidebars/StudentSidebar";
+import ParentSidebar from "./sidebars/ParentSidebar";
+import {
+  adminMobileLinks,
+  teacherMobileLinks,
+  studentMobileLinks,
+  parentMobileLinks,
+} from "./sidebars/mobileNavLinks";
 
 const dashboardPaths = {
   admin: "/admin",

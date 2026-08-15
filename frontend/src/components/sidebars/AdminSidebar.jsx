@@ -1,15 +1,5 @@
 import SidebarSection from "./SidebarSection";
 
-export const adminMobileLinks = [
-  { label: "Dashboard", to: "/admin", end: true },
-  { label: "Users", to: "/admin/users", end: true },
-  { label: "Add Admin", to: "/admin/users/add", end: true },
-  { label: "Classes", to: "/admin/classes" },
-  { label: "Exams", to: "/admin/exams" },
-  { label: "Analytics", to: "/admin/system-analytics" },
-  { label: "Reports", to: "/admin/reports" },
-];
-
 function AdminSidebar() {
   return (
     <nav className="space-y-2">

@@ -7,6 +7,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed:demo": "node scripts/seedDemoStudent.js",
+    "seed:commerce-risk": "node scripts/seedCommerceRiskDemo.js",
     "smoke": "node scripts/smokeTests.js",
     "test:api": "node ../testing/apiTests.js",
     "test:unit": "node ../testing/unitTests.js"

@@ -11,6 +11,7 @@ function TeacherEssayReview() {
 
   const [submissions, setSubmissions] = useState([]);
   const [selectedId, setSelectedId] = useState("");
+  const [formForId, setFormForId] = useState(null);
   const [partMarks, setPartMarks] = useState({});
   const [teacherFeedback, setTeacherFeedback] = useState("");
   const [loading, setLoading] = useState(true);
@@ -22,6 +23,25 @@ function TeacherEssayReview() {
     () => submissions.find((item) => item._id === selectedId) || null,
     [submissions, selectedId]
   );
+
+  if (selected && formForId !== selected._id) {
+    const parts = selected.markBreakdown?.parts || [];
+    const nextParts = {};
+    parts.forEach((part) => {
+      nextParts[part.key] =
+        part.teacherMarks !== null && part.teacherMarks !== undefined
+          ? part.teacherMarks
+          : part.recommendedMarks;
+    });
+    setFormForId(selected._id);
+    setPartMarks(nextParts);
+    setTeacherFeedback(selected.teacherFeedback || "");
+    setMessage("");
+  } else if (!selected && formForId !== null) {
+    setFormForId(null);
+    setPartMarks({});
+    setTeacherFeedback("");
+  }
 
   const loadSubmissions = async () => {
     try {
@@ -48,31 +68,37 @@ function TeacherEssayReview() {
   };
 
   useEffect(() => {
-    if (token) loadSubmissions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!token) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!cancelled) {
+          setLoading(true);
+          setError("");
+        }
+        const res = await api.get("/essays/submissions", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (cancelled) return;
+        const rows = res.data || [];
+        setSubmissions(rows);
+        setSelectedId((current) => current || rows[0]?._id || "");
+      } catch (loadError) {
+        if (cancelled) return;
+        setError(
+          loadError.response?.data?.message ||
+            "Failed to load essay submissions"
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
-
-  useEffect(() => {
-    if (!selected) {
-      setPartMarks({});
-      setTeacherFeedback("");
-      return;
-    }
-
-    const parts = selected.markBreakdown?.parts || [];
-    const nextParts = {};
-
-    parts.forEach((part) => {
-      nextParts[part.key] =
-        part.teacherMarks !== null && part.teacherMarks !== undefined
-          ? part.teacherMarks
-          : part.recommendedMarks;
-    });
-
-    setPartMarks(nextParts);
-    setTeacherFeedback(selected.teacherFeedback || "");
-    setMessage("");
-  }, [selected]);
 
   const teacherTotal = useMemo(() => {
     const parts = selected?.markBreakdown?.parts || [];

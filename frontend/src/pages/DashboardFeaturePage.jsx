@@ -1842,29 +1842,6 @@ function PasswordField({
   );
 }
 
-function TextField({
-  label,
-  name,
-  value,
-  onChange,
-  type = "text",
-  required = false,
-}) {
-  return (
-    <label className="typo-label text-slate-700">
-      {label}
-      <input
-        type={type}
-        name={name}
-        value={value}
-        required={required}
-        onChange={(event) => onChange(name, event.target.value)}
-        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
-      />
-    </label>
-  );
-}
-
 function OptionSelectField({
   label,
   name,

@@ -96,10 +96,29 @@ function ParentRiskAlerts() {
   };
 
   useEffect(() => {
-    if (studentProfileObjectId) {
-      loadCommerceHistory(studentProfileObjectId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!studentProfileObjectId) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getStudentCommerceRiskHistory(studentProfileObjectId);
+        if (cancelled) return;
+        const rows = res.data?.data || [];
+        setCommerceHistory(rows);
+        if (rows[0]) {
+          setCommercePrediction({
+            risk_level: rows[0].riskLevel,
+            saved_data: rows[0],
+          });
+        }
+      } catch {
+        if (!cancelled) setCommerceHistory([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [studentProfileObjectId]);
 
   const runPassFailPrediction = async () => {

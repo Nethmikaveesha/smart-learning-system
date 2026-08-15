@@ -87,6 +87,13 @@ export const registerAdmin = async (req, res) => {
 };
 
 export const registerUser = async (req, res) => {
+  let createdUserId = null;
+  let createdProfileId = null;
+  let assignedSubjectId = null;
+  let assignedClassTeacherId = null;
+  let linkedParentStudentId = null;
+  let previousParentId = null;
+
   try {
     const {
       fullName,
@@ -147,6 +154,7 @@ export const registerUser = async (req, res) => {
       parentId: role === "parent" ? parentId : undefined,
       relationship: role === "parent" ? relationship : "",
     });
+    createdUserId = user._id;
 
     let profile = null;
 
@@ -155,14 +163,17 @@ export const registerUser = async (req, res) => {
         const subject = await resolveSubject(assignedSubject);
 
         if (!subject) {
-          return res.status(404).json({
-            message: `Subject not found for reference: ${assignedSubject}`,
-          });
+          const err = new Error(
+            `Subject not found for reference: ${assignedSubject}`
+          );
+          err.statusCode = 404;
+          throw err;
         }
 
         await Subject.findByIdAndUpdate(subject._id, {
           assignedTeacher: user._id,
         });
+        assignedSubjectId = subject._id;
       }
 
       if (assignedClass) {
@@ -171,6 +182,7 @@ export const registerUser = async (req, res) => {
         await Class.findByIdAndUpdate(classRecord._id, {
           assignedTeacher: user._id,
         });
+        assignedClassTeacherId = classRecord._id;
       }
     }
 
@@ -186,6 +198,7 @@ export const registerUser = async (req, res) => {
         parent: parent || undefined,
         academicYear,
       });
+      createdProfileId = profile._id;
 
       if (classRecord) {
         await Class.findByIdAndUpdate(classRecord._id, {
@@ -198,10 +211,15 @@ export const registerUser = async (req, res) => {
       const studentProfile = await resolveStudentProfile(childStudent);
 
       if (!studentProfile) {
-        return res.status(404).json({
-          message: `Student profile not found for reference: ${childStudent}`,
-        });
+        const err = new Error(
+          `Student profile not found for reference: ${childStudent}`
+        );
+        err.statusCode = 404;
+        throw err;
       }
+
+      previousParentId = studentProfile.parent || null;
+      linkedParentStudentId = studentProfile._id;
 
       profile = await StudentProfile.findByIdAndUpdate(
         studentProfile._id,
@@ -223,7 +241,38 @@ export const registerUser = async (req, res) => {
       profile,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Compensating cleanup — avoid orphan user/profile after mid-flow failure.
+    try {
+      if (createdProfileId) {
+        await StudentProfile.findByIdAndDelete(createdProfileId);
+      }
+      if (linkedParentStudentId) {
+        await StudentProfile.findByIdAndUpdate(linkedParentStudentId, {
+          parent: previousParentId || null,
+        });
+      }
+      if (assignedSubjectId) {
+        await Subject.findByIdAndUpdate(assignedSubjectId, {
+          $unset: { assignedTeacher: 1 },
+        });
+      }
+      if (assignedClassTeacherId && createdUserId) {
+        await Class.findByIdAndUpdate(assignedClassTeacherId, {
+          $unset: { assignedTeacher: 1 },
+        });
+      }
+      if (createdUserId) {
+        await Class.updateMany(
+          { students: createdUserId },
+          { $pull: { students: createdUserId } }
+        );
+        await User.findByIdAndDelete(createdUserId);
+      }
+    } catch (cleanupError) {
+      console.error("Registration cleanup failed:", cleanupError.message);
+    }
+
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 export const loginUser = async (req, res) => {

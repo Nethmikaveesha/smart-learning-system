@@ -38,10 +38,13 @@ function PublicLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const [menuPath, setMenuPath] = useState(location.pathname);
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
+  // Close mobile menu when route changes (adjust state during render).
+  if (menuPath !== location.pathname) {
+    setMenuPath(location.pathname);
+    if (mobileOpen) setMobileOpen(false);
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);

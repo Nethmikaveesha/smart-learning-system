@@ -1,15 +1,13 @@
 import { createContext, useContext, useState } from "react";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(
     JSON.parse(localStorage.getItem("user")) || null
   );
 
-  const [token, setToken] = useState(
-    localStorage.getItem("token") || null
-  );
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
 
   const login = (userData, userToken) => {
     localStorage.setItem("user", JSON.stringify(userData));
@@ -32,4 +30,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

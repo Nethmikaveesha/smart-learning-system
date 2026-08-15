@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -16,25 +16,25 @@ const REMEMBER_KEY = "edutrack_remember_email";
 const inputClass =
   "mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100";
 
+function getRememberedEmail() {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 function Login() {
-  const [email, setEmail] = useState("");
+  const remembered = getRememberedEmail();
+  const [email, setEmail] = useState(remembered);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberEmail, setRememberEmail] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(Boolean(remembered));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
-
-  useEffect(() => {
-    const saved = localStorage.getItem(REMEMBER_KEY);
-    if (saved) {
-      setEmail(saved);
-      setRememberEmail(true);
-    }
-  }, []);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
 

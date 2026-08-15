@@ -108,12 +108,35 @@ The project uses three ML models.
 
 Fill `backend/.env` with `MONGO_URI`, `JWT_SECRET`, optional `GEMINI_API_KEY`, and `CORS_ORIGINS=http://localhost:5173`.
 
+### Commerce risk demo data (3 risk levels)
+
+```bash
+cd backend
+npm run seed:commerce-risk
+```
+
+Creates `12 Commerce A` / `13 Commerce A`, ACC/BS/ECO subjects, and three students with saved **CommerceRisk** predictions.
+
+| Role | Email | Password | Notes |
+| --- | --- | --- | --- |
+| Teacher | `teacher@edutrack.test` | `123456` | Commerce teacher |
+| Parent | `parent@edutrack.test` | `123456` | Linked to demo students |
+| Student (Low) | `low.risk@edutrack.test` | `123456` | Low Risk sample |
+| Student (Medium) | `medium.risk@edutrack.test` | `123456` | Medium Risk sample |
+| Student (High) | `high.risk@edutrack.test` | `123456` | High Risk sample |
+
 ### Tests
 
 ```bash
 node testing/unitTests.js    # grade / rank / z-score (no server)
 node testing/apiTests.js     # security + role + risk auth (backend running)
 ```
+
+### Still optional for thesis evidence
+- Live Gemini essay/chatbot walkthrough screenshots
+- Manual Z-score / correlation calculation vs system screenshot
+- UAT feedback form from teacher/student/parent/admin
+- Deploy to Vercel + Render + Atlas (or document local install as evidence)
 
 ### Project Structure
 

@@ -1,14 +1,5 @@
 import SidebarSection from "./SidebarSection";
 
-export const studentMobileLinks = [
-  { label: "Dashboard", to: "/student", end: true },
-  { label: "Subjects", to: "/student/subjects" },
-  { label: "Papers", to: "/student/exam-papers" },
-  { label: "Study Help", to: "/chatbot" },
-  { label: "Progress", to: "/student/performance" },
-  { label: "Materials", to: "/student/study-materials" },
-];
-
 function StudentSidebar() {
   return (
     <nav className="space-y-2">
