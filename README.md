@@ -97,7 +97,25 @@ The project uses three ML models.
 - Matplotlib
 - Jupyter Notebook
 
-## Project Structure
+## Quick setup
+
+| Service | Port | Start |
+| --- | --- | --- |
+| MongoDB | 27017 | local or Atlas |
+| Backend | **5001** | `cd backend && cp .env.example .env && npm install && npm run dev` |
+| ML (Flask) | **5000** | `cd ml-model && pip install -r requirements.txt && python app.py` |
+| Frontend | **5173** | `cd frontend && npm install && npm run dev` |
+
+Fill `backend/.env` with `MONGO_URI`, `JWT_SECRET`, optional `GEMINI_API_KEY`, and `CORS_ORIGINS=http://localhost:5173`.
+
+### Tests
+
+```bash
+node testing/unitTests.js    # grade / rank / z-score (no server)
+node testing/apiTests.js     # security + role + risk auth (backend running)
+```
+
+### Project Structure
 
 ```text
 Smart-Learning-System/
