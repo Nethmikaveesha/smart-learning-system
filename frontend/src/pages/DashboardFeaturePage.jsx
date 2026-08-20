@@ -130,7 +130,7 @@ const featureConfigs = {
           type: "select",
           required: true,
           defaultValue: "Commerce",
-          options: [{ value: "Commerce", label: "Commerce Stream Model" }],
+          options: [{ value: "Commerce", label: "Commerce Risk Assessment" }],
         },
         {
           name: "academicYear",
@@ -187,7 +187,7 @@ const featureConfigs = {
             type: "select",
             required: true,
             defaultValue: "Commerce",
-            options: [{ value: "Commerce", label: "Commerce Stream Model" }],
+            options: [{ value: "Commerce", label: "Commerce Risk Assessment" }],
           },
           {
             name: "academicYear",
@@ -1622,7 +1622,7 @@ function RegisterUserForm({
         {role === "student" && (
           <>
             <div className="md:col-span-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 typo-ui text-sky-900">
-              Stream: <strong>Commerce Stream Model</strong> — core subjects
+              Stream: <strong>Commerce Risk Assessment</strong> — core subjects
               Accounting, Business Studies, Economics
             </div>
             <FormTextField

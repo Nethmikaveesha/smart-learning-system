@@ -37,7 +37,7 @@ function RiskDashboard() {
     } catch (err) {
       console.error("Failed to fetch risk data:", err);
       setError(
-        err.response?.data?.message || "Failed to load risk prediction data."
+        err.response?.data?.message || "Failed to load risk assessment data."
       );
     } finally {
       setLoading(false);
@@ -72,7 +72,7 @@ function RiskDashboard() {
       } catch (err) {
         if (cancelled) return;
         setError(
-          err.response?.data?.message || "Failed to load risk prediction data."
+          err.response?.data?.message || "Failed to load risk assessment data."
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -95,7 +95,7 @@ function RiskDashboard() {
       setRunMessage("");
       const res = await predictCommerceRisk(selectedProfileId);
       setRunMessage(
-        `Commerce Stream Model result: ${res.data?.risk_level || "saved"}`
+        `Risk assessment result: ${res.data?.risk_level || "saved"}`
       );
       await fetchRiskData();
     } catch (err) {
@@ -144,7 +144,7 @@ function RiskDashboard() {
       <div className="min-h-screen bg-slate-100 p-6">
         <div className="mx-auto max-w-7xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="typo-ui text-slate-600">
-            Loading risk prediction dashboard...
+            Loading risk assessment dashboard...
           </p>
         </div>
       </div>
@@ -163,10 +163,10 @@ function RiskDashboard() {
         )}
 
         <ModelSection
-          title="xAPI Performance Classification"
-          description="Benchmark model using learning behaviour and engagement data."
+          title="Learning Engagement Overview"
+          description="Uses learning behaviour and engagement signals for an optional comparison view."
           summary={[
-            { label: "Total Predictions", value: xapiSummary.total },
+            { label: "Total Checks", value: xapiSummary.total },
             {
               label: "High Risk",
               value: xapiSummary.high,
@@ -188,10 +188,10 @@ function RiskDashboard() {
         </ModelSection>
 
         <ModelSection
-          title="Commerce Stream Model"
-          description="A/L Commerce multi-class risk using Accounting, Business Studies, Economics and attendance."
+          title="Commerce Risk Assessment"
+          description="Uses Accounting, Business Studies, Economics marks and attendance to flag High, Medium, or Low support need."
           summary={[
-            { label: "Total Predictions", value: commerceSummary.total },
+            { label: "Total Assessments", value: commerceSummary.total },
             {
               label: "High Risk",
               value: commerceSummary.high,
@@ -211,11 +211,12 @@ function RiskDashboard() {
         >
           <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold text-slate-900">
-              Run Commerce Stream prediction (staff)
+              Run risk assessment (staff)
             </p>
             <p className="mt-1 text-xs text-slate-600">
-              Uses saved ACC / BS / ECO marks and attendance for the selected
-              student. Result is stored in CommerceRisk.
+              Uses saved Accounting, Business Studies, and Economics marks with
+              attendance for the selected student. The result is saved to risk
+              history.
             </p>
             <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-end">
               <label className="flex-1 text-xs font-semibold text-slate-600">
@@ -240,7 +241,7 @@ function RiskDashboard() {
                 disabled={runLoading || !selectedProfileId}
                 className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {runLoading ? "Running..." : "Run prediction"}
+                {runLoading ? "Running..." : "Run assessment"}
               </button>
             </div>
             {runMessage && (
@@ -253,10 +254,10 @@ function RiskDashboard() {
         </ModelSection>
 
         <ModelSection
-          title="Final Pass/Fail Risk Prediction"
-          description="Project-aligned model using attendance and academic indicators."
+          title="Pass/Fail Outlook"
+          description="Uses attendance and academic indicators to estimate likely pass or fail support need."
           summary={[
-            { label: "Total Predictions", value: finalSummary.total },
+            { label: "Total Assessments", value: finalSummary.total },
             {
               label: "Predicted Pass",
               value: finalSummary.pass,
@@ -298,9 +299,9 @@ function PageHeader({ onRefresh }) {
             Student Risk Dashboard
           </h1>
           <p className="mt-2 max-w-3xl typo-body text-slate-600">
-            Primary records come from the Commerce Stream Model (ACC / BS / ECO
-            + attendance). Pass/Fail outlook is secondary; the xAPI benchmark is
-            optional comparison only.
+            Primary records come from Commerce Risk Assessment (Accounting,
+            Business Studies, Economics + attendance). Pass/Fail Outlook is
+            secondary; Learning Engagement is an optional comparison only.
           </p>
         </div>
 
@@ -360,8 +361,8 @@ function MetricCard({ label, value, badgeClass }) {
 function XapiRiskTable({ risks }) {
   return (
     <TableShell
-      title="xAPI Prediction Records"
-      emptyMessage="No xAPI prediction records found."
+      title="Learning Engagement Records"
+      emptyMessage="No learning engagement checks found yet."
       isEmpty={risks.length === 0}
     >
       <thead className="bg-slate-100 text-slate-700">
@@ -392,8 +393,8 @@ function XapiRiskTable({ risks }) {
 function CommerceRiskTable({ risks }) {
   return (
     <TableShell
-      title="Commerce Stream Model Records"
-      emptyMessage="No Commerce Stream Model predictions saved yet."
+      title="Commerce Risk Records"
+      emptyMessage="No Commerce risk assessments saved yet."
       isEmpty={risks.length === 0}
     >
       <thead className="bg-slate-100 text-slate-700">
@@ -443,8 +444,8 @@ function CommerceRiskTable({ risks }) {
 function FinalRiskTable({ risks }) {
   return (
     <TableShell
-      title="Final Risk Prediction Records"
-      emptyMessage="No final risk prediction records found."
+      title="Pass/Fail Outlook Records"
+      emptyMessage="No Pass/Fail outlook records found yet."
       isEmpty={risks.length === 0}
     >
       <thead className="bg-slate-100 text-slate-700">

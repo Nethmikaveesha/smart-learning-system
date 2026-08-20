@@ -26,7 +26,7 @@ export const studentMobileLinks = [
   { label: "Papers", to: "/student/exam-papers" },
   { label: "Study Help", to: "/chatbot" },
   { label: "Progress", to: "/student/performance" },
-  { label: "Commerce Risk", to: "/student/commerce-risk" },
+  { label: "Risk Assessment", to: "/student/commerce-risk" },
   { label: "Materials", to: "/student/study-materials" },
 ];
 

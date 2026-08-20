@@ -6,7 +6,7 @@ import api, {
 } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-// Pass/Fail secondary model still needs homework/study defaults when not collected.
+// Pass/Fail secondary check still needs homework/study defaults when not collected.
 const DEFAULT_PASS_FAIL_INPUT = {
   homework_pct: 75,
   study_hours_per_week: 8,
@@ -162,14 +162,14 @@ function ParentRiskAlerts() {
 
       if (accounting == null || business == null || economics == null) {
         setMlError(
-          "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction"
+          "Accounting, Business Studies and Economics marks are required before running a risk assessment"
         );
         return;
       }
 
       if (!attendanceValue) {
         setMlError(
-          "Attendance records are required before generating a risk prediction"
+          "Attendance records are required before running a risk assessment"
         );
         return;
       }
@@ -186,7 +186,7 @@ function ParentRiskAlerts() {
     } catch (error) {
       setMlError(
         error.response?.data?.message ||
-          "Commerce Stream Model prediction failed"
+          "Risk assessment failed"
       );
     } finally {
       setMlLoading("");
@@ -288,10 +288,10 @@ function ParentRiskAlerts() {
           </PredictionCard>
 
           <PredictionCard
-            title="Commerce Stream Model"
-            description="Primary A/L Commerce risk screen: High, Medium, or Low support need."
+            title="Commerce Risk Assessment"
+            description="Shows whether the student may need High, Medium, or Low academic support."
             meta="Uses Accounting, Business Studies, Economics, and attendance."
-            buttonText="Check Commerce Stream Risk"
+            buttonText="Check Progress Risk"
             loadingText="Checking..."
             color="emerald"
             isLoading={mlLoading === "commerce"}
@@ -300,7 +300,7 @@ function ParentRiskAlerts() {
           >
             {commercePrediction && (
               <PredictionResult
-                title="Commerce Stream Result"
+                title="Risk Assessment Result"
                 rows={[
                   {
                     label: "Support Level",
@@ -323,7 +323,7 @@ function ParentRiskAlerts() {
           <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
             <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
               <h3 className="text-sm font-semibold text-slate-900">
-                Saved Commerce Stream Model history (this child only)
+                Saved risk assessment history (this child only)
               </h3>
             </div>
             <div className="overflow-x-auto">

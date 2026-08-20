@@ -169,14 +169,14 @@ function ParentDashboard() {
 
       if (accounting == null || business == null || economics == null) {
         setMlError(
-          "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction"
+          "Accounting, Business Studies and Economics marks are required before running a risk assessment"
         );
         return;
       }
 
       if (!data?.attendancePercentage) {
         setMlError(
-          "Attendance records are required before generating a risk prediction"
+          "Attendance records are required before running a risk assessment"
         );
         return;
       }
@@ -192,7 +192,7 @@ function ParentDashboard() {
     } catch (predictionError) {
       setMlError(
         predictionError.response?.data?.message ||
-          "Failed to run Commerce Stream Model prediction"
+          "Failed to run risk assessment"
       );
     } finally {
       setMlLoading("");
@@ -327,9 +327,9 @@ function ParentDashboard() {
               </PredictionCard>
 
               <PredictionCard
-                title="Commerce Stream Model"
-                description="Primary A/L Commerce risk screen: High, Medium, or Low support need."
-                buttonText="Check Commerce Stream Risk"
+                title="Commerce Risk Assessment"
+                description="Shows whether the student may need High, Medium, or Low academic support."
+                buttonText="Check Progress Risk"
                 loadingText="Checking..."
                 color="emerald"
                 isLoading={mlLoading === "commerce"}

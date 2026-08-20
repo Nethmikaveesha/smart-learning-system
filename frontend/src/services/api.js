@@ -18,7 +18,7 @@ export const predictPassFailRisk = (studentProfileId, data = {}) => {
   return api.post(`/risk/final-predict-auto/${studentProfileId}`, data);
 };
 
-/** Run automatic Commerce Stream Model prediction and save to MongoDB. */
+/** Run automatic Commerce risk assessment and save to MongoDB. */
 export const predictCommerceRisk = (studentProfileId, data = {}) => {
   return api.post(`/risk/multi-class-predict-auto/${studentProfileId}`, data);
 };

@@ -6,7 +6,7 @@ import api, {
 import { useAuth } from "../context/AuthContext";
 
 /**
- * Student-facing Commerce Stream Model page.
+ * Student-facing Commerce risk assessment page.
  * Uses the same auto-predict + history APIs as the parent risk alerts screen,
  * scoped to the logged-in student's own StudentProfile.
  */
@@ -68,7 +68,7 @@ function StudentCommerceRisk() {
         if (!cancelled) {
           setPageError(
             error.response?.data?.message ||
-              "Failed to load Commerce Stream Model data"
+              "Failed to load risk assessment data"
           );
         }
       } finally {
@@ -111,14 +111,14 @@ function StudentCommerceRisk() {
 
       if (accounting == null || business == null || economics == null) {
         setMlError(
-          "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction"
+          "Accounting, Business Studies and Economics marks are required before running a risk assessment"
         );
         return;
       }
 
       if (!attendancePercentage) {
         setMlError(
-          "Attendance records are required before generating a risk prediction"
+          "Attendance records are required before running a risk assessment"
         );
         return;
       }
@@ -138,7 +138,7 @@ function StudentCommerceRisk() {
     } catch (error) {
       setMlError(
         error.response?.data?.message ||
-          "Failed to run Commerce Stream Model prediction"
+          "Failed to run risk assessment"
       );
     } finally {
       setMlLoading(false);
@@ -149,7 +149,7 @@ function StudentCommerceRisk() {
     return (
       <div className="p-6">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="typo-ui text-slate-600">Loading Commerce Stream Model...</p>
+          <p className="typo-ui text-slate-600">Loading risk assessment...</p>
         </div>
       </div>
     );
@@ -169,11 +169,10 @@ function StudentCommerceRisk() {
     <div className="p-6">
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <p className="typo-eyebrow text-blue-700">Student Progress</p>
-        <h1 className="mt-2 typo-page text-slate-950">Commerce Stream Model</h1>
+        <h1 className="mt-2 typo-page text-slate-950">Commerce Risk Assessment</h1>
         <p className="mt-2 max-w-3xl typo-body text-slate-600">
-          Primary A/L Commerce risk screen using Accounting, Business Studies,
-          Economics, and attendance. Pass/Fail outlook remains a secondary check
-          on the parent and staff dashboards.
+          Reviews your Accounting, Business Studies, Economics marks and
+          attendance to show whether you may need extra academic support.
         </p>
       </section>
 
@@ -202,10 +201,10 @@ function StudentCommerceRisk() {
       <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="typo-card text-slate-950">Run prediction</h2>
+            <h2 className="typo-card text-slate-950">Run assessment</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Uses your saved subject marks and attendance. Results are stored in
-              MongoDB for history.
+              Uses your saved subject marks and attendance. Results are kept in
+              your progress history.
             </p>
             <p className="mt-2 text-xs font-semibold text-slate-500">
               Attendance:{" "}
@@ -219,7 +218,7 @@ function StudentCommerceRisk() {
             disabled={!profileId || mlLoading}
             className="w-fit rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
-            {mlLoading ? "Checking..." : "Check Commerce Stream Risk"}
+            {mlLoading ? "Checking..." : "Check Progress Risk"}
           </button>
         </div>
 
@@ -232,7 +231,7 @@ function StudentCommerceRisk() {
         {prediction && (
           <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold text-slate-950">
-              Latest Commerce Stream result
+              Latest assessment result
             </p>
             <div className="mt-3 flex items-center justify-between gap-3 text-sm">
               <span className="text-slate-500">Support Level</span>
@@ -251,14 +250,14 @@ function StudentCommerceRisk() {
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-900">
-            Saved Commerce Stream Model history
+            Risk assessment history
           </h2>
         </div>
 
         {history.length === 0 ? (
           <p className="p-5 text-sm text-slate-600">
-            No saved Commerce Stream Model predictions yet. Run a check above
-            after ACC / BS / ECO marks and attendance are available.
+            No risk assessments saved yet. Run a check above after Accounting,
+            Business Studies, Economics marks and attendance are available.
           </p>
         ) : (
           <div className="overflow-x-auto">
