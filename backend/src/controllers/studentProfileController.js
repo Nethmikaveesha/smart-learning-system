@@ -1,8 +1,10 @@
 import StudentProfile from "../models/StudentProfile.js";
 import User from "../models/User.js";
+import bcrypt from "bcryptjs";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { resolveOrCreateClass } from "../utils/resolveReference.js";
 import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
+import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
 
 export const createStudentProfile = async (req, res) => {
   try {
@@ -87,6 +89,8 @@ export const updateStudentProfile = async (req, res) => {
       phoneNumber,
       status,
       subjects,
+      password,
+      confirmPassword,
     } = req.body;
 
     const profile = await StudentProfile.findById(req.params.id);
@@ -94,6 +98,17 @@ export const updateStudentProfile = async (req, res) => {
     if (!profile) {
       return res.status(404).json({
         message: "Student profile not found",
+      });
+    }
+
+    const passwordError = validateOptionalPasswordChange({
+      password,
+      confirmPassword,
+    });
+
+    if (passwordError) {
+      return res.status(400).json({
+        message: passwordError,
       });
     }
 
@@ -116,17 +131,25 @@ export const updateStudentProfile = async (req, res) => {
       .populate("subjects", "subjectName")
       .populate("parent", "fullName email");
 
-    if (fullName || email || phoneNumber || status) {
-      await User.findByIdAndUpdate(profile.user, {
+    if (fullName || email || phoneNumber || status || password) {
+      const userUpdates = {
         ...(fullName !== undefined ? { fullName } : {}),
         ...(email !== undefined ? { email } : {}),
         ...(phoneNumber !== undefined ? { phoneNumber } : {}),
         ...(status !== undefined ? { isActive: status === "Active" } : {}),
-      });
+      };
+
+      if (password) {
+        userUpdates.password = await bcrypt.hash(password, 10);
+      }
+
+      await User.findByIdAndUpdate(profile.user, userUpdates);
     }
 
     res.status(200).json({
-      message: "Student updated successfully",
+      message: password
+        ? "Student and password updated successfully"
+        : "Student updated successfully",
       profile: updatedProfile,
     });
   } catch (error) {

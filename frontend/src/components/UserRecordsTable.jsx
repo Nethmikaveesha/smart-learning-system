@@ -176,7 +176,11 @@ function UserRecordsTable({
 
   const openEdit = (row) => {
     setEditingRow(row);
-    setFormValues({ ...row });
+    setFormValues({
+      ...row,
+      password: "",
+      confirmPassword: "",
+    });
   };
 
   const closeEdit = () => {
@@ -187,6 +191,40 @@ function UserRecordsTable({
   const saveEdit = async () => {
     try {
       onError("");
+
+      const password = formValues.password || "";
+      const confirmPassword = formValues.confirmPassword || "";
+      const changingPassword = Boolean(password || confirmPassword);
+
+      if (changingPassword) {
+        if (!password || !confirmPassword) {
+          onError(
+            "Enter both new password and confirm password, or leave both blank"
+          );
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          onError("Password and confirm password do not match");
+          return;
+        }
+
+        if (
+          password.length < 8 ||
+          !/[A-Z]/.test(password) ||
+          !/[a-z]/.test(password) ||
+          !/[0-9]/.test(password)
+        ) {
+          onError(
+            "Password must be at least 8 characters with uppercase, lowercase, and a number"
+          );
+          return;
+        }
+      }
+
+      const passwordPayload = changingPassword
+        ? { password, confirmPassword }
+        : {};
 
       if (listType === "student") {
         await api.put(
@@ -199,6 +237,7 @@ function UserRecordsTable({
             className: formValues.className,
             academicYear: formValues.academicYear,
             status: formValues.status,
+            ...passwordPayload,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -217,6 +256,7 @@ function UserRecordsTable({
                 }
               : {}),
             status: formValues.status,
+            ...passwordPayload,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -230,12 +270,17 @@ function UserRecordsTable({
             parentId: formValues.parentId,
             relationship: formValues.relationship,
             status: formValues.status,
+            ...passwordPayload,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
 
-      onSaved("Record updated successfully.");
+      onSaved(
+        changingPassword
+          ? "Record and password updated successfully."
+          : "Record updated successfully."
+      );
       closeEdit();
     } catch (saveError) {
       onError(saveError.response?.data?.message || "Failed to update record");
@@ -518,6 +563,32 @@ function EditRecordModal({
           />
         </div>
 
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">Change password</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Leave both fields blank to keep the current password. New password
+            needs 8+ characters with uppercase, lowercase, and a number.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <EditField
+              label="New Password"
+              type="password"
+              value={formValues.password}
+              onChange={(value) => updateField("password", value)}
+              placeholder="Optional"
+              autoComplete="new-password"
+            />
+            <EditField
+              label="Confirm New Password"
+              type="password"
+              value={formValues.confirmPassword}
+              onChange={(value) => updateField("confirmPassword", value)}
+              placeholder="Optional"
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+
         <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
           <button
             type="button"
@@ -560,13 +631,22 @@ function EditSelectField({ label, value, onChange, options, placeholder }) {
   );
 }
 
-function EditField({ label, value, onChange }) {
+function EditField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder = "",
+  autoComplete,
+}) {
   return (
     <label className="typo-label text-slate-700">
       {label}
       <input
-        type="text"
+        type={type}
         value={value || ""}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
       />

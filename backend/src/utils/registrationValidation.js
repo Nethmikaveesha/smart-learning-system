@@ -5,13 +5,40 @@ function normalizePhoneNumber(phoneNumber = "") {
   return phoneNumber.replace(/[\s-]/g, "");
 }
 
-function isValidPassword(password = "") {
+export function isValidPassword(password = "") {
   return (
     password.length >= 8 &&
     /[A-Z]/.test(password) &&
     /[a-z]/.test(password) &&
     /[0-9]/.test(password)
   );
+}
+
+/** Optional admin edit password change — empty means keep current password. */
+export function validateOptionalPasswordChange({
+  password,
+  confirmPassword,
+}) {
+  const hasPassword = Boolean(password);
+  const hasConfirm = Boolean(confirmPassword);
+
+  if (!hasPassword && !hasConfirm) {
+    return null;
+  }
+
+  if (!hasPassword || !hasConfirm) {
+    return "Enter both new password and confirm password, or leave both blank";
+  }
+
+  if (!isValidPassword(password)) {
+    return "Password must be at least 8 characters with uppercase, lowercase, and a number";
+  }
+
+  if (password !== confirmPassword) {
+    return "Password and confirm password do not match";
+  }
+
+  return null;
 }
 
 export function validateRegistrationInput({

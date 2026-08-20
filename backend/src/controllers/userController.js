@@ -1,8 +1,10 @@
+import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Subject from "../models/Subject.js";
 import Class from "../models/Class.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { resolveClass, resolveOrCreateClass, resolveSubject } from "../utils/resolveReference.js";
+import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
 
 // Get all users
 export const getAllUsers = async (req, res) => {
@@ -97,6 +99,21 @@ export const updateUser = async (req, res) => {
       updates.isActive = req.body.status === "Active";
     }
 
+    const passwordError = validateOptionalPasswordChange({
+      password: req.body.password,
+      confirmPassword: req.body.confirmPassword,
+    });
+
+    if (passwordError) {
+      return res.status(400).json({
+        message: passwordError,
+      });
+    }
+
+    if (req.body.password) {
+      updates.password = await bcrypt.hash(req.body.password, 10);
+    }
+
     const user = await User.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true,
@@ -144,11 +161,15 @@ export const updateUser = async (req, res) => {
       userId: req.user?._id,
       action: "UPDATE",
       module: "User Management",
-      description: `Updated user: ${user.fullName}`,
+      description: req.body.password
+        ? `Updated user and password: ${user.fullName}`
+        : `Updated user: ${user.fullName}`,
     });
 
     res.status(200).json({
-      message: "User updated successfully",
+      message: req.body.password
+        ? "User and password updated successfully"
+        : "User updated successfully",
       user,
     });
   } catch (error) {
