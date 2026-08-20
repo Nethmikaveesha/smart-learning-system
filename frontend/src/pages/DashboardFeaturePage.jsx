@@ -677,11 +677,23 @@ const featureConfigs = {
   },
   "/teacher/classes": {
     title: "My Classes",
+    description: "Classes assigned to you for teaching and attendance.",
     endpoint: "/classes",
+    tableColumns: [
+      "className",
+      "stream",
+      "medium",
+      "academicYear",
+      "gradeLevel",
+      "students",
+      "isActive",
+    ],
   },
   "/teacher/subjects": {
     title: "My Subjects",
+    description: "Subjects assigned to you.",
     endpoint: "/subjects",
+    tableColumns: ["subjectName", "subjectCode", "isActive"],
   },
   "/teacher/create-paper": {
     title: "Create Paper",
@@ -2515,8 +2527,10 @@ function getColumns(rows) {
     "role",
     "className",
     "subjectName",
+    "subjectCode",
     "examName",
     "studentName",
+    "studentId",
     "marks",
     "grade",
     "rank",
@@ -2528,17 +2542,35 @@ function getColumns(rows) {
     "topic",
     "noteTitle",
     "question",
+    "stream",
+    "medium",
+    "academicYear",
+    "gradeLevel",
+    "isActive",
     "createdAt",
   ];
 
+  const hiddenKeys = new Set([
+    "_id",
+    "id",
+    "__v",
+    "password",
+    "updatedAt",
+    "user",
+    "assignedTeacher",
+    "parent",
+    "class",
+    "subjects",
+  ]);
+
   const keys = [...new Set(rows.flatMap((row) => Object.keys(row)))].filter(
-    (key) => !["__v", "password"].includes(key)
+    (key) => !hiddenKeys.has(key)
   );
 
   return [
     ...priority.filter((key) => keys.includes(key)),
     ...keys.filter((key) => !priority.includes(key)),
-  ].slice(0, 9);
+  ].slice(0, 8);
 }
 
 function formatCellValue(column, value) {
@@ -2560,8 +2592,20 @@ function formatCellValue(column, value) {
     return Number(value).toFixed(2);
   }
 
-  if (column === "examDate" && value) {
-    return new Date(value).toLocaleDateString();
+  if ((column === "examDate" || column === "createdAt") && value) {
+    return new Date(value).toLocaleDateString("en-GB");
+  }
+
+  if (column === "students" && Array.isArray(value)) {
+    if (value.length === 0) return "No students";
+    const names = value
+      .map((student) =>
+        typeof student === "string"
+          ? student
+          : student?.fullName || student?.user?.fullName || student?.studentId
+      )
+      .filter(Boolean);
+    return names.length ? names.join(", ") : `${value.length} student(s)`;
   }
 
   return formatValue(value);
