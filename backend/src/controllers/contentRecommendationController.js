@@ -137,6 +137,18 @@ export const getAllContentRecommendations = async (req, res) => {
         return res.status(200).json([]);
       }
       filter.subject = { $in: scope.subjectIds };
+    } else if (req.user?.role === "student") {
+      const StudentProfile = (await import("../models/StudentProfile.js"))
+        .default;
+      const profile = await StudentProfile.findOne({
+        user: req.user._id,
+      }).select("subjects");
+
+      if (!profile?.subjects?.length) {
+        return res.status(200).json([]);
+      }
+
+      filter.subject = { $in: profile.subjects };
     }
 
     const contents = await ContentRecommendation.find(filter)
