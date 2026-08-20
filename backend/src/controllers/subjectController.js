@@ -77,7 +77,14 @@ export const updateSubject = async (req, res) => {
 
 export const getAllSubjects = async (req, res) => {
   try {
-    const subjects = await Subject.find()
+    const filter = {};
+
+    // Teachers only see subjects assigned to them; admins see all.
+    if (req.user?.role === "teacher") {
+      filter.assignedTeacher = req.user._id;
+    }
+
+    const subjects = await Subject.find(filter)
       .populate("assignedTeacher", "fullName email")
       .populate("classes", "className");
 

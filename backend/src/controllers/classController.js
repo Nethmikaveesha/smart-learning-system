@@ -118,6 +118,11 @@ export const getAllClasses = async (req, res) => {
       }
     }
 
+    // Teachers only see classes assigned to them; admins see all.
+    if (req.user?.role === "teacher") {
+      filter.assignedTeacher = req.user._id;
+    }
+
     const classes = await Class.find(filter)
       .populate("assignedTeacher", "fullName email role")
       .populate("students", "fullName email role")
