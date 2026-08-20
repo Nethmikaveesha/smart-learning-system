@@ -2,6 +2,10 @@ import ContentRecommendation from "../models/ContentRecommendation.js";
 import Subject from "../models/Subject.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { generateStudyContentWithGemini } from "../services/geminiService.js";
+import {
+  assertTeacherOwnsSubject,
+  getTeacherScope,
+} from "../utils/teacherScope.js";
 
 export const createContentRecommendation = async (req, res) => {
   try {
@@ -13,6 +17,15 @@ export const createContentRecommendation = async (req, res) => {
       videoLink,
       difficultyLevel,
     } = req.body;
+
+    if (req.user?.role === "teacher") {
+      const ownsSubject = await assertTeacherOwnsSubject(req.user._id, subject);
+      if (!ownsSubject) {
+        return res.status(403).json({
+          message: "You can only create content for subjects assigned to you",
+        });
+      }
+    }
 
     const content = await ContentRecommendation.create({
       subject,
@@ -66,6 +79,15 @@ export const generateContentRecommendation = async (req, res) => {
       return res.status(404).json({ message: "Subject not found" });
     }
 
+    if (req.user?.role === "teacher") {
+      const ownsSubject = await assertTeacherOwnsSubject(req.user._id, subject);
+      if (!ownsSubject) {
+        return res.status(403).json({
+          message: "You can only generate content for subjects assigned to you",
+        });
+      }
+    }
+
     const generated = await generateStudyContentWithGemini({
       subjectName: subjectRecord.subjectName,
       topic: topic.trim(),
@@ -107,7 +129,17 @@ export const generateContentRecommendation = async (req, res) => {
 
 export const getAllContentRecommendations = async (req, res) => {
   try {
-    const contents = await ContentRecommendation.find()
+    const filter = {};
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      if (scope.subjectIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter.subject = { $in: scope.subjectIds };
+    }
+
+    const contents = await ContentRecommendation.find(filter)
       .populate("subject", "subjectName")
       .sort({ createdAt: -1 });
 

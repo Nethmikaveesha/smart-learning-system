@@ -1,11 +1,8 @@
 import StudentProfile from "../models/StudentProfile.js";
 import Exam from "../models/Exam.js";
 import Result from "../models/Result.js";
-import Class from "../models/Class.js";
-import Subject from "../models/Subject.js";
 import EssaySubmission from "../models/EssaySubmission.js";
 import Attendance from "../models/Attendance.js";
-import User from "../models/User.js";
 import { isPassingMark, getPassMark } from "../utils/grading.js";
 import {
   dedupeResults,
@@ -13,46 +10,7 @@ import {
   sortResultsByLatest,
 } from "../utils/studentResults.js";
 import { buildTopicAnalytics } from "../utils/topicAnalytics.js";
-
-async function getTeacherScope(teacherId) {
-  const teacher = await User.findById(teacherId).select("fullName email");
-  const classes = await Class.find({ assignedTeacher: teacherId }).select(
-    "className academicYear"
-  );
-
-  const classIds = classes.map((item) => item._id);
-
-  const students = await StudentProfile.find({
-    class: { $in: classIds },
-  }).select("_id studentId riskStatus attendancePercentage class subjects");
-
-  const studentSubjectIds = [
-    ...new Set(
-      students.flatMap((student) =>
-        (student.subjects || []).map((subjectId) => subjectId.toString())
-      )
-    ),
-  ];
-
-  const subjects = await Subject.find({
-    $or: [{ assignedTeacher: teacherId }, { _id: { $in: studentSubjectIds } }],
-  }).select("subjectName subjectCode");
-
-  const subjectIds = subjects.map((item) => item._id);
-  const studentIds = students.map((student) => student._id);
-  const subjectIdStrings = subjectIds.map((id) => id.toString());
-
-  return {
-    teacher,
-    classes,
-    subjects,
-    classIds,
-    subjectIds,
-    subjectIdStrings,
-    students,
-    studentIds,
-  };
-}
+import { getTeacherScope } from "../utils/teacherScope.js";
 
 function buildClassPerformance(results, subjects) {
   return subjects
@@ -188,7 +146,7 @@ export const getTeacherDashboard = async (req, res) => {
         submission.question?.subject?._id?.toString() ||
         submission.question?.subject?.toString();
 
-      if (scope.subjectIdStrings.length === 0) return true;
+      if (scope.subjectIdStrings.length === 0) return false;
       return scope.subjectIdStrings.includes(subjectId);
     });
 

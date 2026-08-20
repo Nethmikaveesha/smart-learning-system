@@ -93,6 +93,20 @@ export const createMarkingScheme = async (req, res) => {
       });
     }
 
+    if (req.user?.role === "teacher") {
+      const paperFilter = await getTeacherPaperFilter(req.user._id);
+      const owned = await EssayQuestion.findOne({
+        _id: question,
+        ...paperFilter,
+      }).select("_id");
+
+      if (!owned) {
+        return res.status(403).json({
+          message: "You can only create marking schemes for your own papers",
+        });
+      }
+    }
+
     const markingScheme = await MarkingScheme.create({
       question,
       keywords,
@@ -318,13 +332,28 @@ export const approveEssaySubmission = async (req, res) => {
 
     const submission = await EssaySubmission.findById(submissionId).populate(
       "question",
-      "maxMarks question"
+      "maxMarks question createdBy subject"
     );
 
     if (!submission) {
       return res.status(404).json({
         message: "Essay submission not found",
       });
+    }
+
+    if (req.user?.role === "teacher") {
+      const paperFilter = await getTeacherPaperFilter(req.user._id);
+      const questionId = submission.question?._id || submission.question;
+      const owned = await EssayQuestion.findOne({
+        _id: questionId,
+        ...paperFilter,
+      }).select("_id");
+
+      if (!owned) {
+        return res.status(403).json({
+          message: "You can only review submissions for your own papers",
+        });
+      }
     }
 
     let nextBreakdown = submission.markBreakdown;

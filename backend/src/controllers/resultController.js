@@ -7,6 +7,9 @@ import {
   isPassingMark,
   getPassMark,
 } from "../utils/grading.js";
+import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
+import { getTeacherScope } from "../utils/teacherScope.js";
+import Exam from "../models/Exam.js";
 
 /**
  * Recalculate rank + Z-score for every result in one exam.
@@ -60,6 +63,26 @@ export const addResult = async (req, res) => {
       return res.status(400).json({
         message: "marks must be a number between 0 and 100",
       });
+    }
+
+    const access = await assertCanAccessStudentProfile(req, student);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      const examRecord = await Exam.findById(exam).select("class subject");
+      const examAllowed =
+        examRecord &&
+        (scope.classIdStrings.includes(String(examRecord.class || "")) ||
+          scope.subjectIdStrings.includes(String(examRecord.subject || "")));
+
+      if (!examAllowed) {
+        return res.status(403).json({
+          message: "You can only add marks for exams in your assigned classes or subjects",
+        });
+      }
     }
 
     const existingResult = await Result.findOne({ student, exam });
@@ -145,6 +168,11 @@ export const updateResult = async (req, res) => {
       return res.status(404).json({ message: "Result not found" });
     }
 
+    const access = await assertCanAccessStudentProfile(req, existing.student);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
     const passMark = await getPassMark();
     existing.marks = numericMarks;
     existing.grade = calculateGrade(numericMarks, passMark);
@@ -190,7 +218,17 @@ export const getAllResults = async (req, res) => {
       await recalculateExamAnalytics(examId);
     }
 
-    const results = await Result.find()
+    const filter = {};
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      if (scope.studentIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter.student = { $in: scope.studentIds };
+    }
+
+    const results = await Result.find(filter)
       .populate({
         path: "student",
         populate: {
@@ -349,9 +387,28 @@ export const detectWeakStudents = async (req, res) => {
 
 export const getAnalyticsSummary = async (req, res) => {
   try {
-    const totalStudents = await StudentProfile.countDocuments();
+    let studentFilter = {};
+    let resultFilter = {};
 
-    const results = await Result.find();
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      if (scope.studentIds.length === 0) {
+        return res.status(200).json({
+          totalStudents: 0,
+          averageMarks: 0,
+          passCount: 0,
+          failCount: 0,
+          highRiskStudents: 0,
+          averageAttendance: 0,
+        });
+      }
+      studentFilter = { _id: { $in: scope.studentIds } };
+      resultFilter = { student: { $in: scope.studentIds } };
+    }
+
+    const totalStudents = await StudentProfile.countDocuments(studentFilter);
+
+    const results = await Result.find(resultFilter);
 
     const totalResults = results.length;
 
@@ -373,10 +430,11 @@ export const getAnalyticsSummary = async (req, res) => {
     ).length;
 
     const highRiskStudents = await StudentProfile.countDocuments({
+      ...studentFilter,
       riskStatus: "High",
     });
 
-    const studentProfiles = await StudentProfile.find();
+    const studentProfiles = await StudentProfile.find(studentFilter);
 
     const averageAttendance =
       studentProfiles.length > 0

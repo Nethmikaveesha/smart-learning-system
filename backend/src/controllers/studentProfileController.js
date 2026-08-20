@@ -5,6 +5,7 @@ import { createAuditLog } from "../utils/createAuditLog.js";
 import { resolveOrCreateClass } from "../utils/resolveReference.js";
 import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
 import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
+import { getTeacherScope } from "../utils/teacherScope.js";
 
 export const createStudentProfile = async (req, res) => {
   try {
@@ -64,7 +65,17 @@ export const createStudentProfile = async (req, res) => {
 
 export const getAllStudentProfiles = async (req, res) => {
   try {
-    const profiles = await StudentProfile.find()
+    const filter = {};
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      if (scope.classIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter.class = { $in: scope.classIds };
+    }
+
+    const profiles = await StudentProfile.find(filter)
       .populate("user", "fullName email phoneNumber isActive role")
       .populate("class", "className academicYear gradeLevel")
       .populate("subjects", "subjectName")

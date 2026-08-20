@@ -2,6 +2,7 @@ import Attendance from "../models/Attendance.js";
 import StudentProfile from "../models/StudentProfile.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
+import { assertTeacherOwnsClass } from "../utils/teacherScope.js";
 
 export const markAttendance = async (req, res) => {
   try {
@@ -18,6 +19,20 @@ export const markAttendance = async (req, res) => {
       return res.status(400).json({
         message: `status must be one of: ${allowedStatus.join(", ")}`,
       });
+    }
+
+    const access = await assertCanAccessStudentProfile(req, student);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    if (req.user?.role === "teacher") {
+      const ownsClass = await assertTeacherOwnsClass(req.user._id, classId);
+      if (!ownsClass) {
+        return res.status(403).json({
+          message: "You can only mark attendance for classes assigned to you",
+        });
+      }
     }
 
     const profile = await StudentProfile.findById(student);

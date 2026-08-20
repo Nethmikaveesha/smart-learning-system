@@ -1,5 +1,10 @@
 import Exam from "../models/Exam.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
+import {
+  assertTeacherOwnsClass,
+  assertTeacherOwnsSubject,
+  getTeacherScope,
+} from "../utils/teacherScope.js";
 
 export const createExam = async (req, res) => {
   try {
@@ -15,6 +20,21 @@ export const createExam = async (req, res) => {
       return res.status(400).json({
         message: "examName, classId, subjectId, and examDate are required",
       });
+    }
+
+    if (req.user?.role === "teacher") {
+      const ownsClass = await assertTeacherOwnsClass(req.user._id, classId);
+      const ownsSubject = await assertTeacherOwnsSubject(
+        req.user._id,
+        subjectId
+      );
+
+      if (!ownsClass && !ownsSubject) {
+        return res.status(403).json({
+          message:
+            "You can only create exams for classes or subjects assigned to you",
+        });
+      }
     }
 
     const exam = await Exam.create({
@@ -45,7 +65,22 @@ export const createExam = async (req, res) => {
 
 export const getAllExams = async (req, res) => {
   try {
-    const exams = await Exam.find()
+    const filter = {};
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      filter.$or = [
+        { class: { $in: scope.classIds } },
+        { subject: { $in: scope.subjectIds } },
+      ];
+
+      // No assignments → empty list (do not leak school-wide exams).
+      if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
+        return res.status(200).json([]);
+      }
+    }
+
+    const exams = await Exam.find(filter)
       .populate("class", "className gradeLevel academicYear")
       .populate("subject", "subjectName subjectCode");
 

@@ -1,4 +1,5 @@
 import StudentProfile from "../models/StudentProfile.js";
+import { getTeacherScope } from "../utils/teacherScope.js";
 
 export const getRiskNotifications = async (req, res) => {
   try {
@@ -9,6 +10,15 @@ export const getRiskNotifications = async (req, res) => {
     // Parents only see their own linked children — never school-wide PII.
     if (req.user?.role === "parent") {
       filter.parent = req.user._id;
+    }
+
+    // Teachers only see at-risk students in their assigned classes.
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      if (scope.classIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter.class = { $in: scope.classIds };
     }
 
     const riskStudents = await StudentProfile.find(filter)
