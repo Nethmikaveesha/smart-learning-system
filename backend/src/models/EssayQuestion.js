@@ -24,6 +24,12 @@ const essayQuestionSchema = new mongoose.Schema(
       type: Number,
       default: 10,
     },
+
+    // Teacher/admin who created the paper — used to scope "My Papers".
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   { timestamps: true }
 );

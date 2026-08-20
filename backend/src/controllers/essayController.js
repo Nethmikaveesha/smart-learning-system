@@ -1,6 +1,7 @@
 import EssayQuestion from "../models/EssayQuestion.js";
 import MarkingScheme from "../models/MarkingScheme.js";
 import EssaySubmission from "../models/EssaySubmission.js";
+import Subject from "../models/Subject.js";
 import {
   evaluateEssayWithGemini,
   analyzeEssayTopicsWithGemini,
@@ -18,6 +19,22 @@ const withTimeout = (promise, ms, fallback) =>
     promise,
     new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
   ]);
+
+async function getTeacherPaperFilter(teacherId) {
+  const mySubjectIds = await Subject.find({
+    assignedTeacher: teacherId,
+  }).distinct("_id");
+
+  return {
+    $or: [
+      { createdBy: teacherId },
+      {
+        subject: { $in: mySubjectIds },
+        $or: [{ createdBy: { $exists: false } }, { createdBy: null }],
+      },
+    ],
+  };
+}
 
 export const createEssayQuestion = async (req, res) => {
   try {
@@ -41,6 +58,7 @@ export const createEssayQuestion = async (req, res) => {
       question,
       maxMarks,
       gradeLevel: resolvedGradeLevel,
+      createdBy: req.user?._id,
     });
 
     await createAuditLog({
@@ -99,9 +117,24 @@ export const createMarkingScheme = async (req, res) => {
 
 export const getMarkingSchemes = async (req, res) => {
   try {
-    const schemes = await MarkingScheme.find()
-      .populate("question", "question maxMarks subject gradeLevel")
+    let schemes = await MarkingScheme.find()
+      .populate("question", "question maxMarks subject gradeLevel createdBy")
       .sort({ createdAt: -1 });
+
+    if (req.user?.role === "teacher") {
+      const paperFilter = await getTeacherPaperFilter(req.user._id);
+      const myQuestionIds = new Set(
+        (
+          await EssayQuestion.find(paperFilter).select("_id")
+        ).map((item) => item._id.toString())
+      );
+
+      schemes = schemes.filter((scheme) => {
+        const questionId =
+          scheme.question?._id?.toString() || scheme.question?.toString();
+        return questionId && myQuestionIds.has(questionId);
+      });
+    }
 
     res.status(200).json(schemes);
   } catch (error) {
@@ -351,7 +384,7 @@ export const approveEssaySubmission = async (req, res) => {
 
 export const getAllEssaySubmissions = async (req, res) => {
   try {
-    const submissions = await EssaySubmission.find()
+    let submissions = await EssaySubmission.find()
       .populate({
         path: "student",
         populate: {
@@ -359,8 +392,24 @@ export const getAllEssaySubmissions = async (req, res) => {
           select: "fullName email",
         },
       })
-      .populate("question", "question maxMarks gradeLevel")
+      .populate("question", "question maxMarks gradeLevel createdBy subject")
       .sort({ createdAt: -1 });
+
+    if (req.user?.role === "teacher") {
+      const paperFilter = await getTeacherPaperFilter(req.user._id);
+      const myQuestionIds = new Set(
+        (
+          await EssayQuestion.find(paperFilter).select("_id")
+        ).map((item) => item._id.toString())
+      );
+
+      submissions = submissions.filter((submission) => {
+        const questionId =
+          submission.question?._id?.toString() ||
+          submission.question?.toString();
+        return questionId && myQuestionIds.has(questionId);
+      });
+    }
 
     res.status(200).json(submissions);
   } catch (error) {
@@ -381,8 +430,15 @@ export const getEssayQuestions = async (req, res) => {
       }
     }
 
+    // Teachers only see their own papers (plus legacy papers on assigned subjects).
+    // Students and admins still receive the full list for learning/admin workflows.
+    if (req.user?.role === "teacher") {
+      Object.assign(filter, await getTeacherPaperFilter(req.user._id));
+    }
+
     const questions = await EssayQuestion.find(filter)
       .populate("subject", "subjectName subjectCode")
+      .populate("createdBy", "fullName email")
       .sort({ gradeLevel: 1, createdAt: -1 });
 
     res.status(200).json(questions);
