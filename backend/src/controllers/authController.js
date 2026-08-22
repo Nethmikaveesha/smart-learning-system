@@ -16,6 +16,10 @@ import { validateRegistrationInput } from "../utils/registrationValidation.js";
 import { isEmailConfigured, sendEmail } from "../utils/sendEmail.js";
 import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
 import { resolveRegistrationIds } from "../utils/generateRoleIds.js";
+import {
+  isValidParentRelationship,
+  PARENT_RELATIONSHIPS,
+} from "../utils/parentLinks.js";
 
 const RESET_TOKEN_HOURS = 1;
 
@@ -137,6 +141,21 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    if (role === "parent") {
+      if (!childStudent) {
+        return res.status(400).json({
+          message:
+            "Select a student to link before creating the parent account",
+        });
+      }
+
+      if (!isValidParentRelationship(relationship)) {
+        return res.status(400).json({
+          message: `Relationship must be one of: ${PARENT_RELATIONSHIPS.join(", ")}`,
+        });
+      }
+    }
+
     const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
@@ -218,7 +237,7 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    if (role === "parent" && childStudent) {
+    if (role === "parent") {
       const studentProfile = await resolveStudentProfile(childStudent);
 
       if (!studentProfile) {
@@ -232,9 +251,18 @@ export const registerUser = async (req, res) => {
       previousParentId = studentProfile.parent || null;
       linkedParentStudentId = studentProfile._id;
 
+      const linkUpdate = {
+        $addToSet: { parents: user._id },
+      };
+
+      // Keep legacy primary parent field populated for older queries.
+      if (!studentProfile.parent) {
+        linkUpdate.$set = { parent: user._id };
+      }
+
       profile = await StudentProfile.findByIdAndUpdate(
         studentProfile._id,
-        { parent: user._id },
+        linkUpdate,
         { new: true }
       );
     }
@@ -265,9 +293,16 @@ export const registerUser = async (req, res) => {
         await StudentProfile.findByIdAndDelete(createdProfileId);
       }
       if (linkedParentStudentId) {
-        await StudentProfile.findByIdAndUpdate(linkedParentStudentId, {
-          parent: previousParentId || null,
-        });
+        const revert = {
+          $pull: { parents: createdUserId },
+        };
+        if (
+          previousParentId === null ||
+          String(previousParentId) !== String(createdUserId)
+        ) {
+          revert.$set = { parent: previousParentId || null };
+        }
+        await StudentProfile.findByIdAndUpdate(linkedParentStudentId, revert);
       }
       if (assignedSubjectId) {
         await Subject.findByIdAndUpdate(assignedSubjectId, {

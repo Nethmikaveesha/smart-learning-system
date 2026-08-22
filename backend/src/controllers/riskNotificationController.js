@@ -1,5 +1,6 @@
 import StudentProfile from "../models/StudentProfile.js";
 import { getTeacherScope } from "../utils/teacherScope.js";
+import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
 export const getRiskNotifications = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ export const getRiskNotifications = async (req, res) => {
 
     // Parents only see their own linked children — never school-wide PII.
     if (req.user?.role === "parent") {
-      filter.parent = req.user._id;
+      Object.assign(filter, linkedStudentsQuery(req.user._id));
     }
 
     // Teachers only see at-risk students in their assigned classes.

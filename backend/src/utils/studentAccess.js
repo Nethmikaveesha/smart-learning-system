@@ -41,8 +41,17 @@ export async function assertCanAccessStudentProfile(req, studentProfileId) {
     return { ok: true, profile };
   }
 
-  if (role === "parent" && String(profile.parent) === userId) {
-    return { ok: true, profile };
+  if (role === "parent") {
+    const linkedIds = [
+      profile.parent ? String(profile.parent) : "",
+      ...(Array.isArray(profile.parents)
+        ? profile.parents.map((id) => String(id))
+        : []),
+    ].filter(Boolean);
+
+    if (linkedIds.includes(userId)) {
+      return { ok: true, profile };
+    }
   }
 
   return {

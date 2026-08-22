@@ -87,8 +87,15 @@ export function validateRegistrationForm(values, role) {
   }
 
   if (role === "parent") {
+    if (!values.childStudent?.trim()) {
+      errors.childStudent = "Select a student to link";
+    }
     if (!values.relationship?.trim()) {
       errors.relationship = "Relationship is required";
+    } else if (
+      !["Mother", "Father", "Guardian"].includes(values.relationship.trim())
+    ) {
+      errors.relationship = "Select Mother, Father, or Guardian";
     }
   }
 

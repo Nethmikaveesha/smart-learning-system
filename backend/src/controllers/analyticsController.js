@@ -6,6 +6,7 @@ import {
   sortResultsByLatest,
 } from "../utils/studentResults.js";
 import { getPassMark, isPassingMark } from "../utils/grading.js";
+import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
 const MONTH_LABELS = [
   "Jan",
@@ -60,7 +61,7 @@ async function resolveStudentsForUser(req) {
   }
 
   if (req.user?.role === "parent") {
-    const query = { parent: req.user._id };
+    const query = linkedStudentsQuery(req.user._id);
 
     if (req.query.studentId) {
       query.studentId = req.query.studentId;

@@ -2,6 +2,7 @@ import PDFDocument from "pdfkit";
 import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
 import { runMonthlyReportGeneration } from "../jobs/monthlyReportJob.js";
+import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
 export const generateStudentReport = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ export const generateStudentReport = async (req, res) => {
     const requestedStudentId = req.query.studentId;
 
     // Prefer the selected child; fall back to the first linked child.
-    const query = { parent: parentId };
+    const query = linkedStudentsQuery(parentId);
     if (requestedStudentId) {
       query.studentId = requestedStudentId;
     }

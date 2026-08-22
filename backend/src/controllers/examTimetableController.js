@@ -6,6 +6,7 @@ import {
   assertTeacherOwnsSubject,
   getTeacherScope,
 } from "../utils/teacherScope.js";
+import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
 export const createExamTimetable = async (req, res) => {
   try {
@@ -76,9 +77,9 @@ export const getAllExamTimetables = async (req, res) => {
 
       filter.class = profile.class;
     } else if (req.user?.role === "parent") {
-      const children = await StudentProfile.find({
-        parent: req.user._id,
-      }).select("class");
+      const children = await StudentProfile.find(
+        linkedStudentsQuery(req.user._id)
+      ).select("class");
 
       const classIds = [
         ...new Set(

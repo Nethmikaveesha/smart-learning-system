@@ -8,6 +8,7 @@ import {
   sortResultsByLatest,
 } from "../utils/studentResults.js";
 import { buildSubjectPerformance } from "../utils/subjectPerformance.js";
+import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
 async function getAttendanceSummary(studentId, attendancePercentage) {
   const records = await Attendance.find({ student: studentId });
@@ -75,7 +76,7 @@ function buildRecommendedAction(results) {
 }
 
 async function getLinkedStudents(parentId) {
-  return StudentProfile.find({ parent: parentId })
+  return StudentProfile.find(linkedStudentsQuery(parentId))
     .populate("user", "fullName email")
     .populate("class", "className")
     .populate("subjects", "subjectName subjectCode")
@@ -83,7 +84,7 @@ async function getLinkedStudents(parentId) {
 }
 
 async function resolveStudentProfile(parentId, studentId) {
-  const query = { parent: parentId };
+  const query = linkedStudentsQuery(parentId);
 
   if (studentId) {
     query.studentId = studentId;

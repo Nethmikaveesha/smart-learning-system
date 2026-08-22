@@ -35,7 +35,7 @@ function flattenTeacherRows(teachers) {
 }
 
 // General users include admins and parents.
-function flattenUserRows(users) {
+function flattenUserRows(users, linkedStudentByParentId = {}) {
   return users.map((user) => ({
     recordId: user._id,
     userId: user._id,
@@ -46,8 +46,37 @@ function flattenUserRows(users) {
     teacherId: user.teacherId || "",
     parentId: user.parentId || "",
     relationship: user.relationship || "",
+    linkedStudent: linkedStudentByParentId[String(user._id)] || "N/A",
     status: user.isActive ? "Active" : "Inactive",
   }));
+}
+
+function buildLinkedStudentMap(profiles = []) {
+  const map = {};
+
+  profiles.forEach((profile) => {
+    const label = [
+      profile.studentId || "No ID",
+      profile.user?.fullName || "Student",
+    ].join(" — ");
+
+    const parentIds = [
+      profile.parent?._id || profile.parent,
+      ...(Array.isArray(profile.parents) ? profile.parents : []),
+    ]
+      .map((id) => String(id?._id || id || ""))
+      .filter(Boolean);
+
+    parentIds.forEach((parentId) => {
+      if (!map[parentId]) {
+        map[parentId] = label;
+      } else if (!map[parentId].includes(label)) {
+        map[parentId] = `${map[parentId]}; ${label}`;
+      }
+    });
+  });
+
+  return map;
 }
 
 function UserRecordsTable({
@@ -107,6 +136,17 @@ function UserRecordsTable({
       return ["fullName", "email", "phoneNumber", "status"];
     }
 
+    if (listType === "parent") {
+      return [
+        "fullName",
+        "email",
+        "parentId",
+        "linkedStudent",
+        "relationship",
+        "status",
+      ];
+    }
+
     if (listFilter) {
       return ["fullName", "email", "parentId", "relationship", "status"];
     }
@@ -157,12 +197,22 @@ function UserRecordsTable({
           headers: { Authorization: `Bearer ${token}` },
         });
 
+        let linkedStudentByParentId = {};
+        if (listType === "parent") {
+          const profilesRes = await api.get("/student-profiles", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          linkedStudentByParentId = buildLinkedStudentMap(
+            Array.isArray(profilesRes.data) ? profilesRes.data : []
+          );
+        }
+
         const rawRows =
           listType === "student"
             ? flattenStudentRows(res.data)
             : listType === "teacher"
             ? flattenTeacherRows(res.data)
-            : flattenUserRows(res.data);
+            : flattenUserRows(res.data, linkedStudentByParentId);
 
         setRows(listFilter ? rawRows.filter(listFilter) : rawRows);
       } catch (fetchError) {
@@ -620,11 +670,22 @@ function EditRecordModal({
                   value={formValues.parentId}
                   onChange={(value) => updateField("parentId", value)}
                 />
-                <EditField
+                <EditSelectField
                   label="Relationship"
                   value={formValues.relationship}
+                  placeholder="Select relationship"
+                  options={[
+                    { value: "Mother", label: "Mother" },
+                    { value: "Father", label: "Father" },
+                    { value: "Guardian", label: "Guardian" },
+                  ]}
                   onChange={(value) => updateField("relationship", value)}
                 />
+                {formValues.linkedStudent && (
+                  <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    Linked Student: {formValues.linkedStudent}
+                  </div>
+                )}
               </>
             )}
 
@@ -773,6 +834,9 @@ function EmptyRecords() {
 }
 
 function formatLabel(label) {
+  if (label === "linkedStudent") return "Linked Student";
+  if (label === "parentId") return "Parent ID";
+
   return label
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (letter) => letter.toUpperCase());

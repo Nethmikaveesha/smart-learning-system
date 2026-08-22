@@ -67,7 +67,7 @@ const featureConfigs = {
     rolePreset: "parent",
     listEndpoint: "/users",
     listTitle: "Registered Parents",
-    listType: "user",
+    listType: "parent",
     listFilter: (row) => row.role === "parent",
   },
   "/admin/users": {
@@ -1347,19 +1347,6 @@ function PageHeader({ role, title, description }) {
   );
 }
 
-function StatusMessage({ type, message }) {
-  const styles =
-    type === "success"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : "border-red-200 bg-red-50 text-red-700";
-
-  return (
-    <div className={`mb-4 rounded-xl border p-4 text-sm font-semibold ${styles}`}>
-      {message}
-    </div>
-  );
-}
-
 function LoadingPanel() {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1447,6 +1434,108 @@ function AutoIdNotice({ label }) {
   );
 }
 
+function formatStudentOptionLabel(profile) {
+  const studentCode = profile.studentId || "No ID";
+  const fullName = profile.user?.fullName || "Student";
+  const className = profile.class?.className || "No class";
+  return `${studentCode} — ${fullName} — ${className}`;
+}
+
+function SearchableStudentSelect({
+  label,
+  students,
+  value,
+  onChange,
+  error,
+  required = false,
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const selected = useMemo(
+    () => students.find((student) => String(student._id) === String(value)),
+    [students, value]
+  );
+
+  const filteredStudents = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return students;
+
+    return students.filter((student) => {
+      const haystack = [
+        student.studentId,
+        student.user?.fullName,
+        student.user?.email,
+        student.class?.className,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [query, students]);
+
+  return (
+    <div className="relative md:col-span-2">
+      <label className="typo-label text-slate-700">
+        {label}
+        {required ? " *" : ""}
+      </label>
+      <input
+        type="search"
+        value={open ? query : selected ? formatStudentOptionLabel(selected) : query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+          if (value) onChange("");
+        }}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+        }}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 150);
+        }}
+        placeholder="Search by student name or ID"
+        className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm outline-none ring-blue-600/30 transition focus:border-blue-500 focus:ring ${
+          error ? "border-red-400" : "border-slate-300"
+        }`}
+        autoComplete="off"
+      />
+
+      {open && (
+        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+          {filteredStudents.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-slate-500">
+              No matching students found.
+            </p>
+          ) : (
+            filteredStudents.map((student) => (
+              <button
+                key={student._id}
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(String(student._id));
+                  setQuery("");
+                  setOpen(false);
+                }}
+              >
+                {formatStudentOptionLabel(student)}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-1 text-sm font-medium text-red-600">{error}</p>
+      )}
+    </div>
+  );
+}
+
 function RegisterUserForm({
   rolePreset,
   registerEndpoint = "/auth/register",
@@ -1459,6 +1548,7 @@ function RegisterUserForm({
   const [saving, setSaving] = useState(false);
   const [subjects, setSubjects] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
 
   const role = rolePreset || values.role;
 
@@ -1475,7 +1565,8 @@ function RegisterUserForm({
 
   useEffect(() => {
     const loadRoleOptions = async () => {
-      if (!token || (role !== "teacher" && role !== "student")) return;
+      if (!token) return;
+      if (role !== "teacher" && role !== "student" && role !== "parent") return;
 
       try {
         if (role === "teacher") {
@@ -1493,13 +1584,23 @@ function RegisterUserForm({
           return;
         }
 
+        if (role === "parent") {
+          const studentsRes = await api.get("/student-profiles", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setStudents(Array.isArray(studentsRes.data) ? studentsRes.data : []);
+          return;
+        }
+
         const classesRes = await api.get("/classes", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
         setClasses(classesRes.data || []);
       } catch (loadError) {
-        onError(loadError.response?.data?.message || "Failed to load class options");
+        onError(
+          loadError.response?.data?.message || "Failed to load form options"
+        );
       }
     };
 
@@ -1743,21 +1844,33 @@ function RegisterUserForm({
         {role === "parent" && (
           <>
             <AutoIdNotice label="Parent ID" />
-            <FormTextField
-              label="Child Student ID"
-              name="childStudent"
+            <SearchableStudentSelect
+              label="Link to Student"
+              required
+              students={students}
               value={values.childStudent}
-              onChange={updateValue}
-              placeholder="e.g. STU0001"
+              onChange={(studentProfileId) =>
+                updateValue("childStudent", studentProfileId)
+              }
+              error={fieldErrors.childStudent}
             />
-            <FormTextField
-              label="Relationship"
+            <OptionSelectField
+              label="Relationship *"
               name="relationship"
               value={values.relationship}
               onChange={updateValue}
-              required
-              error={fieldErrors.relationship}
+              placeholder="Select relationship"
+              options={[
+                { value: "Mother", label: "Mother" },
+                { value: "Father", label: "Father" },
+                { value: "Guardian", label: "Guardian" },
+              ]}
             />
+            {fieldErrors.relationship ? (
+              <p className="text-sm font-medium text-red-600">
+                {fieldErrors.relationship}
+              </p>
+            ) : null}
           </>
         )}
       </div>
