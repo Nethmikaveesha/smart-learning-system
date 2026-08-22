@@ -75,25 +75,51 @@ function buildAlerts({
 export const getTeacherDashboard = async (req, res) => {
   try {
     const scope = await getTeacherScope(req.user._id);
-    const { students, studentIds, subjects, classes, teacher } = scope;
+    const { students, studentIds, subjects, teacher } = scope;
 
     const totalStudents = students.length;
-    const totalExams = await Exam.countDocuments({
-      class: { $in: scope.classIds },
+
+    // Exams only in admin-assigned classes + subjects.
+    const examFilter = {};
+    if (scope.classIds.length > 0) {
+      examFilter.class = { $in: scope.classIds };
+    } else {
+      examFilter._id = { $in: [] };
+    }
+    if (scope.subjectIds.length > 0) {
+      examFilter.subject = { $in: scope.subjectIds };
+    }
+
+    const totalExams =
+      scope.classIds.length === 0
+        ? 0
+        : await Exam.countDocuments(examFilter);
+
+    const rawResults =
+      studentIds.length === 0
+        ? []
+        : await Result.find({
+            student: { $in: studentIds },
+          }).populate({
+            path: "exam",
+            select: "examName examDate subject class",
+            populate: {
+              path: "subject",
+              select: "subjectName",
+            },
+          });
+
+    // Keep marks that belong to this teacher's assigned subjects.
+    const scopedRawResults = rawResults.filter((result) => {
+      if (scope.subjectIdStrings.length === 0) return false;
+      const subjectId =
+        result.exam?.subject?._id?.toString() ||
+        result.exam?.subject?.toString();
+      if (subjectId) return scope.subjectIdStrings.includes(subjectId);
+      return scope.subjectLabels.includes(getSubjectName(result));
     });
 
-    const rawResults = await Result.find({
-      student: { $in: studentIds },
-    }).populate({
-      path: "exam",
-      select: "examName examDate",
-      populate: {
-        path: "subject",
-        select: "subjectName",
-      },
-    });
-
-    const results = sortResultsByLatest(dedupeResults(rawResults));
+    const results = sortResultsByLatest(dedupeResults(scopedRawResults));
     const totalPublishedResults = results.length;
 
     const averageMarks =
@@ -133,22 +159,25 @@ export const getTeacherDashboard = async (req, res) => {
           )
         : 0;
 
-    const scopedSubmissions = await EssaySubmission.find()
-      .populate({
-        path: "question",
-        select: "subject",
-        populate: { path: "subject", select: "_id subjectName" },
-      })
-      .lean();
+    const scopedSubmissions =
+      scope.subjectIdStrings.length === 0
+        ? []
+        : (
+            await EssaySubmission.find()
+              .populate({
+                path: "question",
+                select: "subject createdBy",
+                populate: { path: "subject", select: "_id subjectName" },
+              })
+              .lean()
+          ).filter((submission) => {
+            const subjectId =
+              submission.question?.subject?._id?.toString() ||
+              submission.question?.subject?.toString();
+            return subjectId && scope.subjectIdStrings.includes(subjectId);
+          });
 
-    const teacherSubmissions = scopedSubmissions.filter((submission) => {
-      const subjectId =
-        submission.question?.subject?._id?.toString() ||
-        submission.question?.subject?.toString();
-
-      if (scope.subjectIdStrings.length === 0) return false;
-      return scope.subjectIdStrings.includes(subjectId);
-    });
+    const teacherSubmissions = scopedSubmissions;
 
     const pendingSubmissions = teacherSubmissions.filter(
       (submission) => submission.status === "Pending"
@@ -170,10 +199,13 @@ export const getTeacherDashboard = async (req, res) => {
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - 7);
 
-    const recentAttendanceCount = await Attendance.countDocuments({
-      student: { $in: studentIds },
-      date: { $gte: weekStart },
-    });
+    const recentAttendanceCount =
+      studentIds.length === 0
+        ? 0
+        : await Attendance.countDocuments({
+            student: { $in: studentIds },
+            date: { $gte: weekStart },
+          });
 
     const incompleteAttendanceWeek =
       students.length > 0 && recentAttendanceCount < students.length;
@@ -188,6 +220,12 @@ export const getTeacherDashboard = async (req, res) => {
       incompleteAttendanceWeek,
     });
 
+    if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
+      alerts.unshift(
+        "No class or subject has been assigned to you yet. Ask an admin to assign your teaching load."
+      );
+    }
+
     const pendingWork = [
       pendingSubmissions > 0
         ? `${pendingSubmissions} student submission${pendingSubmissions > 1 ? "s" : ""} need marking`
@@ -198,23 +236,35 @@ export const getTeacherDashboard = async (req, res) => {
       incompleteAttendanceWeek ? "1 attendance sheet is incomplete" : null,
     ].filter(Boolean);
 
-    const recentResults = await Result.find({
-      student: { $in: studentIds },
-    })
-      .populate({
-        path: "student",
-        populate: { path: "user", select: "fullName" },
-      })
-      .populate({
-        path: "exam",
-        select: "examName examDate",
-        populate: { path: "subject", select: "subjectName" },
-      })
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const recentResults =
+      studentIds.length === 0
+        ? []
+        : await Result.find({
+            student: { $in: studentIds },
+          })
+            .populate({
+              path: "student",
+              populate: { path: "user", select: "fullName" },
+            })
+            .populate({
+              path: "exam",
+              select: "examName examDate subject",
+              populate: { path: "subject", select: "subjectName" },
+            })
+            .sort({ createdAt: -1 })
+            .limit(20);
+
+    const scopedRecentResults = recentResults.filter((result) => {
+      if (scope.subjectIdStrings.length === 0) return false;
+      const subjectId =
+        result.exam?.subject?._id?.toString() ||
+        result.exam?.subject?.toString();
+      if (subjectId) return scope.subjectIdStrings.includes(subjectId);
+      return scope.subjectLabels.includes(getSubjectName(result));
+    });
 
     const previewResults = sortResultsByLatest(
-      dedupeResults(recentResults)
+      dedupeResults(scopedRecentResults)
     ).slice(0, 5);
 
     res.status(200).json({
@@ -222,8 +272,14 @@ export const getTeacherDashboard = async (req, res) => {
         fullName: teacher?.fullName,
         email: teacher?.email,
       },
-      classes: classes.map((item) => item.className),
-      subjects: subjects.map((item) => item.subjectName),
+      classes: scope.classLabels,
+      subjects: scope.subjectLabels,
+      assignmentSummary: {
+        classCount: scope.classLabels.length,
+        subjectCount: scope.subjectLabels.length,
+        hasAssignments:
+          scope.classLabels.length > 0 || scope.subjectLabels.length > 0,
+      },
       totalStudents,
       totalExams,
       pendingSubmissions,

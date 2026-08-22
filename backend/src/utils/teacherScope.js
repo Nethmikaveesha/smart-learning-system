@@ -53,48 +53,59 @@ async function expandClassIdsWithNameYearTwins(classDocs = []) {
   return uniqueObjectIds([...originalIds, ...twins.map((item) => item._id)]);
 }
 
+/** Unique display labels like "12 Commerce A (2026)". */
+export function formatClassScopeLabel(classItem) {
+  const name = classItem?.className || "Class";
+  const year = classItem?.academicYear ? ` (${classItem.academicYear})` : "";
+  return `${name}${year}`;
+}
+
+export function uniqueClassLabels(classes = []) {
+  const seen = new Set();
+  const labels = [];
+
+  for (const item of classes) {
+    const label = formatClassScopeLabel(item);
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    labels.push(label);
+  }
+
+  return labels;
+}
+
 /**
- * Resolve the classes, subjects, and students belonging to one teacher.
- * Includes:
- * - classes where the teacher is the assigned class teacher
- * - classes linked to subjects the teacher teaches
- * - classes that contain students taking the teacher's subjects
- * - duplicate class rows with the same name + academic year
+ * Resolve the classes, subjects, and students belonging to one teacher
+ * based on admin assignments:
+ * - subjects where assignedTeacher = this teacher
+ * - classes where assignedTeacher = this teacher
+ * - classes linked on those assigned subjects
+ *
+ * Subjects returned are ONLY admin-assigned subjects (not every subject
+ * taken by students in those classes).
  */
 export async function getTeacherScope(teacherId) {
   const teacher = await User.findById(teacherId).select("fullName email");
 
-  const taughtSubjects = await Subject.find({ assignedTeacher: teacherId }).select(
-    "subjectName subjectCode classes"
-  );
-  const taughtSubjectIds = taughtSubjects.map((subject) => subject._id);
+  // 1) Admin-assigned subjects only.
+  const subjects = await Subject.find({ assignedTeacher: teacherId })
+    .select("subjectName subjectCode classes")
+    .sort({ subjectName: 1 });
+
+  const taughtSubjectIds = subjects.map((subject) => subject._id);
 
   const subjectLinkedClassIds = uniqueObjectIds(
-    taughtSubjects.flatMap((subject) => subject.classes || [])
+    subjects.flatMap((subject) => subject.classes || [])
   );
 
-  const studentsTakingSubjects =
-    taughtSubjectIds.length > 0
-      ? await StudentProfile.find({
-          subjects: { $in: taughtSubjectIds },
-        }).select("class")
-      : [];
-
-  const studentClassIds = uniqueObjectIds(
-    studentsTakingSubjects.map((profile) => profile.class)
-  );
-
+  // 2) Admin-assigned classes + classes linked from assigned subjects.
   const seedQuery = {
     $or: [{ assignedTeacher: teacherId }],
   };
 
-  const linkedIds = uniqueObjectIds([
-    ...subjectLinkedClassIds,
-    ...studentClassIds,
-  ]);
-
-  if (linkedIds.length > 0) {
-    seedQuery.$or.push({ _id: { $in: linkedIds } });
+  if (subjectLinkedClassIds.length > 0) {
+    seedQuery.$or.push({ _id: { $in: subjectLinkedClassIds } });
   }
 
   const seedClasses = await Class.find(seedQuery).select(
@@ -107,11 +118,12 @@ export async function getTeacherScope(teacherId) {
     expandedClassIds.length > 0
       ? await Class.find({ _id: { $in: expandedClassIds } })
           .select("className academicYear gradeLevel")
-          .sort({ gradeLevel: 1, className: 1 })
+          .sort({ gradeLevel: 1, className: 1, academicYear: 1 })
       : [];
 
   const classIds = classes.map((item) => item._id);
 
+  // 3) Students in assigned classes, or students taking assigned subjects.
   const studentQuery = { $or: [] };
   if (classIds.length > 0) {
     studentQuery.$or.push({ class: { $in: classIds } });
@@ -127,24 +139,7 @@ export async function getTeacherScope(teacherId) {
         )
       : [];
 
-  const studentSubjectIds = [
-    ...new Set(
-      students.flatMap((student) =>
-        (student.subjects || []).map((subjectId) => subjectId.toString())
-      )
-    ),
-  ];
-
-  const subjectQuery = { $or: [{ assignedTeacher: teacherId }] };
-  if (studentSubjectIds.length > 0) {
-    subjectQuery.$or.push({ _id: { $in: studentSubjectIds } });
-  }
-
-  const subjects = await Subject.find(subjectQuery).select(
-    "subjectName subjectCode"
-  );
-
-  const subjectIds = subjects.map((item) => item._id);
+  const subjectIds = taughtSubjectIds;
   const studentIds = students.map((student) => student._id);
 
   return {
@@ -153,8 +148,10 @@ export async function getTeacherScope(teacherId) {
     subjects,
     classIds,
     classIdStrings: classIds.map((id) => id.toString()),
+    classLabels: uniqueClassLabels(classes),
     subjectIds,
     subjectIdStrings: subjectIds.map((id) => id.toString()),
+    subjectLabels: subjects.map((item) => item.subjectName).filter(Boolean),
     students,
     studentIds,
     studentIdStrings: studentIds.map((id) => id.toString()),

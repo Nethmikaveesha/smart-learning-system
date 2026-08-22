@@ -54,9 +54,15 @@ function TeacherDashboard() {
     if (token) fetchDashboard();
   }, [token]);
 
-  const classLabel = data?.classes?.join(", ") || "--";
-  const subjectLabel = data?.subjects?.join(", ") || "--";
+  const classLabel = data?.classes?.length
+    ? data.classes.join(", ")
+    : "Not assigned";
+  const subjectLabel = data?.subjects?.length
+    ? data.subjects.join(", ")
+    : "Not assigned";
   const topicSummary = data?.topicErrorSummary;
+  const hasAssignments = data?.assignmentSummary?.hasAssignments !== false &&
+    ((data?.classes?.length || 0) > 0 || (data?.subjects?.length || 0) > 0);
 
   const previewChartData =
     topicSummary?.previewWeakTopics?.map((item) => ({
@@ -70,6 +76,7 @@ function TeacherDashboard() {
         teacherName={data?.teacher?.fullName || "Teacher"}
         classLabel={classLabel}
         subjectLabel={subjectLabel}
+        hasAssignments={hasAssignments}
       />
 
       {error ? (
@@ -78,6 +85,12 @@ function TeacherDashboard() {
         <LoadingPanel />
       ) : (
         <>
+          {!hasAssignments ? (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+              No class or subject has been assigned to your account yet. Ask an
+              admin to assign your teaching load so dashboard stats can appear.
+            </div>
+          ) : null}
           <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Total Students" value={data.totalStudents} />
             <MetricCard
@@ -320,7 +333,12 @@ function TeacherDashboard() {
   );
 }
 
-function DashboardHeader({ teacherName, classLabel, subjectLabel }) {
+function DashboardHeader({
+  teacherName,
+  classLabel,
+  subjectLabel,
+  hasAssignments = true,
+}) {
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -331,10 +349,20 @@ function DashboardHeader({ teacherName, classLabel, subjectLabel }) {
           <h1 className="mt-2 typo-page text-slate-950">
             Welcome, {teacherName}
           </h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            Stats below are limited to the classes and subjects an admin
+            assigned to you.
+          </p>
 
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            <InfoStat label="Assigned Class" value={classLabel} />
-            <InfoStat label="Assigned Subjects" value={subjectLabel} />
+            <InfoStat
+              label="Assigned Classes"
+              value={hasAssignments ? classLabel : "Not assigned"}
+            />
+            <InfoStat
+              label="Assigned Subjects"
+              value={hasAssignments ? subjectLabel : "Not assigned"}
+            />
           </div>
         </div>
 
