@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,9 +9,11 @@ import { useAuth } from "../context/AuthContext";
  */
 function TeacherEssayReview() {
   const { token } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedSubmissionId = searchParams.get("submission") || "";
 
   const [submissions, setSubmissions] = useState([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(requestedSubmissionId);
   const [formForId, setFormForId] = useState(null);
   const [partMarks, setPartMarks] = useState({});
   const [teacherFeedback, setTeacherFeedback] = useState("");
@@ -83,7 +86,15 @@ function TeacherEssayReview() {
         if (cancelled) return;
         const rows = res.data || [];
         setSubmissions(rows);
-        setSelectedId((current) => current || rows[0]?._id || "");
+        setSelectedId((current) => {
+          if (
+            requestedSubmissionId &&
+            rows.some((row) => row._id === requestedSubmissionId)
+          ) {
+            return requestedSubmissionId;
+          }
+          return current || rows[0]?._id || "";
+        });
       } catch (loadError) {
         if (cancelled) return;
         setError(
@@ -98,7 +109,7 @@ function TeacherEssayReview() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, requestedSubmissionId]);
 
   const teacherTotal = useMemo(() => {
     const parts = selected?.markBreakdown?.parts || [];

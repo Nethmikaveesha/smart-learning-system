@@ -905,6 +905,7 @@ const featureConfigs = {
     tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
   },
   "/teacher/submissions": {
+    // Dedicated TeacherSubmissions page handles this route in App.jsx.
     title: "Student Submissions",
     endpoint: "/essays/submissions",
   },
