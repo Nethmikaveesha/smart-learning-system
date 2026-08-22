@@ -6,6 +6,7 @@ import { resolveOrCreateClass } from "../utils/resolveReference.js";
 import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
 import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
 import { getTeacherScope } from "../utils/teacherScope.js";
+import { generateUniqueStudentId } from "../utils/generateRoleIds.js";
 
 export const createStudentProfile = async (req, res) => {
   try {
@@ -19,9 +20,6 @@ export const createStudentProfile = async (req, res) => {
     }
 
     if (!studentId?.trim()) {
-      const { generateUniqueStudentId } = await import(
-        "../utils/generateRoleIds.js"
-      );
       studentId = await generateUniqueStudentId();
     }
 
