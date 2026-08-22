@@ -278,14 +278,15 @@ function UserRecordsTable({
         );
       }
 
-      onSaved(
-        changingPassword
-          ? "Record and password updated successfully."
-          : "Record updated successfully."
-      );
+      onSaved();
       closeEdit();
     } catch (saveError) {
-      onError(saveError.response?.data?.message || "Failed to update record");
+      // Mutating API errors are toasted by axios; keep form-level validation toasts here.
+      if (!saveError.response) {
+        onError(saveError.message || "Failed to update record");
+      } else {
+        onError("");
+      }
     }
   };
 
@@ -309,9 +310,9 @@ function UserRecordsTable({
         });
       }
 
-      onSaved("Record deleted successfully.");
-    } catch (deleteError) {
-      onError(deleteError.response?.data?.message || "Failed to delete record");
+      onSaved();
+    } catch {
+      // API errors are toasted by the shared axios interceptor.
     }
   };
 

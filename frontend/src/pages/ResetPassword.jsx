@@ -50,11 +50,15 @@ function ResetPassword() {
       setError("");
       setSuccess("");
 
-      const res = await api.post("/auth/reset-password", {
-        token,
-        newPassword,
-        confirmPassword,
-      });
+      const res = await api.post(
+        "/auth/reset-password",
+        {
+          token,
+          newPassword,
+          confirmPassword,
+        },
+        { skipToast: true }
+      );
 
       setSuccess(res.data.message);
       setTimeout(() => navigate("/login"), 1800);

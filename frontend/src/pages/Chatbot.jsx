@@ -51,6 +51,7 @@ function Chatbot() {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          skipToast: true,
         }
       );
 

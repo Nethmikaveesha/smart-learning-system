@@ -49,10 +49,14 @@ function Login() {
       setError("");
 
       const normalizedEmail = email.trim().toLowerCase();
-      const res = await api.post("/auth/login", {
-        email: normalizedEmail,
-        password,
-      });
+      const res = await api.post(
+        "/auth/login",
+        {
+          email: normalizedEmail,
+          password,
+        },
+        { skipToast: true }
+      );
 
       if (rememberEmail) {
         localStorage.setItem(REMEMBER_KEY, normalizedEmail);

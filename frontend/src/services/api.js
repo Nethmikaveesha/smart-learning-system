@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toastError, toastSuccess } from "../utils/toastBridge";
 
 // Local default. Override with VITE_API_URL in frontend/.env for deploy.
 const api = axios.create({
@@ -13,6 +14,41 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+const MUTATING = new Set(["post", "put", "patch", "delete"]);
+
+api.interceptors.response.use(
+  (response) => {
+    const method = response.config?.method?.toLowerCase();
+    const skipToast = response.config?.skipToast;
+    const message = response.data?.message;
+
+    if (
+      !skipToast &&
+      MUTATING.has(method) &&
+      typeof message === "string" &&
+      message.trim()
+    ) {
+      toastSuccess(message.trim());
+    }
+
+    return response;
+  },
+  (error) => {
+    const method = error.config?.method?.toLowerCase();
+    const skipToast = error.config?.skipToast;
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      "Request failed";
+
+    if (!skipToast && MUTATING.has(method) && message) {
+      toastError(String(message));
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export const predictPassFailRisk = (studentProfileId, data = {}) => {
   return api.post(`/risk/final-predict-auto/${studentProfileId}`, data);

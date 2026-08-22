@@ -6,6 +6,7 @@ import UserRecordsTable from "../components/UserRecordsTable";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
 import { isSuperAdmin } from "../utils/adminRoles";
+import { toastError, toastSuccess } from "../utils/toastBridge";
 import {
   getPasswordStrength,
   validateRegistrationForm,
@@ -1114,7 +1115,6 @@ function DashboardFeaturePage() {
 
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -1152,11 +1152,12 @@ function DashboardFeaturePage() {
 
         setData(res.data);
       } catch (fetchError) {
-        setError(
+        const fetchMessage =
           fetchError.response?.data?.message ||
-            fetchError.message ||
-            "Failed to load data"
-        );
+          fetchError.message ||
+          "Failed to load data";
+        setError(fetchMessage);
+        toastError(fetchMessage);
         setData(null);
       } finally {
         setLoading(false);
@@ -1170,39 +1171,51 @@ function DashboardFeaturePage() {
     try {
       setLoading(true);
       setError("");
-      setMessage("");
 
       const res = await api.request({
         url: config.action.endpoint,
         method: config.action.method,
         responseType: config.action.responseType,
         headers: { Authorization: `Bearer ${token}` },
+        skipToast: config.action.responseType === "blob",
       });
 
       if (config.action.responseType === "blob") {
         downloadBlob(res.data, config.action.downloadName);
-        setMessage("Download started successfully.");
-      } else {
-        setMessage(res.data?.message || "Action completed successfully.");
+        toastSuccess("Download started successfully.");
+      } else if (!res.data?.message) {
+        toastSuccess("Action completed successfully.");
+      }
 
-        if (config.endpoint) {
-          const refresh = await api.get(config.endpoint, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          setData(refresh.data);
-        } else {
-          setData(res.data);
-        }
+      if (config.endpoint) {
+        const refresh = await api.get(config.endpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setData(refresh.data);
+      } else if (config.action.responseType !== "blob") {
+        setData(res.data);
       }
     } catch (actionError) {
-      setError(
+      const actionMessage =
         actionError.response?.data?.message ||
-          actionError.message ||
-          "Action failed"
-      );
+        actionError.message ||
+        "Action failed";
+      setError(actionMessage);
+      if (config.action.responseType === "blob") {
+        toastError(actionMessage);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaved = () => {
+    setRefreshKey((current) => current + 1);
+  };
+
+  const handleFeedbackError = (feedback) => {
+    setError(feedback || "");
+    if (feedback) toastError(feedback);
   };
 
   return (
@@ -1223,11 +1236,8 @@ function DashboardFeaturePage() {
         <FeatureForm
           form={config.form}
           token={token}
-          onSaved={(savedMessage) => {
-            setMessage(savedMessage);
-            setRefreshKey((current) => current + 1);
-          }}
-          onError={setError}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
         />
       )}
 
@@ -1236,11 +1246,8 @@ function DashboardFeaturePage() {
           key={extraForm.formTitle || extraForm.endpoint}
           form={extraForm}
           token={token}
-          onSaved={(savedMessage) => {
-            setMessage(savedMessage);
-            setRefreshKey((current) => current + 1);
-          }}
-          onError={setError}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
         />
       ))}
 
@@ -1249,11 +1256,8 @@ function DashboardFeaturePage() {
           rolePreset={config.rolePreset}
           registerEndpoint={config.registerEndpoint}
           token={token}
-          onSaved={(savedMessage) => {
-            setMessage(savedMessage);
-            setRefreshKey((current) => current + 1);
-          }}
-          onError={setError}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
         />
       )}
 
@@ -1268,9 +1272,6 @@ function DashboardFeaturePage() {
         </button>
       )}
 
-      {message && <StatusMessage type="success" message={message} />}
-      {error && <StatusMessage type="error" message={error} />}
-
       {config.listEndpoint && (
         <UserRecordsTable
           title={config.listTitle || "Records"}
@@ -1279,11 +1280,8 @@ function DashboardFeaturePage() {
           listFilter={config.listFilter}
           token={token}
           refreshKey={refreshKey}
-          onSaved={(savedMessage) => {
-            setMessage(savedMessage);
-            setRefreshKey((current) => current + 1);
-          }}
-          onError={setError}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
         />
       )}
 
@@ -1312,11 +1310,8 @@ function DashboardFeaturePage() {
           token={token}
           emptyMessage={resolvedEmptyMessage}
           emptyIcon={config.emptyIcon}
-          onSaved={(savedMessage) => {
-            setMessage(savedMessage);
-            setRefreshKey((current) => current + 1);
-          }}
-          onError={setError}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
         />
       ) : config.form || config.registerForm || config.action ? null : (
         <EmptyState />
@@ -1570,15 +1565,17 @@ function RegisterUserForm({
 
       const res = await api.post(registerEndpoint, payload, {
         headers: { Authorization: `Bearer ${token}` },
+        skipToast: true,
       });
 
-      onSaved(
+      toastSuccess(
         buildRegistrationSuccessMessage(
           res.data?.message || "User registered successfully.",
           role,
           res.data
         )
       );
+      onSaved();
       setValues(getInitialRegistrationValues(rolePreset));
       setFieldErrors({});
     } catch (saveError) {
@@ -1985,7 +1982,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      onSaved(res.data?.message || "Saved successfully.");
+      onSaved();
 
       if (form.loadEndpoint) {
         const record = res.data?.settings || res.data || payload;
@@ -1999,8 +1996,8 @@ function FeatureForm({ form, token, onSaved, onError }) {
       } else {
         setValues(getFeatureFormInitialValues(form.fields));
       }
-    } catch (saveError) {
-      onError(saveError.response?.data?.message || saveError.message || "Save failed");
+    } catch {
+      // API errors are toasted by the shared axios interceptor.
     } finally {
       setSaving(false);
     }
@@ -2300,19 +2297,15 @@ function DataTable({
       setActionUserId(userId);
       onError("");
 
-      const res = await api.put(
+      await api.put(
         `/users/${userId}/disable`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      onSaved(res.data?.message || "User disabled successfully.");
-    } catch (disableError) {
-      onError(
-        disableError.response?.data?.message ||
-          disableError.message ||
-          "Failed to disable user"
-      );
+      onSaved();
+    } catch {
+      // API errors are toasted by the shared axios interceptor.
     } finally {
       setActionUserId(null);
     }
@@ -2331,19 +2324,15 @@ function DataTable({
       setActionUserId(userId);
       onError("");
 
-      const res = await api.put(
+      await api.put(
         `/users/${userId}`,
         { status: "Active" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      onSaved(res.data?.message || "User enabled successfully.");
-    } catch (enableError) {
-      onError(
-        enableError.response?.data?.message ||
-          enableError.message ||
-          "Failed to enable user"
-      );
+      onSaved();
+    } catch {
+      // API errors are toasted by the shared axios interceptor.
     } finally {
       setActionUserId(null);
     }
