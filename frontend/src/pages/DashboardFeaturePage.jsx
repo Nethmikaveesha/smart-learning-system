@@ -1403,6 +1403,39 @@ function getCreatingLabel(role) {
   return "Creating...";
 }
 
+function buildRegistrationSuccessMessage(baseMessage, role, responseData) {
+  const generated = responseData?.generatedIds || {};
+  if (role === "student" && (generated.studentId || responseData?.profile?.studentId)) {
+    return `${baseMessage} Student ID: ${
+      generated.studentId || responseData.profile.studentId
+    }`;
+  }
+  if (role === "teacher" && (generated.teacherId || responseData?.user?.teacherId)) {
+    return `${baseMessage} Teacher ID: ${
+      generated.teacherId || responseData.user.teacherId
+    }`;
+  }
+  if (role === "parent" && (generated.parentId || responseData?.user?.parentId)) {
+    return `${baseMessage} Parent ID: ${
+      generated.parentId || responseData.user.parentId
+    }`;
+  }
+  return baseMessage;
+}
+
+function AutoIdNotice({ label, example }) {
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+        {label}
+      </p>
+      <p className="mt-1 text-sm text-emerald-900">
+        Auto-generated on create (unique, no duplicates) — e.g. {example}
+      </p>
+    </div>
+  );
+}
+
 function RegisterUserForm({
   rolePreset,
   registerEndpoint = "/auth/register",
@@ -1523,7 +1556,13 @@ function RegisterUserForm({
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      onSaved(res.data?.message || "User registered successfully.");
+      onSaved(
+        buildRegistrationSuccessMessage(
+          res.data?.message || "User registered successfully.",
+          role,
+          res.data
+        )
+      );
       setValues(getInitialRegistrationValues(rolePreset));
       setFieldErrors({});
     } catch (saveError) {
@@ -1628,14 +1667,7 @@ function RegisterUserForm({
 
         {role === "teacher" && (
           <>
-            <FormTextField
-              label="Teacher ID"
-              name="teacherId"
-              value={values.teacherId}
-              onChange={updateValue}
-              required
-              error={fieldErrors.teacherId}
-            />
+            <AutoIdNotice label="Teacher ID" example="T0001" />
             <OptionSelectField
               label="Assigned Subject Code"
               name="assignedSubject"
@@ -1667,14 +1699,7 @@ function RegisterUserForm({
               Stream: <strong>Commerce Risk Assessment</strong> — core subjects
               Accounting, Business Studies, Economics
             </div>
-            <FormTextField
-              label="Student ID"
-              name="studentId"
-              value={values.studentId}
-              onChange={updateValue}
-              required
-              error={fieldErrors.studentId}
-            />
+            <AutoIdNotice label="Student ID" example="STU0001" />
             <OptionSelectField
               label="Class Name"
               name="className"
@@ -1704,20 +1729,13 @@ function RegisterUserForm({
 
         {role === "parent" && (
           <>
-            <FormTextField
-              label="Parent ID"
-              name="parentId"
-              value={values.parentId}
-              onChange={updateValue}
-              required
-              error={fieldErrors.parentId}
-            />
+            <AutoIdNotice label="Parent ID" example="P0001" />
             <FormTextField
               label="Child Student ID"
               name="childStudent"
               value={values.childStudent}
               onChange={updateValue}
-              placeholder="e.g. COM2026001"
+              placeholder="e.g. STU0001"
             />
             <FormTextField
               label="Relationship"

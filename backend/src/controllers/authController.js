@@ -15,6 +15,7 @@ import { createAuditLog } from "../utils/createAuditLog.js";
 import { validateRegistrationInput } from "../utils/registrationValidation.js";
 import { isEmailConfigured, sendEmail } from "../utils/sendEmail.js";
 import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
+import { resolveRegistrationIds } from "../utils/generateRoleIds.js";
 
 const RESET_TOKEN_HOURS = 1;
 
@@ -142,6 +143,13 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: "This email is already registered" });
     }
 
+    const resolvedIds = await resolveRegistrationIds({
+      role,
+      studentId,
+      teacherId,
+      parentId,
+    });
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
@@ -151,8 +159,8 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
       role,
       isActive: status ? status === "Active" : true,
-      teacherId: role === "teacher" ? teacherId : undefined,
-      parentId: role === "parent" ? parentId : undefined,
+      teacherId: role === "teacher" ? resolvedIds.teacherId : undefined,
+      parentId: role === "parent" ? resolvedIds.parentId : undefined,
       relationship: role === "parent" ? relationship : "",
     });
     createdUserId = user._id;
@@ -187,14 +195,14 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    if (role === "student" && studentId) {
+    if (role === "student") {
       const classRecord = className
         ? await resolveOrCreateClass(className, academicYear)
         : null;
 
       profile = await StudentProfile.create({
         user: user._id,
-        studentId,
+        studentId: resolvedIds.studentId,
         class: classRecord?._id || undefined,
         parent: parent || undefined,
         academicYear,
@@ -240,8 +248,15 @@ export const registerUser = async (req, res) => {
         phoneNumber: user.phoneNumber,
         role: user.role,
         isActive: user.isActive,
+        teacherId: user.teacherId || undefined,
+        parentId: user.parentId || undefined,
       },
       profile,
+      generatedIds: {
+        studentId: role === "student" ? resolvedIds.studentId : undefined,
+        teacherId: role === "teacher" ? resolvedIds.teacherId : undefined,
+        parentId: role === "parent" ? resolvedIds.parentId : undefined,
+      },
     });
   } catch (error) {
     // Compensating cleanup — avoid orphan user/profile after mid-flow failure.

@@ -9,12 +9,20 @@ import { getTeacherScope } from "../utils/teacherScope.js";
 
 export const createStudentProfile = async (req, res) => {
   try {
-    const { user, studentId, className, parent, subjects } = req.body;
+    const { user, className, parent, subjects } = req.body;
+    let { studentId } = req.body;
 
-    if (!user || !studentId) {
+    if (!user) {
       return res.status(400).json({
-        message: "user and studentId are required",
+        message: "user is required",
       });
+    }
+
+    if (!studentId?.trim()) {
+      const { generateUniqueStudentId } = await import(
+        "../utils/generateRoleIds.js"
+      );
+      studentId = await generateUniqueStudentId();
     }
 
     const existingProfile = await StudentProfile.findOne({

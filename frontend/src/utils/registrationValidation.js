@@ -86,18 +86,7 @@ export function validateRegistrationForm(values, role) {
     errors.confirmPassword = "Password and confirm password do not match";
   }
 
-  if (role === "teacher" && !values.teacherId?.trim()) {
-    errors.teacherId = "Teacher ID is required";
-  }
-
-  if (role === "student" && !values.studentId?.trim()) {
-    errors.studentId = "Student ID is required";
-  }
-
   if (role === "parent") {
-    if (!values.parentId?.trim()) {
-      errors.parentId = "Parent ID is required";
-    }
     if (!values.relationship?.trim()) {
       errors.relationship = "Relationship is required";
     }
