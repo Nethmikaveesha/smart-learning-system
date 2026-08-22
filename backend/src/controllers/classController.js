@@ -3,10 +3,19 @@ import {
   inferGradeLevel,
   normalizeGradeLevel,
 } from "../utils/gradeLevel.js";
+import { getCommerceClassCatalog } from "../utils/commerceClasses.js";
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+export const getClassCatalog = async (_req, res) => {
+  try {
+    res.status(200).json(getCommerceClassCatalog());
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 export const createClass = async (req, res) => {
   try {

@@ -133,8 +133,16 @@ const featureConfigs = {
         {
           name: "className",
           label: "Class Name",
+          type: "async-select",
           required: true,
-          placeholder: "e.g. 12 Commerce A",
+          placeholder: "Select class name",
+          optionsEndpoint: "/classes/catalog",
+          optionsPath: "classNames",
+          optionValue: "className",
+          dependsOn: "gradeLevel",
+          filterBy: (item, values) =>
+            String(item.gradeLevel) === String(values.gradeLevel),
+          getOptionLabel: (item) => item.className,
         },
         {
           name: "stream",
@@ -147,8 +155,14 @@ const featureConfigs = {
         {
           name: "academicYear",
           label: "Academic Year",
+          type: "async-select",
           required: true,
-          placeholder: "e.g. 2026",
+          defaultValue: String(new Date().getFullYear()),
+          placeholder: "Select academic year",
+          optionsEndpoint: "/classes/catalog",
+          optionsPath: "academicYears",
+          optionValue: "value",
+          getOptionLabel: (item) => item.label || item.value,
         },
         {
           name: "assignedTeacher",
@@ -198,8 +212,16 @@ const featureConfigs = {
           {
             name: "className",
             label: "Class Name",
+            type: "async-select",
             required: true,
-            placeholder: "e.g. 12 Commerce A",
+            placeholder: "Select class name",
+            optionsEndpoint: "/classes/catalog",
+            optionsPath: "classNames",
+            optionValue: "className",
+            dependsOn: "gradeLevel",
+            filterBy: (item, values) =>
+              String(item.gradeLevel) === String(values.gradeLevel),
+            getOptionLabel: (item) => item.className,
           },
           {
             name: "stream",
@@ -212,8 +234,13 @@ const featureConfigs = {
           {
             name: "academicYear",
             label: "Academic Year",
+            type: "async-select",
             required: true,
-            placeholder: "e.g. 2026",
+            placeholder: "Select academic year",
+            optionsEndpoint: "/classes/catalog",
+            optionsPath: "academicYears",
+            optionValue: "value",
+            getOptionLabel: (item) => item.label || item.value,
           },
           {
             name: "assignedTeacher",
@@ -1991,9 +2018,21 @@ function getFeatureFormInitialValues(fields) {
   );
 }
 
+function resolveAsyncOptionItems(field, asyncOptions) {
+  const raw = asyncOptions[field.optionsEndpoint];
+
+  if (field.optionsPath) {
+    const nested = raw?.[field.optionsPath];
+    return Array.isArray(nested) ? nested : [];
+  }
+
+  if (Array.isArray(raw)) return raw;
+  return normalizeData(raw);
+}
+
 function getFieldSelectOptions(field, values, asyncOptions) {
   if (field.type === "async-select" || field.type === "searchable-async-select") {
-    const rawItems = asyncOptions[field.optionsEndpoint] || [];
+    const rawItems = resolveAsyncOptionItems(field, asyncOptions);
     const items =
       field.optionsEndpoint === "/classes" && !field.skipDedupe
         ? dedupeClasses(rawItems)
@@ -2002,23 +2041,35 @@ function getFieldSelectOptions(field, values, asyncOptions) {
       ? items.filter((item) => field.filterBy(item, values, asyncOptions))
       : items;
 
-    const options = filtered.map((item) => ({
-      value: String(item[field.optionValue] || item._id || ""),
-      label: field.getOptionLabel
-        ? field.getOptionLabel(item)
-        : String(item[field.optionValue] || item._id || ""),
-      searchText: [
-        item.teacherId,
-        item.studentId,
-        item.fullName,
-        item.email,
-        item.subjectName,
-        item.subjectCode,
-        item.className,
-      ]
-        .filter(Boolean)
-        .join(" "),
-    }));
+    const options = filtered.map((item) => {
+      if (typeof item === "string" || typeof item === "number") {
+        return {
+          value: String(item),
+          label: String(item),
+          searchText: String(item),
+        };
+      }
+
+      return {
+        value: String(item[field.optionValue] || item._id || ""),
+        label: field.getOptionLabel
+          ? field.getOptionLabel(item)
+          : String(item[field.optionValue] || item._id || ""),
+        searchText: [
+          item.teacherId,
+          item.studentId,
+          item.fullName,
+          item.email,
+          item.subjectName,
+          item.subjectCode,
+          item.className,
+          item.label,
+          item.value,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      };
+    });
 
     if (field.allowEmpty) {
       return [
@@ -2120,7 +2171,8 @@ function FeatureForm({ form, token, onSaved, onError }) {
 
         const nextOptions = {};
         endpoints.forEach((endpoint, index) => {
-          nextOptions[endpoint] = normalizeData(responses[index].data);
+          // Keep raw payload so fields can use optionsPath (e.g. catalog.classNames).
+          nextOptions[endpoint] = responses[index].data;
         });
 
         setAsyncOptions(nextOptions);
@@ -2152,16 +2204,23 @@ function FeatureForm({ form, token, onSaved, onError }) {
       // Keep paired catalog fields in sync (e.g. subjectName ↔ subjectCode).
       const changedField = form.fields.find((field) => field.name === fieldName);
       if (changedField?.syncPair?.field && changedField?.syncPair?.valueKey) {
-        const catalogItems =
-          asyncOptions[changedField.optionsEndpoint] || [];
-        const selectedOption = catalogItems.find(
-          (item) =>
+        const catalogItems = resolveAsyncOptionItems(changedField, asyncOptions);
+        const selectedOption = catalogItems.find((item) => {
+          if (typeof item === "string" || typeof item === "number") {
+            return String(item) === String(nextValue);
+          }
+          return (
             String(item[changedField.optionValue] || item._id || "") ===
             String(nextValue)
-        );
+          );
+        });
 
         next[changedField.syncPair.field] = selectedOption
-          ? String(selectedOption[changedField.syncPair.valueKey] || "")
+          ? String(
+              typeof selectedOption === "object"
+                ? selectedOption[changedField.syncPair.valueKey] || ""
+                : selectedOption
+            )
           : "";
       }
 
@@ -2170,7 +2229,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
         const idFieldConfig = form.fields.find(
           (field) => field.name === form.idField
         );
-        const records = asyncOptions[idFieldConfig?.optionsEndpoint] || [];
+        const records = resolveAsyncOptionItems(idFieldConfig || {}, asyncOptions);
         const selected = records.find(
           (item) => String(item._id) === String(nextValue)
         );
