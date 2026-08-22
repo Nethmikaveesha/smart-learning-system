@@ -1032,8 +1032,6 @@ const featureConfigs = {
           placeholder: "Select class",
           optionsEndpoint: "/classes",
           optionValue: "_id",
-          // Keep every class row so the selected id can match student.class.
-          skipDedupe: true,
           getOptionLabel: formatClassOptionLabel,
         },
         {
