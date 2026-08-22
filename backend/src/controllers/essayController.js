@@ -1,7 +1,6 @@
 import EssayQuestion from "../models/EssayQuestion.js";
 import MarkingScheme from "../models/MarkingScheme.js";
 import EssaySubmission from "../models/EssaySubmission.js";
-import Subject from "../models/Subject.js";
 import User from "../models/User.js";
 import {
   evaluateEssayWithGemini,
