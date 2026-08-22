@@ -1,6 +1,11 @@
 import SidebarSection from "./SidebarSection";
+import { useAuth } from "../../context/AuthContext";
+import { isSuperAdmin } from "../../utils/adminRoles";
 
 function AdminSidebar() {
+  const { user } = useAuth();
+  const canManageAdmins = isSuperAdmin(user);
+
   return (
     <nav className="space-y-2">
       <SidebarSection
@@ -13,7 +18,9 @@ function AdminSidebar() {
       <SidebarSection
         title="User Management"
         items={[
-          { label: "Add New Admin", to: "/admin/users/add", end: true },
+          ...(canManageAdmins
+            ? [{ label: "Add New Admin", to: "/admin/users/add", end: true }]
+            : []),
           { label: "Add Teacher", to: "/admin/users/add-teacher" },
           { label: "Add Student", to: "/admin/users/add-student" },
           { label: "Add Parent", to: "/admin/users/add-parent" },

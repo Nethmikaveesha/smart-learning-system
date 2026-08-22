@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { roleAllowed } from "./utils/adminRoles";
 
 import DashboardLayout from "./components/DashboardLayout";
 import PublicLayout from "./components/PublicLayout";
@@ -42,7 +43,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
+  if (!roleAllowed(user.role, allowedRoles)) {
     return <Navigate to="/login" />;
   }
 

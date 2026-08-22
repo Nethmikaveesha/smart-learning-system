@@ -116,7 +116,7 @@ export const registerUser = async (req, res) => {
       relationship,
     } = req.body;
 
-    if (role === "admin") {
+    if (role === "admin" || role === "superadmin") {
       return res.status(400).json({
         message: "Use the admin registration endpoint to create admin accounts",
       });
@@ -337,6 +337,27 @@ export const loginUser = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+/** Return the authenticated user from the DB (keeps frontend role in sync). */
+export const getCurrentUser = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    res.status(200).json({
+      user: {
+        id: req.user._id,
+        fullName: req.user.fullName,
+        email: req.user.email,
+        role: req.user.role,
+        isActive: req.user.isActive,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

@@ -746,9 +746,16 @@ function StatusBadge({ status }) {
 }
 
 function RoleBadge({ role }) {
+  const label =
+    role === "superadmin"
+      ? "Super Admin"
+      : role
+        ? role.charAt(0).toUpperCase() + role.slice(1)
+        : "N/A";
+
   return (
-    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
-      {role || "N/A"}
+    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+      {label}
     </span>
   );
 }

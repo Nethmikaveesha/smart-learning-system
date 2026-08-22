@@ -1,5 +1,7 @@
 /** Mobile nav quick links — kept separate so sidebar files only export components. */
 
+import { isSuperAdmin } from "../../utils/adminRoles";
+
 export const adminMobileLinks = [
   { label: "Dashboard", to: "/admin", end: true },
   { label: "Users", to: "/admin/users", end: true },
@@ -9,6 +11,11 @@ export const adminMobileLinks = [
   { label: "Analytics", to: "/admin/system-analytics" },
   { label: "Reports", to: "/admin/reports" },
 ];
+
+export function getAdminMobileLinks(role) {
+  if (isSuperAdmin(role)) return adminMobileLinks;
+  return adminMobileLinks.filter((item) => item.to !== "/admin/users/add");
+}
 
 export const teacherMobileLinks = [
   { label: "Dashboard", to: "/teacher", end: true },

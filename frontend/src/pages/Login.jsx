@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import AuthShell from "../components/AuthShell";
 
 const roleRoutes = {
+  superadmin: "/admin",
   admin: "/admin",
   teacher: "/teacher",
   student: "/student",

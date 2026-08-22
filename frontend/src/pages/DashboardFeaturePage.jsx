@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import UserRecordsTable from "../components/UserRecordsTable";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
+import { isSuperAdmin } from "../utils/adminRoles";
 import {
   getPasswordStrength,
   validateRegistrationForm,
@@ -37,7 +38,8 @@ const featureConfigs = {
     listEndpoint: "/users",
     listTitle: "Registered Admins",
     listType: "admin",
-    listFilter: (row) => row.role === "admin",
+    listFilter: (row) =>
+      row.role === "admin" || row.role === "superadmin",
   },
   "/admin/users/add-teacher": {
     title: "Add Teacher",
@@ -1121,9 +1123,20 @@ function DashboardFeaturePage() {
   const resolvedEmptyMessage = resolveEmptyMessage(config, data);
 
   const rows = useMemo(() => {
-    const normalized = normalizeData(displayData);
-    return config.filter ? normalized.filter(config.filter) : normalized;
-  }, [config, displayData]);
+    let normalized = normalizeData(displayData);
+    if (config.filter) {
+      normalized = normalized.filter(config.filter);
+    }
+
+    // Normal admins can disable Teacher/Student/Parent only.
+    if (pathname === "/admin/users/edit-disable" && !isSuperAdmin(user)) {
+      normalized = normalized.filter(
+        (row) => row.role !== "admin" && row.role !== "superadmin"
+      );
+    }
+
+    return normalized;
+  }, [config, displayData, pathname, user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1194,6 +1207,12 @@ function DashboardFeaturePage() {
 
   return (
     <div className="p-6">
+      {pathname === "/admin/users/add" && !isSuperAdmin(user) ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-800">
+          Only a Super Admin can add administrator accounts.
+        </div>
+      ) : (
+        <>
       <PageHeader
         role={user?.role}
         title={config.title}
@@ -1302,15 +1321,24 @@ function DashboardFeaturePage() {
       ) : config.form || config.registerForm || config.action ? null : (
         <EmptyState />
       )}
+        </>
+      )}
     </div>
   );
 }
 
 function PageHeader({ role, title, description }) {
+  const workspaceLabel =
+    role === "superadmin"
+      ? "Super Administrator"
+      : role === "admin"
+        ? "Administrator"
+        : role || "Dashboard";
+
   return (
     <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="typo-eyebrow text-blue-700">
-        {role || "Dashboard"} Workspace
+        {workspaceLabel} Workspace
       </p>
       <h1 className="mt-2 typo-page text-slate-950">
         {title}
@@ -2618,6 +2646,12 @@ function getColumns(rows) {
 }
 
 function formatCellValue(column, value) {
+  if (column === "role") {
+    if (value === "superadmin") return "Super Admin";
+    if (!value) return "N/A";
+    return String(value).charAt(0).toUpperCase() + String(value).slice(1);
+  }
+
   if (column === "isActive") {
     return value ? "Active" : "Inactive";
   }

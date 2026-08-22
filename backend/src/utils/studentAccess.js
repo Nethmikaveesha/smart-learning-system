@@ -20,7 +20,7 @@ export async function assertCanAccessStudentProfile(req, studentProfileId) {
   const role = req.user?.role;
   const userId = String(req.user?._id || "");
 
-  if (role === "admin") {
+  if (role === "admin" || role === "superadmin") {
     return { ok: true, profile };
   }
 

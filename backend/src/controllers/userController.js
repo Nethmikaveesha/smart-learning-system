@@ -3,8 +3,46 @@ import User from "../models/User.js";
 import Subject from "../models/Subject.js";
 import Class from "../models/Class.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
-import { resolveClass, resolveOrCreateClass, resolveSubject } from "../utils/resolveReference.js";
+import {
+  resolveOrCreateClass,
+  resolveSubject,
+} from "../utils/resolveReference.js";
 import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
+import {
+  getAdminManagementError,
+  isElevatedTargetRole,
+  isSuperAdmin,
+} from "../utils/adminRoles.js";
+
+async function assertCanManageUserAccount(actor, target) {
+  const managementError = getAdminManagementError(actor, target);
+  if (managementError) {
+    return { ok: false, status: 403, message: managementError };
+  }
+
+  return { ok: true };
+}
+
+async function assertNotLastSuperAdmin(target, nextRole, nextActive) {
+  if (target.role !== "superadmin") return null;
+
+  const demoting = nextRole !== undefined && nextRole !== "superadmin";
+  const disabling =
+    nextActive !== undefined && nextActive === false && target.isActive;
+
+  if (!demoting && !disabling) return null;
+
+  const activeSuperAdmins = await User.countDocuments({
+    role: "superadmin",
+    isActive: true,
+  });
+
+  if (activeSuperAdmins <= 1) {
+    return "Cannot demote or disable the last Super Admin account";
+  }
+
+  return null;
+}
 
 // Get all users
 export const getAllUsers = async (req, res) => {
@@ -76,6 +114,18 @@ export const getUserById = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const access = await assertCanManageUserAccount(req.user, target);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
     const allowedUpdates = [
       "fullName",
       "email",
@@ -97,6 +147,29 @@ export const updateUser = async (req, res) => {
 
     if (req.body.status) {
       updates.isActive = req.body.status === "Active";
+    }
+
+    if (updates.role !== undefined) {
+      if (updates.role === "superadmin" && !isSuperAdmin(req.user)) {
+        return res.status(403).json({
+          message: "Only a Super Admin can assign the Super Admin role",
+        });
+      }
+
+      if (isElevatedTargetRole(updates.role) && !isSuperAdmin(req.user)) {
+        return res.status(403).json({
+          message: "Only a Super Admin can assign administrator roles",
+        });
+      }
+    }
+
+    const lastSuperError = await assertNotLastSuperAdmin(
+      target,
+      updates.role,
+      updates.isActive
+    );
+    if (lastSuperError) {
+      return res.status(400).json({ message: lastSuperError });
     }
 
     const passwordError = validateOptionalPasswordChange({
@@ -187,17 +260,32 @@ export const disableUser = async (req, res) => {
       });
     }
 
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const access = await assertCanManageUserAccount(req.user, target);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const lastSuperError = await assertNotLastSuperAdmin(
+      target,
+      undefined,
+      false
+    );
+    if (lastSuperError) {
+      return res.status(400).json({ message: lastSuperError });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive: false },
       { new: true }
     ).select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
 
     await createAuditLog({
       userId: req.user?._id,
@@ -226,6 +314,23 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({
         message: "User not found",
       });
+    }
+
+    const access = await assertCanManageUserAccount(req.user, user);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    if (user.role === "superadmin") {
+      const activeSuperAdmins = await User.countDocuments({
+        role: "superadmin",
+        isActive: true,
+      });
+      if (activeSuperAdmins <= 1) {
+        return res.status(400).json({
+          message: "Cannot delete the last Super Admin account",
+        });
+      }
     }
 
     const deletedUserName = user.fullName;
