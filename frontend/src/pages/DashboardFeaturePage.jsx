@@ -234,14 +234,25 @@ const featureConfigs = {
         {
           name: "subjectName",
           label: "Subject Name",
+          type: "async-select",
           required: true,
-          placeholder: "Accounting / Business Studies / Economics",
+          placeholder: "Select subject",
+          optionsEndpoint: "/subjects/catalog",
+          optionValue: "subjectName",
+          getOptionLabel: (item) => item.subjectName,
+          syncPair: { field: "subjectCode", valueKey: "subjectCode" },
         },
         {
           name: "subjectCode",
           label: "Subject Code",
+          type: "async-select",
           required: true,
-          placeholder: "ACC101 / BS101 / ECO101",
+          placeholder: "Select code",
+          optionsEndpoint: "/subjects/catalog",
+          optionValue: "subjectCode",
+          getOptionLabel: (item) =>
+            `${item.subjectCode} — ${item.subjectName}`,
+          syncPair: { field: "subjectName", valueKey: "subjectName" },
         },
       ],
     },
@@ -269,14 +280,25 @@ const featureConfigs = {
           {
             name: "subjectName",
             label: "Subject Name",
+            type: "async-select",
             required: true,
-            placeholder: "Accounting / Business Studies / Economics",
+            placeholder: "Select subject",
+            optionsEndpoint: "/subjects/catalog",
+            optionValue: "subjectName",
+            getOptionLabel: (item) => item.subjectName,
+            syncPair: { field: "subjectCode", valueKey: "subjectCode" },
           },
           {
             name: "subjectCode",
             label: "Subject Code",
+            type: "async-select",
             required: true,
-            placeholder: "ACC101 / BS101 / ECO101",
+            placeholder: "Select code",
+            optionsEndpoint: "/subjects/catalog",
+            optionValue: "subjectCode",
+            getOptionLabel: (item) =>
+              `${item.subjectCode} — ${item.subjectName}`,
+            syncPair: { field: "subjectName", valueKey: "subjectName" },
           },
           {
             name: "assignedTeacher",
@@ -2119,6 +2141,22 @@ function FeatureForm({ form, token, onSaved, onError }) {
           next[field.name] = "";
         }
       });
+
+      // Keep paired catalog fields in sync (e.g. subjectName ↔ subjectCode).
+      const changedField = form.fields.find((field) => field.name === fieldName);
+      if (changedField?.syncPair?.field && changedField?.syncPair?.valueKey) {
+        const catalogItems =
+          asyncOptions[changedField.optionsEndpoint] || [];
+        const selectedOption = catalogItems.find(
+          (item) =>
+            String(item[changedField.optionValue] || item._id || "") ===
+            String(nextValue)
+        );
+
+        next[changedField.syncPair.field] = selectedOption
+          ? String(selectedOption[changedField.syncPair.valueKey] || "")
+          : "";
+      }
 
       // When the edit-target record is selected, hydrate the rest of the form.
       if (form.idField && fieldName === form.idField) {

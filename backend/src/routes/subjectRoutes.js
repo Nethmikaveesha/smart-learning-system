@@ -4,6 +4,7 @@ import {
   createSubject,
   updateSubject,
   getAllSubjects,
+  getSubjectCatalog,
 } from "../controllers/subjectController.js";
 
 import {
@@ -13,6 +14,12 @@ import {
 
 const router = express.Router();
 
+router.get(
+  "/catalog",
+  protect,
+  authorizeRoles("admin"),
+  getSubjectCatalog
+);
 router.post("/", protect, authorizeRoles("admin"), createSubject);
 router.put("/:id", protect, authorizeRoles("admin"), updateSubject);
 router.get("/", protect, authorizeRoles("admin", "teacher"), getAllSubjects);

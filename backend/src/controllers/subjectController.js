@@ -1,4 +1,15 @@
 import Subject from "../models/Subject.js";
+import { getCommerceSubjectCatalog } from "../utils/commerceSubjects.js";
+
+export const getSubjectCatalog = async (_req, res) => {
+  try {
+    res.status(200).json(getCommerceSubjectCatalog());
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
 
 export const createSubject = async (req, res) => {
   try {
