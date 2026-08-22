@@ -1423,15 +1423,31 @@ function buildRegistrationSuccessMessage(baseMessage, role, responseData) {
   return baseMessage;
 }
 
-function AutoIdNotice({ label, example }) {
+function AutoIdNotice({ label }) {
   return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
-        {label}
-      </p>
-      <p className="mt-1 text-sm text-emerald-900">
-        Auto-generated on create (unique, no duplicates) — e.g. {example}
-      </p>
+    <div className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <span
+        className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-sky-100 text-sky-700"
+        aria-hidden="true"
+      >
+        <svg
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className="h-3.5 w-3.5"
+        >
+          <path
+            fillRule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-4a.75.75 0 01.75.75v.5a.75.75 0 01-1.5 0v-.5A.75.75 0 0110 6zm0 3a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 9z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-slate-700">{label}</p>
+        <p className="mt-0.5 text-sm text-slate-600">
+          Automatically generated after account creation.
+        </p>
+      </div>
     </div>
   );
 }
@@ -1667,7 +1683,7 @@ function RegisterUserForm({
 
         {role === "teacher" && (
           <>
-            <AutoIdNotice label="Teacher ID" example="T0001" />
+            <AutoIdNotice label="Teacher ID" />
             <OptionSelectField
               label="Assigned Subject Code"
               name="assignedSubject"
@@ -1699,7 +1715,7 @@ function RegisterUserForm({
               Stream: <strong>Commerce Risk Assessment</strong> — core subjects
               Accounting, Business Studies, Economics
             </div>
-            <AutoIdNotice label="Student ID" example="STU0001" />
+            <AutoIdNotice label="Student ID" />
             <OptionSelectField
               label="Class Name"
               name="className"
@@ -1729,7 +1745,7 @@ function RegisterUserForm({
 
         {role === "parent" && (
           <>
-            <AutoIdNotice label="Parent ID" example="P0001" />
+            <AutoIdNotice label="Parent ID" />
             <FormTextField
               label="Child Student ID"
               name="childStudent"
