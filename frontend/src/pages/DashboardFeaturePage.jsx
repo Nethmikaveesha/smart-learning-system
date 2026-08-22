@@ -353,7 +353,7 @@ const featureConfigs = {
   "/admin/exam-timetables": {
     title: "Exam Timetables",
     description:
-      "Schedule exam dates, times, and rooms. Select class and subject by name — IDs are sent in the background. This is separate from marks exams.",
+      "Schedule exam dates, times, and rooms. Select class and subject by name. This is separate from marks exams.",
     endpoint: "/exam-timetables",
     tableColumns: [
       "examName",
@@ -828,7 +828,7 @@ const featureConfigs = {
   "/teacher/marking-schemes": {
     title: "Marking Schemes",
     description:
-      "Create a marking scheme for an essay question. Select the paper by question text — the question ID is sent in the background.",
+      "Create a marking scheme for an essay question. Select the paper by its question text.",
     endpoint: "/essays/questions",
     tableColumns: ["gradeLevel", "question", "subject", "maxMarks"],
     form: {
