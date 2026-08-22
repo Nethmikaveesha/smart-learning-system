@@ -1005,6 +1005,8 @@ const featureConfigs = {
           placeholder: "Select class",
           optionsEndpoint: "/classes",
           optionValue: "_id",
+          // Keep every class row so the selected id can match student.class.
+          skipDedupe: true,
           getOptionLabel: formatClassOptionLabel,
         },
         {
@@ -1016,10 +1018,36 @@ const featureConfigs = {
           optionsEndpoint: "/student-profiles",
           optionValue: "_id",
           dependsOn: "classId",
-          filterBy: (item, values) => {
+          filterBy: (item, values, asyncOptions) => {
             if (!values.classId) return false;
-            const studentClassId = item.class?._id || item.class;
-            return String(studentClassId) === String(values.classId);
+
+            const studentClassId = String(item.class?._id || item.class || "");
+            if (studentClassId && studentClassId === String(values.classId)) {
+              return true;
+            }
+
+            // Duplicate class documents: match by class name + academic year.
+            const classes = resolveAsyncOptionItems(
+              { optionsEndpoint: "/classes" },
+              asyncOptions
+            );
+            const selectedClass = classes.find(
+              (classItem) => String(classItem._id) === String(values.classId)
+            );
+            if (!selectedClass || !item.class?.className) return false;
+
+            const sameName =
+              String(item.class.className).trim().toLowerCase() ===
+              String(selectedClass.className || "")
+                .trim()
+                .toLowerCase();
+            const sameYear =
+              !selectedClass.academicYear ||
+              !item.class.academicYear ||
+              String(item.class.academicYear) ===
+                String(selectedClass.academicYear);
+
+            return sameName && sameYear;
           },
           getOptionLabel: (item) => {
             const name = item.user?.fullName || "Student";

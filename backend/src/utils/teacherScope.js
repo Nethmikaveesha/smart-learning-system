@@ -3,11 +3,35 @@ import Subject from "../models/Subject.js";
 import StudentProfile from "../models/StudentProfile.js";
 import User from "../models/User.js";
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function expandClassIdsWithNameYearTwins(classDocs = []) {
+  const queries = classDocs
+    .filter((item) => item?.className)
+    .map((item) => ({
+      className: {
+        $regex: `^${escapeRegex(String(item.className).trim())}$`,
+        $options: "i",
+      },
+      academicYear: String(item.academicYear || ""),
+    }));
+
+  if (!queries.length) {
+    return classDocs.map((item) => item._id).filter(Boolean);
+  }
+
+  const twins = await Class.find({ $or: queries }).select("_id");
+  return twins.map((item) => item._id);
+}
+
 /**
  * Resolve the classes, subjects, and students belonging to one teacher.
  * Includes:
  * - classes where the teacher is the assigned class teacher
  * - classes linked to subjects the teacher teaches
+ * - duplicate class rows that share the same name + academic year
  */
 export async function getTeacherScope(teacherId) {
   const teacher = await User.findById(teacherId).select("fullName email");
@@ -32,17 +56,28 @@ export async function getTeacherScope(teacherId) {
     .map((profile) => profile.class)
     .filter(Boolean);
 
-  const classes = await Class.find({
+  const seedClasses = await Class.find({
     $or: [
       { assignedTeacher: teacherId },
       { _id: { $in: [...subjectLinkedClassIds, ...studentClassIds] } },
     ],
   }).select("className academicYear gradeLevel");
 
+  const expandedClassIds = await expandClassIdsWithNameYearTwins(seedClasses);
+
+  const classes = await Class.find({ _id: { $in: expandedClassIds } }).select(
+    "className academicYear gradeLevel"
+  );
+
   const classIds = classes.map((item) => item._id);
 
   const students = await StudentProfile.find({
-    class: { $in: classIds },
+    $or: [
+      { class: { $in: classIds } },
+      ...(taughtSubjectIds.length
+        ? [{ subjects: { $in: taughtSubjectIds } }]
+        : []),
+    ],
   }).select("_id studentId riskStatus attendancePercentage class subjects parent");
 
   const studentSubjectIds = [

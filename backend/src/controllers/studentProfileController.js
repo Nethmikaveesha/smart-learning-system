@@ -75,10 +75,20 @@ export const getAllStudentProfiles = async (req, res) => {
 
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
-      if (scope.classIds.length === 0) {
+
+      if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
         return res.status(200).json([]);
       }
-      filter.class = { $in: scope.classIds };
+
+      const orFilters = [];
+      if (scope.classIds.length > 0) {
+        orFilters.push({ class: { $in: scope.classIds } });
+      }
+      if (scope.subjectIds.length > 0) {
+        orFilters.push({ subjects: { $in: scope.subjectIds } });
+      }
+
+      filter.$or = orFilters;
     }
 
     const profiles = await StudentProfile.find(filter)
