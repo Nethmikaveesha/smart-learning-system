@@ -822,10 +822,7 @@ const featureConfigs = {
     },
   },
   "/teacher/question-bank": {
-    // Legacy URL — same data as My Papers; keep redirect via alias below.
-    title: "My Papers",
-    endpoint: "/essays/questions",
-    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
+    // Legacy URL — same list as My Papers; redirect keeps old bookmarks working.
     redirectTo: "/teacher/papers",
   },
   "/teacher/marking-schemes": {
