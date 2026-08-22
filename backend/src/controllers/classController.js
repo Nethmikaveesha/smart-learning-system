@@ -78,13 +78,15 @@ export const updateClass = async (req, res) => {
     if (stream !== undefined) existing.stream = stream || "Commerce";
     if (medium !== undefined) existing.medium = medium || "English";
     if (assignedTeacher !== undefined) {
-      existing.assignedTeacher = assignedTeacher || undefined;
+      // Empty string / null = unassign ("Not assigned" in UI). Use null so
+      // Mongoose clears the ObjectId instead of leaving the previous value.
+      existing.assignedTeacher = assignedTeacher || null;
     }
 
     await existing.save();
 
     const populated = await Class.findById(existing._id)
-      .populate("assignedTeacher", "fullName email role")
+      .populate("assignedTeacher", "fullName email role teacherId")
       .populate("students", "fullName email role");
 
     res.status(200).json({
@@ -124,7 +126,7 @@ export const getAllClasses = async (req, res) => {
     }
 
     const classes = await Class.find(filter)
-      .populate("assignedTeacher", "fullName email role")
+      .populate("assignedTeacher", "fullName email role teacherId")
       .populate("students", "fullName email role")
       .sort({ gradeLevel: 1, className: 1 });
 

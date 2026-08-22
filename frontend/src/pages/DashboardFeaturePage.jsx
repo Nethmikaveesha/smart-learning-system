@@ -145,8 +145,15 @@ const featureConfigs = {
         },
         {
           name: "assignedTeacher",
-          label: "Assigned Teacher ID",
-          placeholder: "Optional MongoDB User _id",
+          label: "Assigned Teacher (Optional)",
+          type: "searchable-async-select",
+          optionsEndpoint: "/users/teachers",
+          optionValue: "_id",
+          allowEmpty: true,
+          emptyLabel: "Not assigned",
+          placeholder: "Select a teacher",
+          getOptionLabel: (item) =>
+            `${item.teacherId || "No ID"} — ${item.fullName || "Teacher"}`,
         },
       ],
     },
@@ -202,8 +209,15 @@ const featureConfigs = {
           },
           {
             name: "assignedTeacher",
-            label: "Assigned Teacher ID",
-            placeholder: "Optional MongoDB User _id",
+            label: "Assigned Teacher (Optional)",
+            type: "searchable-async-select",
+            optionsEndpoint: "/users/teachers",
+            optionValue: "_id",
+            allowEmpty: true,
+            emptyLabel: "Not assigned",
+            placeholder: "Select a teacher",
+            getOptionLabel: (item) =>
+              `${item.teacherId || "No ID"} — ${item.fullName || "Teacher"}`,
           },
         ],
       },
@@ -266,8 +280,15 @@ const featureConfigs = {
           },
           {
             name: "assignedTeacher",
-            label: "Assigned Teacher ID",
-            placeholder: "Optional MongoDB User _id",
+            label: "Assigned Teacher (Optional)",
+            type: "searchable-async-select",
+            optionsEndpoint: "/users/teachers",
+            optionValue: "_id",
+            allowEmpty: true,
+            emptyLabel: "Not assigned",
+            placeholder: "Select a teacher",
+            getOptionLabel: (item) =>
+              `${item.teacherId || "No ID"} — ${item.fullName || "Teacher"}`,
           },
         ],
       },
@@ -1449,80 +1470,112 @@ function SearchableStudentSelect({
   error,
   required = false,
 }) {
+  const options = useMemo(
+    () =>
+      students.map((student) => ({
+        value: String(student._id),
+        label: formatStudentOptionLabel(student),
+        searchText: [
+          student.studentId,
+          student.user?.fullName,
+          student.user?.email,
+          student.class?.className,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      })),
+    [students]
+  );
+
+  return (
+    <SearchableOptionSelect
+      label={label}
+      required={required}
+      value={value}
+      options={options}
+      placeholder="Search by student name or ID"
+      error={error}
+      onChange={onChange}
+    />
+  );
+}
+
+function SearchableOptionSelect({
+  label,
+  value,
+  options,
+  onChange,
+  placeholder = "Search and select",
+  required = false,
+  disabled = false,
+  error = "",
+}) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
   const selected = useMemo(
-    () => students.find((student) => String(student._id) === String(value)),
-    [students, value]
+    () => options.find((option) => String(option.value) === String(value)),
+    [options, value]
   );
 
-  const filteredStudents = useMemo(() => {
+  const filteredOptions = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return students;
+    if (!needle) return options;
 
-    return students.filter((student) => {
-      const haystack = [
-        student.studentId,
-        student.user?.fullName,
-        student.user?.email,
-        student.class?.className,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+    return options.filter((option) => {
+      const haystack = `${option.label} ${option.searchText || ""}`.toLowerCase();
       return haystack.includes(needle);
     });
-  }, [query, students]);
+  }, [options, query]);
 
   return (
-    <div className="relative md:col-span-2">
+    <div className="relative">
       <label className="typo-label text-slate-700">
         {label}
         {required ? " *" : ""}
       </label>
       <input
         type="search"
-        value={open ? query : selected ? formatStudentOptionLabel(selected) : query}
+        disabled={disabled}
+        value={open ? query : selected ? selected.label : query}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
           if (value) onChange("");
         }}
         onFocus={() => {
+          if (disabled) return;
           setOpen(true);
           setQuery("");
         }}
         onBlur={() => {
           window.setTimeout(() => setOpen(false), 150);
         }}
-        placeholder="Search by student name or ID"
-        className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm outline-none ring-blue-600/30 transition focus:border-blue-500 focus:ring ${
+        placeholder={placeholder}
+        className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm outline-none ring-blue-600/30 transition focus:border-blue-500 focus:ring disabled:bg-slate-100 ${
           error ? "border-red-400" : "border-slate-300"
         }`}
         autoComplete="off"
       />
 
-      {open && (
+      {open && !disabled && (
         <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-          {filteredStudents.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-slate-500">
-              No matching students found.
-            </p>
+          {filteredOptions.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-slate-500">No matches found.</p>
           ) : (
-            filteredStudents.map((student) => (
+            filteredOptions.map((option) => (
               <button
-                key={student._id}
+                key={`${option.value || "empty"}-${option.label}`}
                 type="button"
                 className="block w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
-                  onChange(String(student._id));
+                  onChange(String(option.value ?? ""));
                   setQuery("");
                   setOpen(false);
                 }}
               >
-                {formatStudentOptionLabel(student)}
+                {option.label}
               </button>
             ))
           )}
@@ -1844,16 +1897,18 @@ function RegisterUserForm({
         {role === "parent" && (
           <>
             <AutoIdNotice label="Parent ID" />
-            <SearchableStudentSelect
-              label="Link to Student"
-              required
-              students={students}
-              value={values.childStudent}
-              onChange={(studentProfileId) =>
-                updateValue("childStudent", studentProfileId)
-              }
-              error={fieldErrors.childStudent}
-            />
+            <div className="md:col-span-2">
+              <SearchableStudentSelect
+                label="Link to Student"
+                required
+                students={students}
+                value={values.childStudent}
+                onChange={(studentProfileId) =>
+                  updateValue("childStudent", studentProfileId)
+                }
+                error={fieldErrors.childStudent}
+              />
+            </div>
             <OptionSelectField
               label="Relationship *"
               name="relationship"
@@ -1912,18 +1967,38 @@ function getFeatureFormInitialValues(fields) {
 }
 
 function getFieldSelectOptions(field, values, asyncOptions) {
-  if (field.type === "async-select") {
+  if (field.type === "async-select" || field.type === "searchable-async-select") {
     const items = asyncOptions[field.optionsEndpoint] || [];
     const filtered = field.filterBy
       ? items.filter((item) => field.filterBy(item, values, asyncOptions))
       : items;
 
-    return filtered.map((item) => ({
+    const options = filtered.map((item) => ({
       value: String(item[field.optionValue] || item._id || ""),
       label: field.getOptionLabel
         ? field.getOptionLabel(item)
         : String(item[field.optionValue] || item._id || ""),
+      searchText: [
+        item.teacherId,
+        item.studentId,
+        item.fullName,
+        item.email,
+        item.subjectName,
+        item.subjectCode,
+        item.className,
+      ]
+        .filter(Boolean)
+        .join(" "),
     }));
+
+    if (field.allowEmpty) {
+      return [
+        { value: "", label: field.emptyLabel || "Not assigned" },
+        ...options,
+      ];
+    }
+
+    return options;
   }
 
   if (!field.options) return [];
@@ -1933,6 +2008,15 @@ function getFieldSelectOptions(field, values, asyncOptions) {
       ? option
       : { value: option, label: option }
   );
+}
+
+function resolveRecordFieldValue(record, fieldName) {
+  const raw = record?.[fieldName];
+  if (raw === undefined || raw === null) return "";
+  if (typeof raw === "object") {
+    return String(raw._id || raw.id || "");
+  }
+  return String(raw);
 }
 
 function FeatureForm({ form, token, onSaved, onError }) {
@@ -1982,7 +2066,12 @@ function FeatureForm({ form, token, onSaved, onError }) {
       const endpoints = [
         ...new Set(
           form.fields
-            .filter((field) => field.type === "async-select" && field.optionsEndpoint)
+            .filter(
+              (field) =>
+                (field.type === "async-select" ||
+                  field.type === "searchable-async-select") &&
+                field.optionsEndpoint
+            )
             .map((field) => field.optionsEndpoint)
         ),
       ];
@@ -2030,6 +2119,24 @@ function FeatureForm({ form, token, onSaved, onError }) {
           next[field.name] = "";
         }
       });
+
+      // When the edit-target record is selected, hydrate the rest of the form.
+      if (form.idField && fieldName === form.idField) {
+        const idFieldConfig = form.fields.find(
+          (field) => field.name === form.idField
+        );
+        const records = asyncOptions[idFieldConfig?.optionsEndpoint] || [];
+        const selected = records.find(
+          (item) => String(item._id) === String(nextValue)
+        );
+
+        if (selected) {
+          form.fields.forEach((field) => {
+            if (field.name === form.idField || field.omitFromPayload) return;
+            next[field.name] = resolveRecordFieldValue(selected, field.name);
+          });
+        }
+      }
 
       return next;
     });
@@ -2140,6 +2247,24 @@ function FeatureForm({ form, token, onSaved, onError }) {
             field.type === "select" || field.type === "async-select";
           const dependsOnMissing =
             field.dependsOn && !values[field.dependsOn];
+
+          if (field.type === "searchable-async-select") {
+            return (
+              <div key={field.name} className="md:col-span-2">
+                <SearchableOptionSelect
+                  label={field.label}
+                  required={field.required}
+                  value={values[field.name]}
+                  options={selectOptions}
+                  placeholder={field.placeholder || "Search and select"}
+                  disabled={dependsOnMissing || loadingOptions}
+                  onChange={(nextValue) =>
+                    updateFieldValue(field.name, nextValue)
+                  }
+                />
+              </div>
+            );
+          }
 
           return (
             <label key={field.name} className="typo-label text-slate-700">

@@ -51,7 +51,9 @@ export const updateSubject = async (req, res) => {
     }
 
     if (assignedTeacher !== undefined) {
-      existing.assignedTeacher = assignedTeacher || undefined;
+      // Empty string / null = unassign ("Not assigned" in UI). Use null so
+      // Mongoose clears the ObjectId instead of leaving the previous value.
+      existing.assignedTeacher = assignedTeacher || null;
     }
 
     if (isActive !== undefined) {
@@ -61,7 +63,7 @@ export const updateSubject = async (req, res) => {
     await existing.save();
 
     const populated = await Subject.findById(existing._id)
-      .populate("assignedTeacher", "fullName email")
+      .populate("assignedTeacher", "fullName email teacherId")
       .populate("classes", "className");
 
     res.status(200).json({
@@ -85,7 +87,7 @@ export const getAllSubjects = async (req, res) => {
     }
 
     const subjects = await Subject.find(filter)
-      .populate("assignedTeacher", "fullName email")
+      .populate("assignedTeacher", "fullName email teacherId")
       .populate("classes", "className");
 
     res.status(200).json(subjects);
