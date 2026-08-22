@@ -5,13 +5,39 @@ import User from "../models/User.js";
 
 /**
  * Resolve the classes, subjects, and students belonging to one teacher.
- * Used to scope teacher dashboard APIs so staff only see their own work.
+ * Includes:
+ * - classes where the teacher is the assigned class teacher
+ * - classes linked to subjects the teacher teaches
  */
 export async function getTeacherScope(teacherId) {
   const teacher = await User.findById(teacherId).select("fullName email");
-  const classes = await Class.find({ assignedTeacher: teacherId }).select(
-    "className academicYear gradeLevel"
+
+  const taughtSubjects = await Subject.find({ assignedTeacher: teacherId }).select(
+    "subjectName subjectCode classes"
   );
+  const taughtSubjectIds = taughtSubjects.map((subject) => subject._id);
+
+  const subjectLinkedClassIds = taughtSubjects.flatMap(
+    (subject) => subject.classes || []
+  );
+
+  const studentsTakingSubjects =
+    taughtSubjectIds.length > 0
+      ? await StudentProfile.find({
+          subjects: { $in: taughtSubjectIds },
+        }).select("class")
+      : [];
+
+  const studentClassIds = studentsTakingSubjects
+    .map((profile) => profile.class)
+    .filter(Boolean);
+
+  const classes = await Class.find({
+    $or: [
+      { assignedTeacher: teacherId },
+      { _id: { $in: [...subjectLinkedClassIds, ...studentClassIds] } },
+    ],
+  }).select("className academicYear gradeLevel");
 
   const classIds = classes.map((item) => item._id);
 
@@ -53,11 +79,9 @@ export async function getTeacherScope(teacherId) {
 
 export async function assertTeacherOwnsClass(teacherId, classId) {
   if (!classId) return false;
-  const classRecord = await Class.findById(classId).select("assignedTeacher");
-  return (
-    classRecord &&
-    String(classRecord.assignedTeacher || "") === String(teacherId)
-  );
+
+  const scope = await getTeacherScope(teacherId);
+  return scope.classIdStrings.includes(String(classId));
 }
 
 export async function assertTeacherOwnsSubject(teacherId, subjectId) {

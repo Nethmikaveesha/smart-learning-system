@@ -988,10 +988,14 @@ const featureConfigs = {
       "Select a class and student by name, then mark Present or Absent.",
     endpoint: "/classes",
     tableColumns: ["className", "stream", "medium", "academicYear"],
+    emptyMessage:
+      "No classes available yet. Ask an admin to assign you as class teacher, or link your subject to a class.",
     form: {
       endpoint: "/attendance",
       method: "post",
       submitLabel: "Mark Attendance",
+      formDescription:
+        "Choose the class first, then the student, date, and attendance status.",
       fields: [
         {
           name: "classId",

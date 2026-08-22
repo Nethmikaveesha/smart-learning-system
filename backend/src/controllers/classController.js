@@ -4,6 +4,7 @@ import {
   normalizeGradeLevel,
 } from "../utils/gradeLevel.js";
 import { getCommerceClassCatalog } from "../utils/commerceClasses.js";
+import { getTeacherScope } from "../utils/teacherScope.js";
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -164,9 +165,10 @@ export const getAllClasses = async (req, res) => {
       }
     }
 
-    // Teachers only see classes assigned to them; admins see all.
+    // Teachers see classes they own and classes linked to their subjects.
     if (req.user?.role === "teacher") {
-      filter.assignedTeacher = req.user._id;
+      const scope = await getTeacherScope(req.user._id);
+      filter._id = { $in: scope.classIds };
     }
 
     const classes = await Class.find(filter)
