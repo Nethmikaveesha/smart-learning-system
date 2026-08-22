@@ -4,6 +4,10 @@ import {
   normalizeGradeLevel,
 } from "../utils/gradeLevel.js";
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export const createClass = async (req, res) => {
   try {
     const { className, academicYear, assignedTeacher, gradeLevel } = req.body;
@@ -22,9 +26,24 @@ export const createClass = async (req, res) => {
       });
     }
 
+    const normalizedName = String(className).trim();
+    const normalizedYear = String(academicYear).trim();
+
+    const duplicate = await Class.findOne({
+      className: { $regex: `^${escapeRegex(normalizedName)}$`, $options: "i" },
+      academicYear: normalizedYear,
+      stream: req.body.stream || "Commerce",
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        message: `Class "${normalizedName}" already exists for academic year ${normalizedYear}`,
+      });
+    }
+
     const newClass = await Class.create({
-      className: String(className).trim(),
-      academicYear: String(academicYear).trim(),
+      className: normalizedName,
+      academicYear: normalizedYear,
       gradeLevel: resolvedGradeLevel,
       stream: req.body.stream || "Commerce",
       medium: req.body.medium || "English",
@@ -81,6 +100,22 @@ export const updateClass = async (req, res) => {
       // Empty string / null = unassign ("Not assigned" in UI). Use null so
       // Mongoose clears the ObjectId instead of leaving the previous value.
       existing.assignedTeacher = assignedTeacher || null;
+    }
+
+    const duplicate = await Class.findOne({
+      _id: { $ne: existing._id },
+      className: {
+        $regex: `^${escapeRegex(existing.className)}$`,
+        $options: "i",
+      },
+      academicYear: existing.academicYear,
+      stream: existing.stream || "Commerce",
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        message: `Class "${existing.className}" already exists for academic year ${existing.academicYear}`,
+      });
     }
 
     await existing.save();

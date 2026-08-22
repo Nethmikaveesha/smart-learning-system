@@ -8,6 +8,13 @@ import useClientTable from "../hooks/useClientTable";
 import { isSuperAdmin } from "../utils/adminRoles";
 import { toastError, toastSuccess } from "../utils/toastBridge";
 import {
+  dedupeClasses,
+  findClassById,
+  findClassIdForValues,
+  toClassIdSelectOptions,
+  toClassNameSelectOptions,
+} from "../utils/classOptions";
+import {
   getPasswordStrength,
   validateRegistrationForm,
 } from "../utils/registrationValidation";
@@ -173,6 +180,7 @@ const featureConfigs = {
             type: "async-select",
             required: true,
             omitFromPayload: true,
+            skipDedupe: true,
             optionsEndpoint: "/classes",
             optionValue: "_id",
             getOptionLabel: formatClassOptionLabel,
@@ -1693,15 +1701,14 @@ function RegisterUserForm({
     });
   };
 
-  const updateClassName = (className) => {
-    const selectedClass = classes.find(
-      (classItem) => classItem.className === className
-    );
+  const updateClassName = (classId) => {
+    const selectedClass = findClassById(classes, classId);
+    if (!selectedClass) return;
 
     setValues((current) => ({
       ...current,
-      className,
-      academicYear: selectedClass?.academicYear || current.academicYear,
+      className: selectedClass.className,
+      academicYear: selectedClass.academicYear || current.academicYear,
     }));
   };
 
@@ -1874,10 +1881,7 @@ function RegisterUserForm({
               value={values.assignedClass}
               onChange={updateValue}
               placeholder="Select class"
-              options={classes.map((classItem) => ({
-                value: classItem.className,
-                label: classItem.className,
-              }))}
+              options={toClassNameSelectOptions(classes)}
             />
           </>
         )}
@@ -1892,15 +1896,14 @@ function RegisterUserForm({
             <OptionSelectField
               label="Class Name"
               name="className"
-              value={values.className}
+              value={findClassIdForValues(
+                classes,
+                values.className,
+                values.academicYear
+              )}
               onChange={(_, value) => updateClassName(value)}
               placeholder="Select class (e.g. 12 Commerce A)"
-              options={classes.map((classItem) => ({
-                value: classItem.className,
-                label: `${classItem.className}${
-                  classItem.stream ? ` · ${classItem.stream}` : " · Commerce"
-                }`,
-              }))}
+              options={toClassIdSelectOptions(classes)}
             />
             <OptionSelectField
               label="Academic Year"
@@ -1990,7 +1993,11 @@ function getFeatureFormInitialValues(fields) {
 
 function getFieldSelectOptions(field, values, asyncOptions) {
   if (field.type === "async-select" || field.type === "searchable-async-select") {
-    const items = asyncOptions[field.optionsEndpoint] || [];
+    const rawItems = asyncOptions[field.optionsEndpoint] || [];
+    const items =
+      field.optionsEndpoint === "/classes" && !field.skipDedupe
+        ? dedupeClasses(rawItems)
+        : rawItems;
     const filtered = field.filterBy
       ? items.filter((item) => field.filterBy(item, values, asyncOptions))
       : items;

@@ -4,6 +4,10 @@ import StudentProfile from "../models/StudentProfile.js";
 import Subject from "../models/Subject.js";
 import { inferGradeLevel } from "./gradeLevel.js";
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export const isValidObjectId = (value) =>
   mongoose.Types.ObjectId.isValid(value) &&
   String(new mongoose.Types.ObjectId(value)) === String(value);
@@ -25,7 +29,7 @@ export const resolveSubject = async (reference) => {
   });
 };
 
-export const resolveClass = async (reference) => {
+export const resolveClass = async (reference, academicYear = "") => {
   if (!reference) return null;
 
   if (isValidObjectId(reference)) {
@@ -33,19 +37,25 @@ export const resolveClass = async (reference) => {
   }
 
   const normalized = String(reference).trim();
+  const year = String(academicYear || "").trim();
+
+  if (year) {
+    const withYear = await Class.findOne({
+      className: { $regex: `^${escapeRegex(normalized)}$`, $options: "i" },
+      academicYear: year,
+    });
+    if (withYear) return withYear;
+  }
 
   return Class.findOne({
-    $or: [
-      { className: { $regex: `^${normalized}$`, $options: "i" } },
-      { academicYear: normalized },
-    ],
+    className: { $regex: `^${escapeRegex(normalized)}$`, $options: "i" },
   });
 };
 
 export const resolveOrCreateClass = async (className, academicYear = "") => {
   if (!className) return null;
 
-  const existingClass = await resolveClass(className);
+  const existingClass = await resolveClass(className, academicYear);
   if (existingClass) {
     if (!existingClass.gradeLevel) {
       const inferred = inferGradeLevel(existingClass.className || className);

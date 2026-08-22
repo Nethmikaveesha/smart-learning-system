@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import TablePagination from "./TablePagination";
 import useClientTable from "../hooks/useClientTable";
+import {
+  findClassById,
+  findClassIdForValues,
+  toClassIdSelectOptions,
+  toClassNameSelectOptions,
+} from "../utils/classOptions";
 
 // Student profile records come with nested user/class data.
 // This converts them into clean table rows.
@@ -599,22 +605,22 @@ function EditRecordModal({
               />
               <EditSelectField
                 label="Class Name"
-                value={formValues.className}
+                value={findClassIdForValues(
+                  classes,
+                  formValues.className,
+                  formValues.academicYear
+                )}
                 placeholder="Select class"
-                options={classes.map((classItem) => ({
-                  value: classItem.className,
-                  label: classItem.className,
-                }))}
+                options={toClassIdSelectOptions(classes)}
                 onChange={(value) => {
-                  const selectedClass = classes.find(
-                    (classItem) => classItem.className === value
-                  );
+                  const selectedClass = findClassById(classes, value);
+                  if (!selectedClass) return;
 
                   setFormValues((current) => ({
                     ...current,
-                    className: value,
+                    className: selectedClass.className,
                     academicYear:
-                      selectedClass?.academicYear || current.academicYear,
+                      selectedClass.academicYear || current.academicYear,
                   }));
                 }}
               />
@@ -652,10 +658,7 @@ function EditRecordModal({
                 label="Assigned Class Name"
                 value={formValues.assignedClassName}
                 placeholder="Select class"
-                options={classes.map((classItem) => ({
-                  value: classItem.className,
-                  label: classItem.className,
-                }))}
+                options={toClassNameSelectOptions(classes)}
                 onChange={(value) => updateField("assignedClassName", value)}
               />
             </>
