@@ -23,6 +23,33 @@ import {
   validateRegistrationForm,
 } from "../utils/registrationValidation";
 
+/** Match a student profile to the selected class id (supports duplicate class rows). */
+function studentMatchesSelectedClass(student, selectedClassId, classes = []) {
+  if (!selectedClassId) return false;
+
+  const studentClassId = String(student?.class?._id || student?.class || "");
+  if (studentClassId && studentClassId === String(selectedClassId)) {
+    return true;
+  }
+
+  const selectedClass = classes.find(
+    (classItem) => String(classItem?._id) === String(selectedClassId)
+  );
+  if (!selectedClass || !student?.class?.className) return false;
+
+  const sameName =
+    String(student.class.className).trim().toLowerCase() ===
+    String(selectedClass.className || "")
+      .trim()
+      .toLowerCase();
+  const sameYear =
+    !selectedClass.academicYear ||
+    !student.class.academicYear ||
+    String(student.class.academicYear) === String(selectedClass.academicYear);
+
+  return sameName && sameYear;
+}
+
 /** Real-world class label: "Grade 13 — 13 Commerce A (2026)" */
 function formatClassOptionLabel(item) {
   const grade = item.gradeLevel ? `Grade ${item.gradeLevel}` : null;
@@ -1018,37 +1045,15 @@ const featureConfigs = {
           optionsEndpoint: "/student-profiles",
           optionValue: "_id",
           dependsOn: "classId",
-          filterBy: (item, values, asyncOptions) => {
-            if (!values.classId) return false;
-
-            const studentClassId = String(item.class?._id || item.class || "");
-            if (studentClassId && studentClassId === String(values.classId)) {
-              return true;
-            }
-
-            // Duplicate class documents: match by class name + academic year.
-            const classes = resolveAsyncOptionItems(
-              { optionsEndpoint: "/classes" },
-              asyncOptions
-            );
-            const selectedClass = classes.find(
-              (classItem) => String(classItem._id) === String(values.classId)
-            );
-            if (!selectedClass || !item.class?.className) return false;
-
-            const sameName =
-              String(item.class.className).trim().toLowerCase() ===
-              String(selectedClass.className || "")
-                .trim()
-                .toLowerCase();
-            const sameYear =
-              !selectedClass.academicYear ||
-              !item.class.academicYear ||
-              String(item.class.academicYear) ===
-                String(selectedClass.academicYear);
-
-            return sameName && sameYear;
-          },
+          filterBy: (item, values, asyncOptions) =>
+            studentMatchesSelectedClass(
+              item,
+              values.classId,
+              resolveAsyncOptionItems(
+                { optionsEndpoint: "/classes" },
+                asyncOptions
+              )
+            ),
           getOptionLabel: (item) => {
             const name = item.user?.fullName || "Student";
             const code = item.studentId || "No ID";

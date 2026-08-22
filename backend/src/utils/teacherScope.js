@@ -7,23 +7,50 @@ function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function expandClassIdsWithNameYearTwins(classDocs = []) {
-  const queries = classDocs
-    .filter((item) => item?.className)
-    .map((item) => ({
-      className: {
-        $regex: `^${escapeRegex(String(item.className).trim())}$`,
-        $options: "i",
-      },
-      academicYear: String(item.academicYear || ""),
-    }));
+function uniqueObjectIds(ids = []) {
+  const seen = new Set();
+  const result = [];
 
-  if (!queries.length) {
-    return classDocs.map((item) => item._id).filter(Boolean);
+  for (const id of ids) {
+    if (!id) continue;
+    const key = String(id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(id);
   }
 
+  return result;
+}
+
+/**
+ * Keep original class ids and also include any duplicate rows that share
+ * the same className + academicYear (common after repeated seeding).
+ */
+async function expandClassIdsWithNameYearTwins(classDocs = []) {
+  const originalIds = uniqueObjectIds(classDocs.map((item) => item._id));
+  if (!originalIds.length) return [];
+
+  const queries = classDocs
+    .filter((item) => item?.className)
+    .map((item) => {
+      const query = {
+        className: {
+          $regex: `^${escapeRegex(String(item.className).trim())}$`,
+          $options: "i",
+        },
+      };
+
+      if (item.academicYear) {
+        query.academicYear = String(item.academicYear);
+      }
+
+      return query;
+    });
+
+  if (!queries.length) return originalIds;
+
   const twins = await Class.find({ $or: queries }).select("_id");
-  return twins.map((item) => item._id);
+  return uniqueObjectIds([...originalIds, ...twins.map((item) => item._id)]);
 }
 
 /**
@@ -31,7 +58,8 @@ async function expandClassIdsWithNameYearTwins(classDocs = []) {
  * Includes:
  * - classes where the teacher is the assigned class teacher
  * - classes linked to subjects the teacher teaches
- * - duplicate class rows that share the same name + academic year
+ * - classes that contain students taking the teacher's subjects
+ * - duplicate class rows with the same name + academic year
  */
 export async function getTeacherScope(teacherId) {
   const teacher = await User.findById(teacherId).select("fullName email");
@@ -41,8 +69,8 @@ export async function getTeacherScope(teacherId) {
   );
   const taughtSubjectIds = taughtSubjects.map((subject) => subject._id);
 
-  const subjectLinkedClassIds = taughtSubjects.flatMap(
-    (subject) => subject.classes || []
+  const subjectLinkedClassIds = uniqueObjectIds(
+    taughtSubjects.flatMap((subject) => subject.classes || [])
   );
 
   const studentsTakingSubjects =
@@ -52,33 +80,52 @@ export async function getTeacherScope(teacherId) {
         }).select("class")
       : [];
 
-  const studentClassIds = studentsTakingSubjects
-    .map((profile) => profile.class)
-    .filter(Boolean);
+  const studentClassIds = uniqueObjectIds(
+    studentsTakingSubjects.map((profile) => profile.class)
+  );
 
-  const seedClasses = await Class.find({
-    $or: [
-      { assignedTeacher: teacherId },
-      { _id: { $in: [...subjectLinkedClassIds, ...studentClassIds] } },
-    ],
-  }).select("className academicYear gradeLevel");
+  const seedQuery = {
+    $or: [{ assignedTeacher: teacherId }],
+  };
 
-  const expandedClassIds = await expandClassIdsWithNameYearTwins(seedClasses);
+  const linkedIds = uniqueObjectIds([
+    ...subjectLinkedClassIds,
+    ...studentClassIds,
+  ]);
 
-  const classes = await Class.find({ _id: { $in: expandedClassIds } }).select(
+  if (linkedIds.length > 0) {
+    seedQuery.$or.push({ _id: { $in: linkedIds } });
+  }
+
+  const seedClasses = await Class.find(seedQuery).select(
     "className academicYear gradeLevel"
   );
 
+  const expandedClassIds = await expandClassIdsWithNameYearTwins(seedClasses);
+
+  const classes =
+    expandedClassIds.length > 0
+      ? await Class.find({ _id: { $in: expandedClassIds } })
+          .select("className academicYear gradeLevel")
+          .sort({ gradeLevel: 1, className: 1 })
+      : [];
+
   const classIds = classes.map((item) => item._id);
 
-  const students = await StudentProfile.find({
-    $or: [
-      { class: { $in: classIds } },
-      ...(taughtSubjectIds.length
-        ? [{ subjects: { $in: taughtSubjectIds } }]
-        : []),
-    ],
-  }).select("_id studentId riskStatus attendancePercentage class subjects parent");
+  const studentQuery = { $or: [] };
+  if (classIds.length > 0) {
+    studentQuery.$or.push({ class: { $in: classIds } });
+  }
+  if (taughtSubjectIds.length > 0) {
+    studentQuery.$or.push({ subjects: { $in: taughtSubjectIds } });
+  }
+
+  const students =
+    studentQuery.$or.length > 0
+      ? await StudentProfile.find(studentQuery).select(
+          "_id studentId riskStatus attendancePercentage class subjects parent"
+        )
+      : [];
 
   const studentSubjectIds = [
     ...new Set(
@@ -88,27 +135,29 @@ export async function getTeacherScope(teacherId) {
     ),
   ];
 
-  const subjects = await Subject.find({
-    $or: [{ assignedTeacher: teacherId }, { _id: { $in: studentSubjectIds } }],
-  }).select("subjectName subjectCode");
+  const subjectQuery = { $or: [{ assignedTeacher: teacherId }] };
+  if (studentSubjectIds.length > 0) {
+    subjectQuery.$or.push({ _id: { $in: studentSubjectIds } });
+  }
+
+  const subjects = await Subject.find(subjectQuery).select(
+    "subjectName subjectCode"
+  );
 
   const subjectIds = subjects.map((item) => item._id);
   const studentIds = students.map((student) => student._id);
-  const subjectIdStrings = subjectIds.map((id) => id.toString());
-  const classIdStrings = classIds.map((id) => id.toString());
-  const studentIdStrings = studentIds.map((id) => id.toString());
 
   return {
     teacher,
     classes,
     subjects,
     classIds,
-    classIdStrings,
+    classIdStrings: classIds.map((id) => id.toString()),
     subjectIds,
-    subjectIdStrings,
+    subjectIdStrings: subjectIds.map((id) => id.toString()),
     students,
     studentIds,
-    studentIdStrings,
+    studentIdStrings: studentIds.map((id) => id.toString()),
   };
 }
 

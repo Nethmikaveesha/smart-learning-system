@@ -168,6 +168,9 @@ export const getAllClasses = async (req, res) => {
     // Teachers see classes they own and classes linked to their subjects.
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
+      if (!scope.classIds.length) {
+        return res.status(200).json([]);
+      }
       filter._id = { $in: scope.classIds };
     }
 
