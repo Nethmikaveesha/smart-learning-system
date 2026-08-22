@@ -3,6 +3,8 @@ import { useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import UserRecordsTable from "../components/UserRecordsTable";
+import TablePagination from "../components/TablePagination";
+import useClientTable from "../hooks/useClientTable";
 import {
   getPasswordStrength,
   validateRegistrationForm,
@@ -2195,6 +2197,17 @@ function DataTable({
   onError,
 }) {
   const [actionUserId, setActionUserId] = useState(null);
+  const columns = tableColumns || getColumns(rows);
+  const {
+    searchQuery,
+    setSearchQuery,
+    currentPage,
+    setCurrentPage,
+    pageRows,
+    totalItems,
+    totalPages,
+    pageSize,
+  } = useClientTable(rows, { columns });
 
   if (!data) return <EmptyState icon={emptyIcon} message={emptyMessage} />;
 
@@ -2206,8 +2219,6 @@ function DataTable({
       />
     );
   }
-
-  const columns = tableColumns || getColumns(rows);
 
   const disableUser = async (row) => {
     const userId = row._id || row.id;
@@ -2278,73 +2289,106 @@ function DataTable({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100 text-slate-700">
-            <tr>
-              {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap p-3 font-semibold">
-                  {formatLabel(column)}
-                </th>
-              ))}
-              {rowAction && (
-                <th className="whitespace-nowrap p-3 font-semibold">Action</th>
-              )}
-            </tr>
-          </thead>
+      <div className="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="block w-full max-w-md">
+          <span className="sr-only">Search records</span>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search this table..."
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none ring-blue-600/30 transition placeholder:text-slate-400 focus:border-blue-500 focus:ring"
+          />
+        </label>
+        <p className="text-xs font-medium text-slate-500">
+          {totalItems} match{totalItems === 1 ? "" : "es"}
+        </p>
+      </div>
 
-          <tbody>
-            {rows.map((row, index) => (
-              <tr
-                key={row._id || row.id || index}
-                className="border-t border-slate-200 bg-white"
-              >
+      {totalItems === 0 ? (
+        <div className="px-4 py-10 text-center text-sm font-medium text-slate-500">
+          No records match your search.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-100 text-slate-700">
+              <tr>
                 {columns.map((column) => (
-                  <td
+                  <th
                     key={column}
-                    className="max-w-sm p-3 align-top text-slate-700"
+                    className="whitespace-nowrap p-3 font-semibold"
                   >
-                    {formatCellValue(column, row[column])}
-                  </td>
+                    {formatLabel(column)}
+                  </th>
                 ))}
-
-                {rowAction === "disableUser" && (
-                  <td className="p-3 align-top">
-                    {row.isActive ? (
-                      <button
-                        type="button"
-                        disabled={
-                          actionUserId === (row._id || row.id) ||
-                          (row._id || row.id) === currentUserId
-                        }
-                        onClick={() => disableUser(row)}
-                        className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:bg-slate-300"
-                      >
-                        {actionUserId === (row._id || row.id)
-                          ? "Disabling..."
-                          : (row._id || row.id) === currentUserId
-                          ? "Current User"
-                          : "Disable"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={actionUserId === (row._id || row.id)}
-                        onClick={() => enableUser(row)}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
-                      >
-                        {actionUserId === (row._id || row.id)
-                          ? "Enabling..."
-                          : "Enable"}
-                      </button>
-                    )}
-                  </td>
+                {rowAction && (
+                  <th className="whitespace-nowrap p-3 font-semibold">Action</th>
                 )}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+
+            <tbody>
+              {pageRows.map((row, index) => (
+                <tr
+                  key={row._id || row.id || index}
+                  className="border-t border-slate-200 bg-white"
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={column}
+                      className="max-w-sm p-3 align-top text-slate-700"
+                    >
+                      {formatCellValue(column, row[column])}
+                    </td>
+                  ))}
+
+                  {rowAction === "disableUser" && (
+                    <td className="p-3 align-top">
+                      {row.isActive ? (
+                        <button
+                          type="button"
+                          disabled={
+                            actionUserId === (row._id || row.id) ||
+                            (row._id || row.id) === currentUserId
+                          }
+                          onClick={() => disableUser(row)}
+                          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:bg-slate-300"
+                        >
+                          {actionUserId === (row._id || row.id)
+                            ? "Disabling..."
+                            : (row._id || row.id) === currentUserId
+                              ? "Current User"
+                              : "Disable"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={actionUserId === (row._id || row.id)}
+                          onClick={() => enableUser(row)}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
+                        >
+                          {actionUserId === (row._id || row.id)
+                            ? "Enabling..."
+                            : "Enable"}
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <TablePagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

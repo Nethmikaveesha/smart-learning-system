@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
+import TablePagination from "./TablePagination";
+import useClientTable from "../hooks/useClientTable";
 
 // Student profile records come with nested user/class data.
 // This converts them into clean table rows.
@@ -324,8 +326,55 @@ function UserRecordsTable({
   }
 
   return (
+    <UserRecordsTableBody
+      title={title}
+      rows={rows}
+      columns={columns}
+      openEdit={openEdit}
+      deleteRow={deleteRow}
+      editingRow={editingRow}
+      listType={listType}
+      formValues={formValues}
+      setFormValues={setFormValues}
+      subjects={subjects}
+      classes={classes}
+      academicYearOptions={academicYearOptions}
+      closeEdit={closeEdit}
+      saveEdit={saveEdit}
+    />
+  );
+}
+
+function UserRecordsTableBody({
+  title,
+  rows,
+  columns,
+  openEdit,
+  deleteRow,
+  editingRow,
+  listType,
+  formValues,
+  setFormValues,
+  subjects,
+  classes,
+  academicYearOptions,
+  closeEdit,
+  saveEdit,
+}) {
+  const {
+    searchQuery,
+    setSearchQuery,
+    currentPage,
+    setCurrentPage,
+    pageRows,
+    totalItems,
+    totalPages,
+    pageSize,
+  } = useClientTable(rows, { columns });
+
+  return (
     <section className="mt-8">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="typo-eyebrow text-blue-700">
             Records
@@ -335,73 +384,99 @@ function UserRecordsTable({
           </h2>
         </div>
 
-        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-          {rows.length} record{rows.length === 1 ? "" : "s"}
-        </span>
+        <div className="flex w-full flex-col gap-2 sm:max-w-md sm:items-end">
+          <label className="block w-full">
+            <span className="sr-only">Search records</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search this table..."
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none ring-blue-600/30 transition placeholder:text-slate-400 focus:border-blue-500 focus:ring"
+            />
+          </label>
+          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {totalItems} record{totalItems === 1 ? "" : "s"}
+          </span>
+        </div>
       </div>
 
       {rows.length === 0 ? (
         <EmptyRecords />
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-700">
-                <tr>
-                  {columns.map((column) => (
-                    <th key={column} className="whitespace-nowrap p-3 font-semibold">
-                      {formatLabel(column)}
-                    </th>
-                  ))}
-                  <th className="whitespace-nowrap p-3 font-semibold">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.recordId}
-                    className="border-t border-slate-200 bg-white transition hover:bg-slate-50"
-                  >
+          {totalItems === 0 ? (
+            <div className="px-4 py-10 text-center text-sm font-medium text-slate-500">
+              No records match your search.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
                     {columns.map((column) => (
-                      <td
-                        key={column}
-                        className="whitespace-nowrap p-3 text-slate-700"
-                      >
-                        {column === "status" ? (
-                          <StatusBadge status={row[column]} />
-                        ) : column === "role" ? (
-                          <RoleBadge role={row[column]} />
-                        ) : (
-                          row[column] || "N/A"
-                        )}
-                      </td>
+                      <th key={column} className="whitespace-nowrap p-3 font-semibold">
+                        {formatLabel(column)}
+                      </th>
                     ))}
-
-                    <td className="whitespace-nowrap p-3">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(row)}
-                          className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => deleteRow(row)}
-                          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                    <th className="whitespace-nowrap p-3 font-semibold">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+
+                <tbody>
+                  {pageRows.map((row) => (
+                    <tr
+                      key={row.recordId}
+                      className="border-t border-slate-200 bg-white transition hover:bg-slate-50"
+                    >
+                      {columns.map((column) => (
+                        <td
+                          key={column}
+                          className="whitespace-nowrap p-3 text-slate-700"
+                        >
+                          {column === "status" ? (
+                            <StatusBadge status={row[column]} />
+                          ) : column === "role" ? (
+                            <RoleBadge role={row[column]} />
+                          ) : (
+                            row[column] || "N/A"
+                          )}
+                        </td>
+                      ))}
+
+                      <td className="whitespace-nowrap p-3">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(row)}
+                            className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteRow(row)}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
