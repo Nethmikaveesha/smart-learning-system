@@ -912,14 +912,17 @@ const featureConfigs = {
           optionValue: "_id",
           dependsOn: "exam",
           filterBy: (item, values, asyncOptions) => {
-            if (!values.exam) return true;
+            if (!values.exam) return false;
 
-            const exams = asyncOptions["/exams"] || [];
+            const exams = resolveAsyncOptionItems(
+              { optionsEndpoint: "/exams" },
+              asyncOptions
+            );
             const selectedExam = exams.find(
               (exam) => String(exam._id) === String(values.exam)
             );
 
-            if (!selectedExam) return true;
+            if (!selectedExam) return false;
 
             const examClassId = selectedExam.class?._id || selectedExam.class;
             const studentClassId = item.class?._id || item.class;
@@ -982,7 +985,7 @@ const featureConfigs = {
   "/teacher/attendance": {
     title: "Attendance Management",
     description:
-      "Select a class and student by name, then mark Present or Absent. MongoDB IDs are sent in the background.",
+      "Select a class and student by name, then mark Present or Absent.",
     endpoint: "/classes",
     tableColumns: ["className", "stream", "medium", "academicYear"],
     form: {
@@ -1010,7 +1013,7 @@ const featureConfigs = {
           optionValue: "_id",
           dependsOn: "classId",
           filterBy: (item, values) => {
-            if (!values.classId) return true;
+            if (!values.classId) return false;
             const studentClassId = item.class?._id || item.class;
             return String(studentClassId) === String(values.classId);
           },
@@ -1030,8 +1033,13 @@ const featureConfigs = {
           name: "status",
           label: "Status",
           type: "select",
-          options: ["Present", "Absent"],
           required: true,
+          defaultValue: "Present",
+          placeholder: "Select status",
+          options: [
+            { value: "Present", label: "Present" },
+            { value: "Absent", label: "Absent" },
+          ],
         },
       ],
     },
@@ -2377,6 +2385,9 @@ function FeatureForm({ form, token, onSaved, onError }) {
             field.type === "select" || field.type === "async-select";
           const dependsOnMissing =
             field.dependsOn && !values[field.dependsOn];
+          const dependsOnLabel =
+            form.fields.find((item) => item.name === field.dependsOn)?.label ||
+            field.dependsOn;
 
           if (field.type === "searchable-async-select") {
             return (
@@ -2413,7 +2424,7 @@ function FeatureForm({ form, token, onSaved, onError }) {
                 >
                   <option value="">
                     {dependsOnMissing
-                      ? `Select ${field.dependsOn} first`
+                      ? `Select ${dependsOnLabel} first`
                       : field.placeholder || "Select option"}
                   </option>
                   {selectOptions.map((option) => (
