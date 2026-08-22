@@ -222,10 +222,26 @@ export const getAllResults = async (req, res) => {
 
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
-      if (scope.studentIds.length === 0) {
+
+      // Only results for this teacher's assigned students + subjects.
+      if (scope.studentIds.length === 0 || scope.subjectIds.length === 0) {
         return res.status(200).json([]);
       }
+
+      const examFilter = {
+        subject: { $in: scope.subjectIds },
+      };
+      if (scope.classIds.length > 0) {
+        examFilter.class = { $in: scope.classIds };
+      }
+
+      const examIds = await Exam.find(examFilter).distinct("_id");
+      if (examIds.length === 0) {
+        return res.status(200).json([]);
+      }
+
       filter.student = { $in: scope.studentIds };
+      filter.exam = { $in: examIds };
     }
 
     const results = await Result.find(filter)
@@ -236,7 +252,15 @@ export const getAllResults = async (req, res) => {
           select: "fullName",
         },
       })
-      .populate("exam", "examName");
+      .populate({
+        path: "exam",
+        select: "examName examDate",
+        populate: {
+          path: "subject",
+          select: "subjectName subjectCode",
+        },
+      })
+      .sort({ createdAt: -1 });
 
     res.status(200).json(results);
   } catch (error) {
