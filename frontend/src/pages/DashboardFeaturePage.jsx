@@ -900,6 +900,7 @@ const featureConfigs = {
     },
   },
   "/teacher/papers": {
+    // Dedicated TeacherPapers page handles this route in App.jsx.
     title: "My Papers",
     endpoint: "/essays/questions",
     tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],

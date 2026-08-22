@@ -27,6 +27,7 @@ import LegalPage from "./pages/public/LegalPage";
 import DashboardFeaturePage from "./pages/DashboardFeaturePage";
 import TeacherEssayReview from "./pages/TeacherEssayReview";
 import TeacherSubmissions from "./pages/TeacherSubmissions";
+import TeacherPapers from "./pages/TeacherPapers";
 import TeacherScoreTrends from "./pages/TeacherScoreTrends";
 import TeacherContentProvider from "./pages/TeacherContentProvider";
 import StudentAdaptiveLearning from "./pages/StudentAdaptiveLearning";
@@ -108,6 +109,7 @@ function AppRoutes() {
         />
         <Route path="essay-review" element={<TeacherEssayReview />} />
         <Route path="submissions" element={<TeacherSubmissions />} />
+        <Route path="papers" element={<TeacherPapers />} />
         <Route path="score-trends" element={<TeacherScoreTrends />} />
         <Route path="content-provider" element={<TeacherContentProvider />} />
         <Route path="*" element={<DashboardFeaturePage />} />

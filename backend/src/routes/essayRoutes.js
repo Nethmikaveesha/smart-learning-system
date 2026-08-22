@@ -7,6 +7,11 @@ import {
   approveEssaySubmission,
   getAllEssaySubmissions,
   getEssayQuestions,
+  shareEssayQuestion,
+  copyEssayQuestion,
+  updateEssayQuestion,
+  deleteEssayQuestion,
+  getShareCandidates,
 } from "../controllers/essayController.js";
 import { getTeacherTopicErrorAnalytics } from "../controllers/teacherDashboardController.js";
 
@@ -22,6 +27,48 @@ router.post(
   protect,
   authorizeRoles("admin", "teacher"),
   createEssayQuestion
+);
+
+router.get(
+  "/questions",
+  protect,
+  authorizeRoles("admin", "teacher", "student"),
+  getEssayQuestions
+);
+
+router.put(
+  "/questions/:id",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  updateEssayQuestion
+);
+
+router.delete(
+  "/questions/:id",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  deleteEssayQuestion
+);
+
+router.post(
+  "/questions/:id/share",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  shareEssayQuestion
+);
+
+router.post(
+  "/questions/:id/copy",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  copyEssayQuestion
+);
+
+router.get(
+  "/share-candidates",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  getShareCandidates
 );
 
 router.post(
@@ -57,13 +104,6 @@ router.get(
   protect,
   authorizeRoles("admin", "teacher"),
   getAllEssaySubmissions
-);
-
-router.get(
-  "/questions",
-  protect,
-  authorizeRoles("admin", "teacher", "student"),
-  getEssayQuestions
 );
 
 router.get(

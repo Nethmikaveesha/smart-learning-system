@@ -30,6 +30,14 @@ const essayQuestionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+
+    // Teachers this paper is shared with (view/copy only; not edit/delete).
+    sharedWith: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
