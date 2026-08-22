@@ -15,6 +15,10 @@ import {
   toClassNameSelectOptions,
 } from "../utils/classOptions";
 import {
+  ACADEMIC_YEAR_OPTIONS,
+  CLASS_NAME_OPTIONS,
+} from "../utils/classCatalog";
+import {
   getPasswordStrength,
   validateRegistrationForm,
 } from "../utils/registrationValidation";
@@ -133,16 +137,13 @@ const featureConfigs = {
         {
           name: "className",
           label: "Class Name",
-          type: "async-select",
+          type: "select",
           required: true,
           placeholder: "Select class name",
-          optionsEndpoint: "/classes/catalog",
-          optionsPath: "classNames",
-          optionValue: "className",
           dependsOn: "gradeLevel",
-          filterBy: (item, values) =>
-            String(item.gradeLevel) === String(values.gradeLevel),
-          getOptionLabel: (item) => item.className,
+          options: CLASS_NAME_OPTIONS,
+          filterOptionsBy: (option, values) =>
+            String(option.gradeLevel) === String(values.gradeLevel),
         },
         {
           name: "stream",
@@ -150,19 +151,17 @@ const featureConfigs = {
           type: "select",
           required: true,
           defaultValue: "Commerce",
+          placeholder: "Select stream",
           options: [{ value: "Commerce", label: "Commerce Risk Assessment" }],
         },
         {
           name: "academicYear",
           label: "Academic Year",
-          type: "async-select",
+          type: "select",
           required: true,
           defaultValue: String(new Date().getFullYear()),
           placeholder: "Select academic year",
-          optionsEndpoint: "/classes/catalog",
-          optionsPath: "academicYears",
-          optionValue: "value",
-          getOptionLabel: (item) => item.label || item.value,
+          options: ACADEMIC_YEAR_OPTIONS,
         },
         {
           name: "assignedTeacher",
@@ -212,16 +211,13 @@ const featureConfigs = {
           {
             name: "className",
             label: "Class Name",
-            type: "async-select",
+            type: "select",
             required: true,
             placeholder: "Select class name",
-            optionsEndpoint: "/classes/catalog",
-            optionsPath: "classNames",
-            optionValue: "className",
             dependsOn: "gradeLevel",
-            filterBy: (item, values) =>
-              String(item.gradeLevel) === String(values.gradeLevel),
-            getOptionLabel: (item) => item.className,
+            options: CLASS_NAME_OPTIONS,
+            filterOptionsBy: (option, values) =>
+              String(option.gradeLevel) === String(values.gradeLevel),
           },
           {
             name: "stream",
@@ -229,18 +225,16 @@ const featureConfigs = {
             type: "select",
             required: true,
             defaultValue: "Commerce",
+            placeholder: "Select stream",
             options: [{ value: "Commerce", label: "Commerce Risk Assessment" }],
           },
           {
             name: "academicYear",
             label: "Academic Year",
-            type: "async-select",
+            type: "select",
             required: true,
             placeholder: "Select academic year",
-            optionsEndpoint: "/classes/catalog",
-            optionsPath: "academicYears",
-            optionValue: "value",
-            getOptionLabel: (item) => item.label || item.value,
+            options: ACADEMIC_YEAR_OPTIONS,
           },
           {
             name: "assignedTeacher",
@@ -2004,6 +1998,11 @@ function getFeatureFormInitialValues(fields) {
         return [field.name, field.defaultValue];
       }
 
+      // Dependent / filtered selects should start empty until the parent is chosen.
+      if (field.dependsOn || field.filterOptionsBy) {
+        return [field.name, ""];
+      }
+
       if (field.type === "select" && field.options?.length) {
         const first = field.options[0];
         return [field.name, typeof first === "object" ? first.value : first];
@@ -2083,11 +2082,31 @@ function getFieldSelectOptions(field, values, asyncOptions) {
 
   if (!field.options) return [];
 
-  return field.options.map((option) =>
+  let options = field.options.map((option) =>
     typeof option === "object"
       ? option
       : { value: option, label: option }
   );
+
+  if (field.filterOptionsBy) {
+    options = options.filter((option) =>
+      field.filterOptionsBy(option, values, asyncOptions)
+    );
+  }
+
+  // Keep a legacy/custom selected value visible even if it is outside the catalog.
+  const selectedValue = values?.[field.name];
+  if (
+    selectedValue &&
+    !options.some((option) => String(option.value) === String(selectedValue))
+  ) {
+    options = [
+      { value: String(selectedValue), label: String(selectedValue) },
+      ...options,
+    ];
+  }
+
+  return options;
 }
 
 function resolveRecordFieldValue(record, fieldName) {
@@ -2161,19 +2180,25 @@ function FeatureForm({ form, token, onSaved, onError }) {
       try {
         setLoadingOptions(true);
 
-        const responses = await Promise.all(
-          endpoints.map((endpoint) =>
-            api.get(endpoint, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          )
-        );
-
         const nextOptions = {};
-        endpoints.forEach((endpoint, index) => {
-          // Keep raw payload so fields can use optionsPath (e.g. catalog.classNames).
-          nextOptions[endpoint] = responses[index].data;
-        });
+        await Promise.all(
+          endpoints.map(async (endpoint) => {
+            try {
+              const response = await api.get(endpoint, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              // Keep raw payload so fields can use optionsPath (e.g. catalog.classNames).
+              nextOptions[endpoint] = response.data;
+            } catch (endpointError) {
+              // One failed options endpoint must not blank every other dropdown.
+              console.warn(
+                `Failed to load form options from ${endpoint}:`,
+                endpointError.response?.data?.message || endpointError.message
+              );
+              nextOptions[endpoint] = [];
+            }
+          })
+        );
 
         setAsyncOptions(nextOptions);
       } catch (loadError) {
