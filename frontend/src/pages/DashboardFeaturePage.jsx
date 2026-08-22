@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import UserRecordsTable from "../components/UserRecordsTable";
@@ -822,9 +822,11 @@ const featureConfigs = {
     },
   },
   "/teacher/question-bank": {
-    title: "Question Bank",
+    // Legacy URL — same data as My Papers; keep redirect via alias below.
+    title: "My Papers",
     endpoint: "/essays/questions",
     tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
+    redirectTo: "/teacher/papers",
   },
   "/teacher/marking-schemes": {
     title: "Marking Schemes",
@@ -1290,7 +1292,9 @@ function DashboardFeaturePage() {
     if (feedback) toastError(feedback);
   };
 
-  return (
+  return config.redirectTo ? (
+    <Navigate to={config.redirectTo} replace />
+  ) : (
     <div className="p-6">
       {pathname === "/admin/users/add" && !isSuperAdmin(user) ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-800">

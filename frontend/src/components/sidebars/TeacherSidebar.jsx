@@ -16,7 +16,6 @@ function TeacherSidebar() {
         items={[
           { label: "Create Paper", to: "/teacher/create-paper" },
           { label: "My Papers", to: "/teacher/papers" },
-          { label: "Question Bank", to: "/teacher/question-bank" },
           { label: "Marking Schemes", to: "/teacher/marking-schemes" },
         ]}
       />

@@ -21,7 +21,7 @@ const CHART_COLORS = {
 // Teacher shortcut actions.
 const QUICK_ACTIONS = [
   { label: "Create Paper", to: "/teacher/create-paper" },
-  { label: "Question Bank", to: "/teacher/question-bank" },
+  { label: "My Papers", to: "/teacher/papers" },
   { label: "Marking Schemes", to: "/teacher/marking-schemes" },
   { label: "Student Submissions", to: "/teacher/submissions" },
   { label: "Attendance", to: "/teacher/attendance" },
