@@ -228,8 +228,23 @@ export const getAllResults = async (req, res) => {
         return res.status(200).json([]);
       }
 
+      let allowedSubjectIds = scope.subjectIds;
+      const requestedSubjectId = req.query.subjectId
+        ? String(req.query.subjectId)
+        : "";
+
+      // Optional subject filter (Z-Scores page always sends one).
+      if (requestedSubjectId) {
+        if (!scope.subjectIdStrings.includes(requestedSubjectId)) {
+          return res.status(200).json([]);
+        }
+        allowedSubjectIds = scope.subjectIds.filter(
+          (id) => String(id) === requestedSubjectId
+        );
+      }
+
       const examFilter = {
-        subject: { $in: scope.subjectIds },
+        subject: { $in: allowedSubjectIds },
       };
       if (scope.classIds.length > 0) {
         examFilter.class = { $in: scope.classIds };
@@ -241,6 +256,15 @@ export const getAllResults = async (req, res) => {
       }
 
       filter.student = { $in: scope.studentIds };
+      filter.exam = { $in: examIds };
+    } else if (req.query.subjectId) {
+      // Admin (and other roles with access) can also narrow by subject.
+      const examIds = await Exam.find({
+        subject: String(req.query.subjectId),
+      }).distinct("_id");
+      if (examIds.length === 0) {
+        return res.status(200).json([]);
+      }
       filter.exam = { $in: examIds };
     }
 

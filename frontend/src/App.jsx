@@ -29,6 +29,7 @@ import TeacherEssayReview from "./pages/TeacherEssayReview";
 import TeacherSubmissions from "./pages/TeacherSubmissions";
 import TeacherPapers from "./pages/TeacherPapers";
 import TeacherScoreTrends from "./pages/TeacherScoreTrends";
+import TeacherZScoresRankings from "./pages/TeacherZScoresRankings";
 import TeacherContentProvider from "./pages/TeacherContentProvider";
 import StudentAdaptiveLearning from "./pages/StudentAdaptiveLearning";
 import StudentFlashcards from "./pages/StudentFlashcards";
@@ -111,6 +112,7 @@ function AppRoutes() {
         <Route path="submissions" element={<TeacherSubmissions />} />
         <Route path="papers" element={<TeacherPapers />} />
         <Route path="score-trends" element={<TeacherScoreTrends />} />
+        <Route path="z-scores-rankings" element={<TeacherZScoresRankings />} />
         <Route path="content-provider" element={<TeacherContentProvider />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>

@@ -1081,15 +1081,6 @@ const featureConfigs = {
       ],
     },
   },
-  "/teacher/z-scores-rankings": {
-    title: "Z-Scores & Rankings",
-    description:
-      "Rankings and Z-scores for exams in the classes and subjects assigned to you.",
-    endpoint: "/results",
-    tableColumns: ["student", "exam", "marks", "grade", "rank", "zScore"],
-    emptyMessage:
-      "No rankings yet for your assigned subjects. Add marks from Marks Management first.",
-  },
   "/teacher/weak-students": {
     title: "Weak Student Detection",
     endpoint: "/risk-notifications",
