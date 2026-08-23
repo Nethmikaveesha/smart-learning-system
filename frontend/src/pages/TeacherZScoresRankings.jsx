@@ -185,7 +185,7 @@ function TeacherZScoresRankings() {
 
         {selectedSubject && (
           <p className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-900">
-            Showing: {selectedSubject.subjectName}
+            Subject: {selectedSubject.subjectName}
             {selectedSubject.subjectCode
               ? ` (${selectedSubject.subjectCode})`
               : ""}
