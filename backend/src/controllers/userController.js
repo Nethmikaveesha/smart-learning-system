@@ -205,12 +205,14 @@ export const updateUser = async (req, res) => {
           req.body.assignedSubject
         );
 
-        await Subject.updateMany(
-          { assignedTeacher: user._id },
-          { $unset: { assignedTeacher: "" } }
-        );
-
+        // Empty / "N/A" = leave current subject assignment unchanged
+        // (so email-only edits do not wipe teaching scope).
         if (subjectRef) {
+          await Subject.updateMany(
+            { assignedTeacher: user._id },
+            { $unset: { assignedTeacher: "" } }
+          );
+
           const subject = await resolveSubject(subjectRef);
           if (subject) {
             await Subject.findByIdAndUpdate(subject._id, {
@@ -223,12 +225,13 @@ export const updateUser = async (req, res) => {
       if (req.body.assignedClass !== undefined) {
         const classRef = normalizeAssignmentReference(req.body.assignedClass);
 
-        await Class.updateMany(
-          { assignedTeacher: user._id },
-          { $unset: { assignedTeacher: "" } }
-        );
-
+        // Empty / "N/A" = leave current class assignment unchanged.
         if (classRef) {
+          await Class.updateMany(
+            { assignedTeacher: user._id },
+            { $unset: { assignedTeacher: "" } }
+          );
+
           const classRecord = await resolveOrCreateClass(classRef);
           if (classRecord) {
             await Class.findByIdAndUpdate(classRecord._id, {

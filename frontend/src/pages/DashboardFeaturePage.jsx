@@ -1061,6 +1061,8 @@ const featureConfigs = {
             const code = item.studentId || "No ID";
             return `${name} (${code})`;
           },
+          emptyOptionsMessage:
+            "No students found for this class. Ask admin to assign students to the class.",
         },
         {
           name: "date",

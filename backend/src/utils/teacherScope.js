@@ -99,13 +99,29 @@ export async function getTeacherScope(teacherId) {
     subjects.flatMap((subject) => subject.classes || [])
   );
 
-  // 2) Admin-assigned classes + classes linked from assigned subjects.
+  // Classes where enrolled students take this teacher's subjects
+  // (covers subjects that were never linked to Class.classes[]).
+  let studentSubjectClassIds = [];
+  if (taughtSubjectIds.length > 0) {
+    studentSubjectClassIds = await StudentProfile.distinct("class", {
+      subjects: { $in: taughtSubjectIds },
+      class: { $ne: null },
+    });
+  }
+
+  // 2) Admin-assigned classes + classes linked from assigned subjects
+  //    + classes of students taking those subjects.
   const seedQuery = {
     $or: [{ assignedTeacher: teacherId }],
   };
 
-  if (subjectLinkedClassIds.length > 0) {
-    seedQuery.$or.push({ _id: { $in: subjectLinkedClassIds } });
+  const linkedClassIds = uniqueObjectIds([
+    ...subjectLinkedClassIds,
+    ...studentSubjectClassIds,
+  ]);
+
+  if (linkedClassIds.length > 0) {
+    seedQuery.$or.push({ _id: { $in: linkedClassIds } });
   }
 
   const seedClasses = await Class.find(seedQuery).select(
