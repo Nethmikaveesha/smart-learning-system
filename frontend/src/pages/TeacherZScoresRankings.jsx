@@ -156,9 +156,8 @@ function TeacherZScoresRankings() {
             <p className="typo-eyebrow text-blue-700">Teacher Analytics</p>
             <h1 className="mt-2 typo-page text-slate-950">Z-Scores & Rankings</h1>
             <p className="mt-2 max-w-3xl typo-body text-slate-600">
-              Rankings for one assigned subject at a time. Pick Accounting, Business
-              Studies, or Economics from the subject list — they are not mixed in
-              one table.
+              View exam rankings and Z-scores for each subject assigned to you.
+              Select a subject to review its results separately.
             </p>
           </div>
 
