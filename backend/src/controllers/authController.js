@@ -20,6 +20,7 @@ import {
   isValidParentRelationship,
   PARENT_RELATIONSHIPS,
 } from "../utils/parentLinks.js";
+import { verifyPassword } from "../utils/passwordUtils.js";
 
 const RESET_TOKEN_HOURS = 1;
 
@@ -354,7 +355,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await verifyPassword(user, password);
 
     if (!isMatch) {
       return res.status(400).json({

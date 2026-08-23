@@ -67,6 +67,13 @@ function Login() {
       login(res.data.user, res.data.token);
       navigate(roleRoutes[res.data.user.role] || "/");
     } catch (err) {
+      if (!err.response) {
+        setError(
+          "Cannot reach the server. Make sure the backend is running, then try again."
+        );
+        return;
+      }
+
       setError(
         err.response?.data?.message ||
           "The email or password you entered is incorrect."
