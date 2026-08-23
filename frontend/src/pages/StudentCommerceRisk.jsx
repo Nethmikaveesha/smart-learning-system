@@ -149,6 +149,16 @@ function StudentCommerceRisk() {
     }
   };
 
+  const assessedRiskLevel = useMemo(() => {
+    if (prediction?.risk_level) return prediction.risk_level;
+    if (history[0]?.riskLevel) return history[0].riskLevel;
+    return null;
+  }, [prediction, history]);
+
+  const currentRiskLabel = assessedRiskLevel
+    ? formatRiskLabel(assessedRiskLevel)
+    : "Not Assessed";
+
   if (loading) {
     return (
       <div className="p-6">
@@ -183,10 +193,8 @@ function StudentCommerceRisk() {
       <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           label="Current Risk"
-          value={formatRiskLabel(riskStatus || prediction?.risk_level)}
-          badgeClass={getRiskBadgeClass(
-            riskStatus || prediction?.risk_level
-          )}
+          value={currentRiskLabel}
+          badgeClass={getRiskBadgeClass(assessedRiskLevel || "Not Assessed")}
         />
         <SummaryCard
           label="Accounting"
@@ -332,22 +340,29 @@ function SummaryCard({ label, value, badgeClass }) {
 }
 
 function formatRiskLabel(status) {
-  if (!status) return "--";
+  if (!status) return "Not Assessed";
   if (status === "Low") return "Low Risk";
   if (status === "Medium") return "Medium Risk";
   if (status === "High") return "High Risk";
+  if (String(status).toLowerCase().includes("not assessed")) {
+    return "Not Assessed";
+  }
   return status;
 }
 
 function getRiskBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
 
+  if (!normalizedStatus || normalizedStatus.includes("not assessed")) {
+    return "bg-slate-100 text-slate-700";
+  }
+
   if (normalizedStatus.includes("high")) {
     return "bg-red-100 text-red-700";
   }
 
   if (normalizedStatus.includes("medium")) {
-    return "bg-amber-100 text-amber-700";
+    return "bg-amber-100 text-amber-900";
   }
 
   if (normalizedStatus.includes("low") || normalizedStatus.includes("pass")) {
