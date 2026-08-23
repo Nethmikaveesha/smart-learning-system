@@ -2,7 +2,10 @@ import Attendance from "../models/Attendance.js";
 import StudentProfile from "../models/StudentProfile.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
-import { assertTeacherOwnsClass } from "../utils/teacherScope.js";
+import {
+  assertTeacherOwnsClass,
+  getTeacherScope,
+} from "../utils/teacherScope.js";
 
 export const markAttendance = async (req, res) => {
   try {
@@ -72,6 +75,46 @@ export const markAttendance = async (req, res) => {
       attendance,
       attendancePercentage,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllAttendance = async (req, res) => {
+  try {
+    const filter = {};
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+
+      if (scope.studentIds.length === 0 && scope.classIds.length === 0) {
+        return res.status(200).json([]);
+      }
+
+      const orFilters = [];
+      if (scope.studentIds.length > 0) {
+        orFilters.push({ student: { $in: scope.studentIds } });
+      }
+      if (scope.classIds.length > 0) {
+        orFilters.push({ class: { $in: scope.classIds } });
+      }
+
+      filter.$or = orFilters;
+    }
+
+    const records = await Attendance.find(filter)
+      .populate({
+        path: "student",
+        select: "studentId",
+        populate: {
+          path: "user",
+          select: "fullName",
+        },
+      })
+      .populate("class", "className academicYear")
+      .sort({ date: -1, createdAt: -1 });
+
+    res.status(200).json(records);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

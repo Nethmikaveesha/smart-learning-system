@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   markAttendance,
+  getAllAttendance,
   getAttendanceByStudent,
 } from "../controllers/attendanceController.js";
 
@@ -17,6 +18,13 @@ router.post(
   protect,
   authorizeRoles("admin", "teacher"),
   markAttendance
+);
+
+router.get(
+  "/",
+  protect,
+  authorizeRoles("admin", "teacher"),
+  getAllAttendance
 );
 
 router.get(

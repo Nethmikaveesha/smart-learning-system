@@ -856,8 +856,10 @@ const featureConfigs = {
     title: "Marking Schemes",
     description:
       "Create a marking scheme for an essay question. Select the paper by its question text.",
-    endpoint: "/essays/questions",
-    tableColumns: ["gradeLevel", "question", "subject", "maxMarks"],
+    endpoint: "/essays/marking-schemes",
+    tableColumns: ["question", "keywords", "modelAnswer"],
+    emptyMessage:
+      "No marking schemes yet. Create a paper first, then add keywords and a model answer here.",
     form: {
       endpoint: "/essays/marking-schemes",
       method: "post",
@@ -1015,10 +1017,10 @@ const featureConfigs = {
     title: "Attendance Management",
     description:
       "Select a class and student by name, then mark Present or Absent.",
-    endpoint: "/classes",
-    tableColumns: ["className", "stream", "medium", "academicYear"],
+    endpoint: "/attendance",
+    tableColumns: ["student", "class", "date", "status"],
     emptyMessage:
-      "No classes available yet. Ask an admin to assign you as class teacher, or link your subject to a class.",
+      "No attendance records yet. Select a class and student above, then mark Present or Absent.",
     form: {
       endpoint: "/attendance",
       method: "post",
@@ -3105,8 +3107,16 @@ function formatCellValue(column, value) {
     return Number(value).toFixed(2);
   }
 
-  if ((column === "examDate" || column === "createdAt") && value) {
+  if ((column === "examDate" || column === "createdAt" || column === "date") && value) {
     return new Date(value).toLocaleDateString("en-GB");
+  }
+
+  if (column === "keywords" && Array.isArray(value)) {
+    return value.filter(Boolean).join(", ") || "N/A";
+  }
+
+  if (column === "modelAnswer" && typeof value === "string") {
+    return value.length > 80 ? `${value.slice(0, 80)}...` : value;
   }
 
   if (column === "students" && Array.isArray(value)) {
