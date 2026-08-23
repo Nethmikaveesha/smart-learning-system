@@ -2462,7 +2462,9 @@ function FeatureForm({ form, token, onSaved, onError }) {
                   <option value="">
                     {dependsOnMissing
                       ? `Select ${dependsOnLabel} first`
-                      : field.placeholder || "Select option"}
+                      : !loadingOptions && selectOptions.length === 0
+                        ? field.emptyOptionsMessage || "No options available"
+                        : field.placeholder || "Select option"}
                   </option>
                   {selectOptions.map((option) => (
                     <option key={option.value} value={option.value}>

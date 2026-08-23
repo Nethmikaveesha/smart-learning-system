@@ -167,26 +167,21 @@ function ParentDashboard() {
       const business = findSubjectMarks("business");
       const economics = findSubjectMarks("economic");
 
-      if (accounting == null || business == null || economics == null) {
-        setMlError(
-          "Accounting, Business Studies and Economics marks are required before running a risk assessment"
-        );
-        return;
-      }
-
-      if (!data?.attendancePercentage) {
+      if (data?.attendancePercentage == null) {
         setMlError(
           "Attendance records are required before running a risk assessment"
         );
         return;
       }
 
-      const res = await predictCommerceRisk(studentProfileObjectId, {
-        Accounting_Score: accounting,
-        Business_Studies_Score: business,
-        Economics_Score: economics,
+      const payload = {
         Attendance_Percentage: data.attendancePercentage,
-      });
+      };
+      if (accounting != null) payload.Accounting_Score = accounting;
+      if (business != null) payload.Business_Studies_Score = business;
+      if (economics != null) payload.Economics_Score = economics;
+
+      const res = await predictCommerceRisk(studentProfileObjectId, payload);
 
       setCommercePrediction(res.data);
     } catch (predictionError) {

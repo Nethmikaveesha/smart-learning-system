@@ -589,7 +589,7 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    const isMatch = await verifyPassword(user, currentPassword);
 
     if (!isMatch) {
       return res.status(400).json({
