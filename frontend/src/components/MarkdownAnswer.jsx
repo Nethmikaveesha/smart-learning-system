@@ -1,7 +1,4 @@
-import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeSanitize from "rehype-sanitize";
+import { Fragment, useMemo } from "react";
 
 const SECTION_PATTERNS = [
   {
@@ -22,8 +19,8 @@ const SECTION_PATTERNS = [
 ];
 
 /**
- * Make GFM tables more reliable: blank line before a pipe table,
- * and normalize Windows newlines.
+ * Normalize newlines and ensure pipe tables are easier to detect.
+ * Display-only helper — does not change stored answer text.
  */
 export function prepareAnswerMarkdown(raw) {
   const text = String(raw || "")
@@ -194,97 +191,204 @@ function splitUntitledAccountingBlocks(prepared) {
   return sections;
 }
 
-const markdownComponents = {
-  h1: ({ children }) => (
-    <h3 className="mb-3 text-base font-semibold text-slate-900">{children}</h3>
-  ),
-  h2: ({ children }) => (
-    <h3 className="mb-3 text-base font-semibold text-slate-900">{children}</h3>
-  ),
-  h3: ({ children }) => (
-    <h4 className="mb-2 text-sm font-semibold text-slate-900">{children}</h4>
-  ),
-  p: ({ children }) => (
-    <p className="mb-3 text-sm leading-7 text-slate-800 last:mb-0">{children}</p>
-  ),
-  strong: ({ children }) => (
-    <strong className="font-semibold text-slate-950">{children}</strong>
-  ),
-  em: ({ children }) => <em className="italic text-slate-800">{children}</em>,
-  ul: ({ children }) => (
-    <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-slate-800">
-      {children}
-    </ul>
-  ),
-  ol: ({ children }) => (
-    <ol className="mb-3 list-decimal space-y-1 pl-5 text-sm text-slate-800">
-      {children}
-    </ol>
-  ),
-  li: ({ children }) => <li className="leading-7">{children}</li>,
-  blockquote: ({ children }) => (
-    <blockquote className="mb-3 border-l-4 border-slate-300 pl-3 text-sm text-slate-700">
-      {children}
-    </blockquote>
-  ),
-  code: ({ className, children }) => {
-    const isBlock = Boolean(className);
-    if (!isBlock) {
+function isSeparatorRow(cells) {
+  return (
+    cells.length > 0 &&
+    cells.every((cell) => /^:?-{3,}:?$/.test(String(cell).trim()))
+  );
+}
+
+function parseTableRow(line) {
+  const trimmed = String(line || "").trim();
+  if (!trimmed.startsWith("|")) return null;
+
+  const raw = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+  return raw.split("|").map((cell) => cell.trim());
+}
+
+/**
+ * Escape text, then apply a small safe subset of inline Markdown:
+ * **bold**, *italic*, `code`. No HTML passthrough.
+ */
+function renderInline(text) {
+  const source = String(text || "");
+  if (!source) return null;
+
+  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  const parts = source.split(pattern);
+
+  return parts.map((part, index) => {
+    if (!part) return null;
+
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
       return (
-        <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.85em] text-slate-800">
-          {children}
+        <strong key={index} className="font-semibold text-slate-950">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    if (
+      part.startsWith("*") &&
+      part.endsWith("*") &&
+      part.length > 2 &&
+      !part.startsWith("**")
+    ) {
+      return (
+        <em key={index} className="italic text-slate-800">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      return (
+        <code
+          key={index}
+          className="rounded bg-slate-100 px-1.5 py-0.5 text-[0.85em] text-slate-800"
+        >
+          {part.slice(1, -1)}
         </code>
       );
     }
 
-    return (
-      <code
-        className={`block overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100 ${className || ""}`}
-      >
-        {children}
-      </code>
-    );
-  },
-  table: ({ children }) => (
+    return <Fragment key={index}>{part}</Fragment>;
+  });
+}
+
+function MarkdownTable({ rows }) {
+  if (!rows.length) return null;
+
+  const [header, ...body] = rows;
+
+  return (
     <div className="my-4 overflow-x-auto rounded-lg border border-slate-200">
       <table className="min-w-full border-collapse text-left text-sm">
-        {children}
+        <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-600">
+          <tr>
+            {header.map((cell, index) => (
+              <th
+                key={`h-${index}`}
+                className="border-b border-slate-200 px-3 py-2.5 font-semibold text-slate-700"
+              >
+                {renderInline(cell)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 bg-white">
+          {body.map((row, rowIndex) => (
+            <tr key={`r-${rowIndex}`} className="align-top">
+              {row.map((cell, cellIndex) => (
+                <td
+                  key={`c-${rowIndex}-${cellIndex}`}
+                  className="px-3 py-2.5 text-slate-800"
+                >
+                  {renderInline(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
-  ),
-  thead: ({ children }) => (
-    <thead className="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-600">
-      {children}
-    </thead>
-  ),
-  tbody: ({ children }) => (
-    <tbody className="divide-y divide-slate-100 bg-white">{children}</tbody>
-  ),
-  tr: ({ children }) => <tr className="align-top">{children}</tr>,
-  th: ({ children }) => (
-    <th className="border-b border-slate-200 px-3 py-2.5 font-semibold text-slate-700">
-      {children}
-    </th>
-  ),
-  td: ({ children }) => (
-    <td className="px-3 py-2.5 text-slate-800">{children}</td>
-  ),
-  hr: () => <hr className="my-4 border-slate-200" />,
-};
+  );
+}
 
+/**
+ * Lightweight, dependency-free Markdown subset renderer for essay answers.
+ * Supports GFM-style tables, bold/italic/code, headings, and paragraphs.
+ */
 function MarkdownBlock({ content }) {
   const markdown = prepareAnswerMarkdown(content);
   if (!markdown) return null;
 
+  const lines = markdown.split("\n");
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    if (/^\s*\|/.test(line)) {
+      const tableLines = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) {
+        tableLines.push(lines[i]);
+        i += 1;
+      }
+
+      const parsedRows = tableLines
+        .map(parseTableRow)
+        .filter((row) => row && !isSeparatorRow(row));
+
+      if (parsedRows.length > 0) {
+        blocks.push({ type: "table", rows: parsedRows });
+      }
+      continue;
+    }
+
+    const heading = /^(#{1,3})\s+(.+)$/.exec(line.trim());
+    if (heading) {
+      blocks.push({
+        type: "heading",
+        level: heading[1].length,
+        text: heading[2].trim(),
+      });
+      i += 1;
+      continue;
+    }
+
+    const paragraph = [line];
+    i += 1;
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^\s*\|/.test(lines[i]) &&
+      !/^#{1,3}\s+/.test(lines[i].trim())
+    ) {
+      paragraph.push(lines[i]);
+      i += 1;
+    }
+
+    blocks.push({
+      type: "paragraph",
+      text: paragraph.join(" ").replace(/\s+/g, " ").trim(),
+    });
+  }
+
   return (
-    <div className="markdown-answer">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
-        components={markdownComponents}
-      >
-        {markdown}
-      </ReactMarkdown>
+    <div className="markdown-answer space-y-1">
+      {blocks.map((block, index) => {
+        if (block.type === "table") {
+          return <MarkdownTable key={`t-${index}`} rows={block.rows} />;
+        }
+
+        if (block.type === "heading") {
+          const Tag = block.level >= 3 ? "h4" : "h3";
+          return (
+            <Tag
+              key={`h-${index}`}
+              className="mb-2 text-sm font-semibold text-slate-900"
+            >
+              {renderInline(block.text)}
+            </Tag>
+          );
+        }
+
+        return (
+          <p
+            key={`p-${index}`}
+            className="mb-3 text-sm leading-7 text-slate-800 last:mb-0"
+          >
+            {renderInline(block.text)}
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -297,9 +401,7 @@ export default function MarkdownAnswer({ answer, className = "" }) {
   const sections = useMemo(() => splitAnswerSections(answer), [answer]);
 
   if (!sections.length) {
-    return (
-      <p className="text-sm text-slate-500">No answer submitted.</p>
-    );
+    return <p className="text-sm text-slate-500">No answer submitted.</p>;
   }
 
   const useCards =
