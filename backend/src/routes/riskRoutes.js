@@ -12,6 +12,7 @@ import {
   authorizeRoles,
 } from "../middleware/authMiddleware.js";
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
+import { resolveCommerceSubjectMarks } from "../utils/commerceMarks.js";
 
 const router = express.Router();
 
@@ -536,54 +537,35 @@ router.post(
 
       const studentProfile = access.profile;
 
-      const results = await Result.find({
-        student: studentProfileId,
-      })
-        .populate({
-          path: "exam",
-          populate: {
-            path: "subject",
-            select: "subjectName subjectCode name",
-          },
-        })
-        .sort({ createdAt: -1 })
-        .limit(50);
+      const commerceMarks = await resolveCommerceSubjectMarks(studentProfileId);
 
-      const getSubjectMark = (keywords) => {
-        const list = (Array.isArray(keywords) ? keywords : [keywords])
-          .map((item) => String(item || "").toLowerCase())
-          .filter(Boolean);
-
-        const matchedResult = results.find((result) => {
-          const subjectName =
-            result.exam?.subject?.subjectName ||
-            result.exam?.subject?.name ||
-            "";
-          const subjectCode = result.exam?.subject?.subjectCode || "";
-          const examName = result.exam?.examName || "";
-          const haystack = `${subjectName} ${subjectCode} ${examName}`.toLowerCase();
-
-          return list.some((keyword) => haystack.includes(keyword));
-        });
-
-        return matchedResult?.marks ?? null;
+      const pickBodyMark = (...values) => {
+        for (const value of values) {
+          if (value === undefined || value === null || value === "") continue;
+          const numeric = Number(value);
+          if (!Number.isNaN(numeric)) return numeric;
+        }
+        return null;
       };
 
-      // No silent defaults — missing marks must fail clearly.
-      const accountingMark =
-        req.body.Accounting_Score ??
-        req.body.accountingScore ??
-        getSubjectMark(["accounting", "acc101", "acc"]);
+      // Prefer explicit body scores, then exam results, then essay scores.
+      const accountingMark = pickBodyMark(
+        req.body.Accounting_Score,
+        req.body.accountingScore,
+        commerceMarks.accounting
+      );
 
-      const businessStudiesMark =
-        req.body.Business_Studies_Score ??
-        req.body.businessStudiesScore ??
-        getSubjectMark(["business studies", "business", "bs101", "bs"]);
+      const businessStudiesMark = pickBodyMark(
+        req.body.Business_Studies_Score,
+        req.body.businessStudiesScore,
+        commerceMarks.business
+      );
 
-      const economicsMark =
-        req.body.Economics_Score ??
-        req.body.economicsScore ??
-        getSubjectMark(["economics", "eco101", "eco"]);
+      const economicsMark = pickBodyMark(
+        req.body.Economics_Score,
+        req.body.economicsScore,
+        commerceMarks.economics
+      );
 
       if (
         accountingMark == null ||
@@ -593,7 +575,7 @@ router.post(
         return res.status(400).json({
           success: false,
           message:
-            "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction",
+            "Accounting, Business Studies and Economics marks are required before generating a Commerce risk prediction. Add exam marks in Marks Management, or submit essay answers for each subject.",
         });
       }
 
