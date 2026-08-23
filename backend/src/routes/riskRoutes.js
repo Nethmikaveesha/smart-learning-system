@@ -541,43 +541,49 @@ router.post(
       })
         .populate({
           path: "exam",
-          populate: { path: "subject", select: "subjectName name" },
+          populate: {
+            path: "subject",
+            select: "subjectName subjectCode name",
+          },
         })
         .sort({ createdAt: -1 })
-        .limit(30);
+        .limit(50);
 
-      const getSubjectMark = (subjectKeyword) => {
+      const getSubjectMark = (keywords) => {
+        const list = (Array.isArray(keywords) ? keywords : [keywords])
+          .map((item) => String(item || "").toLowerCase())
+          .filter(Boolean);
+
         const matchedResult = results.find((result) => {
           const subjectName =
             result.exam?.subject?.subjectName ||
             result.exam?.subject?.name ||
-            result.exam?.subjectName ||
-            result.exam?.title ||
             "";
+          const subjectCode = result.exam?.subject?.subjectCode || "";
+          const examName = result.exam?.examName || "";
+          const haystack = `${subjectName} ${subjectCode} ${examName}`.toLowerCase();
 
-          return String(subjectName)
-            .toLowerCase()
-            .includes(subjectKeyword.toLowerCase());
+          return list.some((keyword) => haystack.includes(keyword));
         });
 
         return matchedResult?.marks ?? null;
       };
 
-      // No silent defaults (65/75) — missing marks must fail clearly.
+      // No silent defaults — missing marks must fail clearly.
       const accountingMark =
         req.body.Accounting_Score ??
         req.body.accountingScore ??
-        getSubjectMark("accounting");
+        getSubjectMark(["accounting", "acc101", "acc"]);
 
       const businessStudiesMark =
         req.body.Business_Studies_Score ??
         req.body.businessStudiesScore ??
-        getSubjectMark("business");
+        getSubjectMark(["business studies", "business", "bs101", "bs"]);
 
       const economicsMark =
         req.body.Economics_Score ??
         req.body.economicsScore ??
-        getSubjectMark("economics");
+        getSubjectMark(["economics", "eco101", "eco"]);
 
       if (
         accountingMark == null ||

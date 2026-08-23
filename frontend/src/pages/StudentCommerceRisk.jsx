@@ -83,17 +83,23 @@ function StudentCommerceRisk() {
   }, [token]);
 
   const subjectSnapshot = useMemo(() => {
-    const findMarks = (keyword) => {
-      const matched = subjectPerformance.find((item) =>
-        item.subject?.toLowerCase().includes(keyword)
+    const findMarks = (keywords) => {
+      const list = (Array.isArray(keywords) ? keywords : [keywords]).map((item) =>
+        String(item).toLowerCase()
       );
+
+      const matched = subjectPerformance.find((item) => {
+        const haystack = `${item.subject || ""} ${item.subjectCode || ""}`.toLowerCase();
+        return list.some((keyword) => haystack.includes(keyword));
+      });
+
       return matched?.marks ?? null;
     };
 
     return {
-      accounting: findMarks("account"),
-      business: findMarks("business"),
-      economics: findMarks("economic"),
+      accounting: findMarks(["account", "acc101", "acc"]),
+      business: findMarks(["business", "bs101", "bs"]),
+      economics: findMarks(["economic", "eco101", "eco"]),
     };
   }, [subjectPerformance]);
 
@@ -107,28 +113,26 @@ function StudentCommerceRisk() {
         return;
       }
 
-      const { accounting, business, economics } = subjectSnapshot;
-
-      if (accounting == null || business == null || economics == null) {
-        setMlError(
-          "Accounting, Business Studies and Economics marks are required before running a risk assessment"
-        );
-        return;
-      }
-
-      if (!attendancePercentage) {
+      if (!attendancePercentage && attendancePercentage !== 0) {
         setMlError(
           "Attendance records are required before running a risk assessment"
         );
         return;
       }
 
-      const res = await predictCommerceRisk(profileId, {
-        Accounting_Score: accounting,
-        Business_Studies_Score: business,
-        Economics_Score: economics,
+      const { accounting, business, economics } = subjectSnapshot;
+
+      // Send known marks when the dashboard resolved them; otherwise let the
+      // backend read the latest exam results (avoids false "marks required"
+      // when subject document ids differ).
+      const payload = {
         Attendance_Percentage: attendancePercentage,
-      });
+      };
+      if (accounting != null) payload.Accounting_Score = accounting;
+      if (business != null) payload.Business_Studies_Score = business;
+      if (economics != null) payload.Economics_Score = economics;
+
+      const res = await predictCommerceRisk(profileId, payload);
 
       setPrediction(res.data);
       setRiskStatus(res.data?.risk_level || riskStatus);

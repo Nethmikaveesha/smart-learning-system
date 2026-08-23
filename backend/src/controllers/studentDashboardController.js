@@ -31,7 +31,7 @@ export const getStudentDashboard = async (req, res) => {
       select: "examName examDate",
       populate: {
         path: "subject",
-        select: "subjectName",
+        select: "subjectName subjectCode",
       },
     });
 
