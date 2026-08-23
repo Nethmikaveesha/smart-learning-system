@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import MarkdownAnswer from "../components/MarkdownAnswer";
 
 /**
  * Teacher review page for student essay submissions.
@@ -17,6 +18,7 @@ function TeacherEssayReview() {
   const [formForId, setFormForId] = useState(null);
   const [partMarks, setPartMarks] = useState({});
   const [teacherFeedback, setTeacherFeedback] = useState("");
+  const [editingMarks, setEditingMarks] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -39,11 +41,13 @@ function TeacherEssayReview() {
     setFormForId(selected._id);
     setPartMarks(nextParts);
     setTeacherFeedback(selected.teacherFeedback || "");
+    setEditingMarks(false);
     setMessage("");
   } else if (!selected && formForId !== null) {
     setFormForId(null);
     setPartMarks({});
     setTeacherFeedback("");
+    setEditingMarks(false);
   }
 
   const loadSubmissions = async () => {
@@ -111,15 +115,36 @@ function TeacherEssayReview() {
     };
   }, [token, requestedSubmissionId]);
 
+  const maxMarks = useMemo(
+    () =>
+      Number(
+        selected?.markBreakdown?.maxMarks ||
+          selected?.question?.maxMarks ||
+          100
+      ) || 100,
+    [selected]
+  );
+
+  const aiSuggestedMark = useMemo(() => {
+    const value =
+      selected?.markBreakdown?.recommendedTotal ?? selected?.marks ?? null;
+    return value === null || value === undefined ? null : Number(value);
+  }, [selected]);
+
   const teacherTotal = useMemo(() => {
     const parts = selected?.markBreakdown?.parts || [];
-    if (!parts.length) return null;
+    if (!parts.length) {
+      const stored = selected?.finalMarks ?? selected?.marks;
+      return stored === null || stored === undefined ? null : Number(stored);
+    }
 
     return parts.reduce((sum, part) => {
       const value = Number(partMarks[part.key]);
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
   }, [selected, partMarks]);
+
+  const statusMeta = getStatusMeta(selected?.status);
 
   const saveReview = async () => {
     if (!selected) return;
@@ -147,6 +172,7 @@ function TeacherEssayReview() {
       );
 
       setMessage(res.data?.message || "Review saved successfully.");
+      setEditingMarks(false);
       await loadSubmissions();
       setSelectedId(selected._id);
     } catch (saveError) {
@@ -169,15 +195,11 @@ function TeacherEssayReview() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <p className="typo-eyebrow text-blue-700">
-          Essay Review
-        </p>
-        <h1 className="mt-1 typo-page text-slate-950">
-          Review & Modify Marks
-        </h1>
+        <p className="typo-eyebrow text-blue-700">Essay Review</p>
+        <h1 className="mt-1 typo-page text-slate-950">Review & Modify Marks</h1>
         <p className="mt-2 max-w-3xl typo-body text-slate-600">
-          Suggested scores are based on keywords and essay structure. You can
-          modify each part, then approve the final mark.
+          Review the formatted student answer, confirm the suggested mark, and
+          approve or adjust the final score.
         </p>
       </div>
 
@@ -244,22 +266,61 @@ function TeacherEssayReview() {
                       {selected.question?.question}
                     </p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {selected.status}
+                  <span
+                    className={`rounded-md px-3 py-1 text-xs font-semibold ${statusMeta.className}`}
+                  >
+                    {statusMeta.label}
                   </span>
                 </div>
 
-                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="typo-eyebrow text-slate-400">
-                    Student Answer
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-800">
-                    {selected.answer}
-                  </p>
+                <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="typo-eyebrow text-slate-500">Mark & Approval</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <MarkStat
+                      label="AI Suggested Mark"
+                      value={formatScore(aiSuggestedMark, maxMarks)}
+                    />
+                    <MarkStat label="Review Status" value={statusMeta.label} />
+                    <MarkStat
+                      label="Teacher Final Mark"
+                      value={formatScore(teacherTotal, maxMarks)}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingMarks((current) => !current)}
+                      className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-100"
+                    >
+                      {editingMarks ? "Hide Mark Editor" : "Edit Mark"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveReview}
+                      disabled={
+                        saving || !(selected.markBreakdown?.parts || []).length
+                      }
+                      className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {saving
+                        ? "Saving..."
+                        : selected.status === "Approved"
+                          ? "Update Approval"
+                          : "Approve"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="typo-eyebrow text-slate-400">Student Answer</p>
+                <div className="mt-4">
+                  <MarkdownAnswer answer={selected.answer} />
                 </div>
 
                 {selected.feedback && (
-                  <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                  <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
                     <p className="typo-eyebrow text-blue-700">
                       Suggested Feedback
                     </p>
@@ -270,125 +331,128 @@ function TeacherEssayReview() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="typo-card text-slate-950">
-                  Part-wise Marks
-                </h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  Recommended scores come from keywords and structure. Edit the
-                  Teacher Mark column to modify.
-                </p>
-
-                {(selected.markBreakdown?.parts || []).length === 0 ? (
-                  <p className="mt-4 text-sm text-slate-500">
-                    This older submission has no part breakdown. Enter a final
-                    mark only if needed after re-submit.
+              {editingMarks && (
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="typo-card text-slate-950">Part-wise Marks</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Recommended scores come from keywords and structure. Edit the
+                    Teacher Mark column, then approve.
                   </p>
-                ) : (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full text-left text-sm">
-                      <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="px-3 py-2">Part</th>
-                          <th className="px-3 py-2">Max</th>
-                          <th className="px-3 py-2">Suggested</th>
-                          <th className="px-3 py-2">Teacher Mark</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selected.markBreakdown.parts.map((part) => (
-                          <tr
-                            key={part.key}
-                            className="border-b border-slate-100 align-top"
-                          >
-                            <td className="px-3 py-3">
-                              <p className="font-semibold text-slate-900">
-                                {part.label}
-                              </p>
-                              <p className="mt-1 text-xs text-slate-500">
-                                {part.description}
-                              </p>
-                              {part.key === "keywords" && (
-                                <div className="mt-2 space-y-1 text-xs text-slate-600">
-                                  <p>
-                                    Matched:{" "}
-                                    {(part.details?.matchedKeywords || []).join(
-                                      ", "
-                                    ) || "None"}
-                                  </p>
-                                  <p>
-                                    Missing:{" "}
-                                    {(part.details?.missingKeywords || []).join(
-                                      ", "
-                                    ) || "None"}
-                                  </p>
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 font-semibold text-slate-700">
-                              {part.maxMarks}
-                            </td>
-                            <td className="px-3 py-3 font-semibold text-blue-700">
-                              {part.recommendedMarks}
-                            </td>
-                            <td className="px-3 py-3">
-                              <input
-                                type="number"
-                                min="0"
-                                max={part.maxMarks}
-                                step="0.5"
-                                value={partMarks[part.key] ?? ""}
-                                onChange={(event) =>
-                                  setPartMarks((current) => ({
-                                    ...current,
-                                    [part.key]: event.target.value,
-                                  }))
-                                }
-                                className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
-                              />
-                            </td>
+
+                  {(selected.markBreakdown?.parts || []).length === 0 ? (
+                    <p className="mt-4 text-sm text-slate-500">
+                      This older submission has no part breakdown. Enter a final
+                      mark only if needed after re-submit.
+                    </p>
+                  ) : (
+                    <div className="mt-4 overflow-x-auto">
+                      <table className="min-w-full text-left text-sm">
+                        <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-3 py-2">Part</th>
+                            <th className="px-3 py-2">Max</th>
+                            <th className="px-3 py-2">Suggested</th>
+                            <th className="px-3 py-2">Teacher Mark</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {selected.markBreakdown.parts.map((part) => (
+                            <tr
+                              key={part.key}
+                              className="border-b border-slate-100 align-top"
+                            >
+                              <td className="px-3 py-3">
+                                <p className="font-semibold text-slate-900">
+                                  {part.label}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {part.description}
+                                </p>
+                                {part.key === "keywords" && (
+                                  <div className="mt-2 space-y-1 text-xs text-slate-600">
+                                    <p>
+                                      Matched:{" "}
+                                      {(
+                                        part.details?.matchedKeywords || []
+                                      ).join(", ") || "None"}
+                                    </p>
+                                    <p>
+                                      Missing:{" "}
+                                      {(
+                                        part.details?.missingKeywords || []
+                                      ).join(", ") || "None"}
+                                    </p>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 font-semibold text-slate-700">
+                                {part.maxMarks}
+                              </td>
+                              <td className="px-3 py-3 font-semibold text-blue-700">
+                                {part.recommendedMarks}
+                              </td>
+                              <td className="px-3 py-3">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={part.maxMarks}
+                                  step="0.5"
+                                  value={partMarks[part.key] ?? ""}
+                                  onChange={(event) =>
+                                    setPartMarks((current) => ({
+                                      ...current,
+                                      [part.key]: event.target.value,
+                                    }))
+                                  }
+                                  className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-3">
+                    <ScoreCard
+                      label="Suggested Total"
+                      value={
+                        selected.markBreakdown?.recommendedTotal ??
+                        selected.marks
+                      }
+                    />
+                    <ScoreCard
+                      label="Teacher Total"
+                      value={teacherTotal ?? "--"}
+                    />
+                    <ScoreCard label="Paper Max" value={maxMarks} />
                   </div>
-                )}
 
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  <ScoreCard
-                    label="Suggested Total"
-                    value={selected.markBreakdown?.recommendedTotal ?? selected.marks}
-                  />
-                  <ScoreCard label="Teacher Total" value={teacherTotal ?? "--"} />
-                  <ScoreCard
-                    label="Paper Max"
-                    value={
-                      selected.markBreakdown?.maxMarks ||
-                      selected.question?.maxMarks ||
-                      "--"
+                  <label className="mt-5 block typo-label text-slate-700">
+                    Teacher Feedback
+                    <textarea
+                      value={teacherFeedback}
+                      onChange={(event) =>
+                        setTeacherFeedback(event.target.value)
+                      }
+                      placeholder="Optional comments for the student..."
+                      className="mt-2 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={saveReview}
+                    disabled={
+                      saving || !(selected.markBreakdown?.parts || []).length
                     }
-                  />
+                    className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {saving ? "Saving..." : "Save & Approve"}
+                  </button>
                 </div>
-
-                <label className="mt-5 block typo-label text-slate-700">
-                  Teacher Feedback
-                  <textarea
-                    value={teacherFeedback}
-                    onChange={(event) => setTeacherFeedback(event.target.value)}
-                    placeholder="Optional comments for the student..."
-                    className="mt-2 min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={saveReview}
-                  disabled={saving || !(selected.markBreakdown?.parts || []).length}
-                  className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {saving ? "Saving..." : "Save Teacher Review"}
-                </button>
-              </div>
+              )}
             </section>
           )}
         </div>
@@ -397,12 +461,46 @@ function TeacherEssayReview() {
   );
 }
 
+function formatScore(value, maxMarks) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${Number(value)}/${maxMarks}`;
+}
+
+function getStatusMeta(status) {
+  const normalized = String(status || "Pending");
+  if (normalized === "Approved") {
+    return {
+      label: "Approved",
+      className: "bg-emerald-100 text-emerald-800",
+    };
+  }
+  if (normalized === "Modified") {
+    return {
+      label: "Teacher Modified",
+      className: "bg-amber-100 text-amber-900",
+    };
+  }
+  return {
+    label: normalized || "Pending",
+    className: "bg-sky-100 text-sky-800",
+  };
+}
+
+function MarkStat({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
 function ScoreCard({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="typo-eyebrow text-slate-400">
-        {label}
-      </p>
+      <p className="typo-eyebrow text-slate-400">{label}</p>
       <p className="typo-metric mt-2 text-slate-950">{value}</p>
     </div>
   );

@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
+import MarkdownAnswer from "../components/MarkdownAnswer";
 
 function truncateText(value, max = 72) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
@@ -207,9 +208,7 @@ function SubmissionDetailsModal({ submission, onClose }) {
           </DetailSection>
 
           <DetailSection title="Student Answer">
-            <p className="whitespace-pre-wrap text-sm leading-7 text-slate-800">
-              {submission.answer || "No answer provided."}
-            </p>
+            <MarkdownAnswer answer={submission.answer} />
           </DetailSection>
 
           <DetailSection title="Marks Summary">
