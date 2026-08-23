@@ -26,6 +26,13 @@ function flattenStudentRows(profiles) {
 }
 
 // Teacher records are user records with teacher-specific fields.
+function displayOrEmpty(value) {
+  const text = String(value || "").trim();
+  if (!text || text.toLowerCase() === "n/a") return "";
+  // Edit form is single-select; keep the first label if several were joined.
+  return text.split(",")[0].trim();
+}
+
 function flattenTeacherRows(teachers) {
   return teachers.map((teacher) => ({
     recordId: teacher._id,
@@ -34,8 +41,8 @@ function flattenTeacherRows(teachers) {
     email: teacher.email || "N/A",
     phoneNumber: teacher.phoneNumber || "",
     teacherId: teacher.teacherId || "",
-    assignedSubjectCode: teacher.assignedSubjectCode || "N/A",
-    assignedClassName: teacher.assignedClassName || "N/A",
+    assignedSubjectCode: displayOrEmpty(teacher.assignedSubjectCode),
+    assignedClassName: displayOrEmpty(teacher.assignedClassName),
     status: teacher.isActive ? "Active" : "Inactive",
   }));
 }
@@ -300,19 +307,22 @@ function UserRecordsTable({
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else if (listType === "admin" || listType === "teacher") {
+        const teacherAssignments =
+          listType === "teacher"
+            ? {
+                teacherId: formValues.teacherId,
+                assignedSubject: displayOrEmpty(formValues.assignedSubjectCode),
+                assignedClass: displayOrEmpty(formValues.assignedClassName),
+              }
+            : {};
+
         await api.put(
           `/users/${editingRow.userId}`,
           {
             fullName: formValues.fullName,
             email: formValues.email,
             phoneNumber: formValues.phoneNumber,
-            ...(listType === "teacher"
-              ? {
-                  teacherId: formValues.teacherId,
-                  assignedSubject: formValues.assignedSubjectCode,
-                  assignedClass: formValues.assignedClassName,
-                }
-              : {}),
+            ...teacherAssignments,
             status: formValues.status,
             ...passwordPayload,
           },

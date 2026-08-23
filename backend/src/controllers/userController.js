@@ -4,6 +4,7 @@ import Subject from "../models/Subject.js";
 import Class from "../models/Class.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import {
+  normalizeAssignmentReference,
   resolveOrCreateClass,
   resolveSubject,
 } from "../utils/resolveReference.js";
@@ -200,13 +201,17 @@ export const updateUser = async (req, res) => {
 
     if (user.role === "teacher") {
       if (req.body.assignedSubject !== undefined) {
+        const subjectRef = normalizeAssignmentReference(
+          req.body.assignedSubject
+        );
+
         await Subject.updateMany(
           { assignedTeacher: user._id },
           { $unset: { assignedTeacher: "" } }
         );
 
-        if (req.body.assignedSubject) {
-          const subject = await resolveSubject(req.body.assignedSubject);
+        if (subjectRef) {
+          const subject = await resolveSubject(subjectRef);
           if (subject) {
             await Subject.findByIdAndUpdate(subject._id, {
               assignedTeacher: user._id,
@@ -216,16 +221,20 @@ export const updateUser = async (req, res) => {
       }
 
       if (req.body.assignedClass !== undefined) {
+        const classRef = normalizeAssignmentReference(req.body.assignedClass);
+
         await Class.updateMany(
           { assignedTeacher: user._id },
           { $unset: { assignedTeacher: "" } }
         );
 
-        if (req.body.assignedClass) {
-          const classRecord = await resolveOrCreateClass(req.body.assignedClass);
-          await Class.findByIdAndUpdate(classRecord._id, {
-            assignedTeacher: user._id,
-          });
+        if (classRef) {
+          const classRecord = await resolveOrCreateClass(classRef);
+          if (classRecord) {
+            await Class.findByIdAndUpdate(classRecord._id, {
+              assignedTeacher: user._id,
+            });
+          }
         }
       }
     }
