@@ -1123,6 +1123,9 @@ const featureConfigs = {
       "dailyStudyHours",
       "recommendation",
     ],
+    emptyMessage: (data) =>
+      data?.message ||
+      "No upcoming exams are scheduled for your class yet. When a teacher adds an exam with a future date, your revision plan will appear here.",
   },
   "/student/badges": {
     title: "Achievement Badges",
