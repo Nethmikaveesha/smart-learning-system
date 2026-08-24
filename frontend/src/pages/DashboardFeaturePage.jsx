@@ -729,6 +729,7 @@ const featureConfigs = {
       "No question papers yet. Teachers add papers from Create Paper in the Teacher Workspace.",
   },
   "/admin/audit-logs": {
+    // Dedicated AdminAuditLogs page handles this route in App.jsx.
     title: "Audit Logs",
     endpoint: "/audit-logs",
   },

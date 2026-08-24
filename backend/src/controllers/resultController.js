@@ -129,7 +129,13 @@ export const addResult = async (req, res) => {
       userId: req.user?._id,
       action: "CREATE",
       module: "Results",
-      description: `Result added with ${numericMarks} marks. Rank/Z-score recalculated.`,
+      description: `Result added for ${
+        result.student?.studentId || access.profile?.studentId || "student"
+      }${
+        result.student?.user?.fullName
+          ? ` (${result.student.user.fullName})`
+          : ""
+      } — ${numericMarks}/100. Rank and Z-score recalculated.`,
     });
 
     res.status(201).json({
@@ -197,7 +203,13 @@ export const updateResult = async (req, res) => {
       userId: req.user?._id,
       action: "UPDATE",
       module: "Results",
-      description: `Result updated to ${numericMarks} marks. Rank/Z-score recalculated.`,
+      description: `Result updated for ${
+        result.student?.studentId || "student"
+      }${
+        result.student?.user?.fullName
+          ? ` (${result.student.user.fullName})`
+          : ""
+      } — ${numericMarks}/100. Rank and Z-score recalculated.`,
     });
 
     res.status(200).json({
@@ -361,7 +373,13 @@ export const deleteResult = async (req, res) => {
       userId: req.user?._id,
       action: "DELETE",
       module: "Results",
-      description: `Deleted result for ${result.student?.user?.fullName || "student"}`,
+      description: `Deleted result for ${
+        result.student?.studentId || "student"
+      }${
+        result.student?.user?.fullName
+          ? ` (${result.student.user.fullName})`
+          : ""
+      }. Rank and Z-score recalculated for remaining students.`,
     });
 
     res.status(200).json({

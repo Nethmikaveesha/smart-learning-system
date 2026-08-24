@@ -36,6 +36,7 @@ import StudentFlashcards from "./pages/StudentFlashcards";
 import StudentPerformanceTracker from "./pages/StudentPerformanceTracker";
 import StudentCommerceRisk from "./pages/StudentCommerceRisk";
 import AdminSystemAnalytics from "./pages/AdminSystemAnalytics";
+import AdminAuditLogs from "./pages/AdminAuditLogs";
 
 // This component protects dashboard routes.
 // If the user is not logged in, it redirects to the login page.
@@ -91,6 +92,7 @@ function AppRoutes() {
       >
         <Route index element={<AdminDashboard />} />
         <Route path="system-analytics" element={<AdminSystemAnalytics />} />
+        <Route path="audit-logs" element={<AdminAuditLogs />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
