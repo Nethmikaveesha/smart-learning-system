@@ -1,6 +1,7 @@
 import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
 import StudentProfile from "../models/StudentProfile.js";
+import Attendance from "../models/Attendance.js";
 import User from "../models/User.js";
 
 function escapeRegex(value) {
@@ -51,6 +52,41 @@ async function expandClassIdsWithNameYearTwins(classDocs = []) {
 
   const twins = await Class.find({ $or: queries }).select("_id");
   return uniqueObjectIds([...originalIds, ...twins.map((item) => item._id)]);
+}
+
+/**
+ * Resolve a class id to itself plus duplicate Class rows that represent the
+ * same teaching group. Marks/attendance seeding often creates twins that share
+ * className (+ grade) but differ on academicYear string — include those too.
+ */
+export async function resolveClassTwinIds(
+  classId,
+  { ignoreYear = true } = {}
+) {
+  if (!classId) return [];
+
+  const classDoc = await Class.findById(classId).select(
+    "className academicYear gradeLevel"
+  );
+  if (!classDoc) return [classId];
+
+  const query = {
+    className: {
+      $regex: `^${escapeRegex(String(classDoc.className || "").trim())}$`,
+      $options: "i",
+    },
+  };
+
+  if (!ignoreYear && classDoc.academicYear) {
+    query.academicYear = String(classDoc.academicYear);
+  }
+
+  if (classDoc.gradeLevel) {
+    query.gradeLevel = classDoc.gradeLevel;
+  }
+
+  const twins = await Class.find(query).select("_id");
+  return uniqueObjectIds([classDoc._id, ...twins.map((item) => item._id)]);
 }
 
 /** Unique display labels like "12 Commerce A (2026)". */
@@ -139,13 +175,22 @@ export async function getTeacherScope(teacherId) {
 
   const classIds = classes.map((item) => item._id);
 
-  // 3) Students in assigned classes, or students taking assigned subjects.
+  // 3) Students in assigned classes, or students taking assigned subjects,
+  //    or students who already have attendance in those classes.
   const studentQuery = { $or: [] };
   if (classIds.length > 0) {
     studentQuery.$or.push({ class: { $in: classIds } });
   }
   if (taughtSubjectIds.length > 0) {
     studentQuery.$or.push({ subjects: { $in: taughtSubjectIds } });
+  }
+  if (classIds.length > 0) {
+    const attendanceStudentIds = await Attendance.distinct("student", {
+      class: { $in: classIds },
+    });
+    if (attendanceStudentIds.length > 0) {
+      studentQuery.$or.push({ _id: { $in: attendanceStudentIds } });
+    }
   }
 
   const students =

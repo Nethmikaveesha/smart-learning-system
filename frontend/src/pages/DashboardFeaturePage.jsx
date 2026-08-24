@@ -32,22 +32,75 @@ function studentMatchesSelectedClass(student, selectedClassId, classes = []) {
     return true;
   }
 
-  const selectedClass = classes.find(
-    (classItem) => String(classItem?._id) === String(selectedClassId)
-  );
-  if (!selectedClass || !student?.class?.className) return false;
+  const selectedClass =
+    classes.find(
+      (classItem) => String(classItem?._id) === String(selectedClassId)
+    ) || null;
+  const studentClass =
+    student?.class && typeof student.class === "object" && student.class.className
+      ? student.class
+      : classes.find(
+          (classItem) => String(classItem?._id) === studentClassId
+        ) || null;
+
+  if (!selectedClass?.className || !studentClass?.className) return false;
 
   const sameName =
-    String(student.class.className).trim().toLowerCase() ===
+    String(studentClass.className).trim().toLowerCase() ===
     String(selectedClass.className || "")
       .trim()
       .toLowerCase();
   const sameYear =
     !selectedClass.academicYear ||
-    !student.class.academicYear ||
-    String(student.class.academicYear) === String(selectedClass.academicYear);
+    !studentClass.academicYear ||
+    String(studentClass.academicYear) === String(selectedClass.academicYear);
+  const sameGrade =
+    !selectedClass.gradeLevel ||
+    !studentClass.gradeLevel ||
+    Number(selectedClass.gradeLevel) === Number(studentClass.gradeLevel);
 
-  return sameName && sameYear;
+  // Prefer name+year, but also accept name+grade when year strings differ
+  // across duplicate seeded Class rows (common Marks vs Attendance gap).
+  return sameName && (sameYear || sameGrade);
+}
+
+/** Marks: match exam class including name-only twins from the class catalog. */
+function studentMatchesExamClass(student, exam, classes = []) {
+  if (!exam) return false;
+
+  const examClassId = exam.class?._id || exam.class;
+  if (!examClassId) return false;
+
+  const catalog = [...classes];
+  if (exam.class && typeof exam.class === "object") {
+    catalog.push(exam.class);
+  }
+
+  if (studentMatchesSelectedClass(student, examClassId, catalog)) {
+    return true;
+  }
+
+  const examClass =
+    exam.class && typeof exam.class === "object" && exam.class.className
+      ? exam.class
+      : catalog.find((item) => String(item?._id) === String(examClassId));
+  const studentClassId = String(student?.class?._id || student?.class || "");
+  const studentClass =
+    student?.class && typeof student.class === "object" && student.class.className
+      ? student.class
+      : catalog.find((item) => String(item?._id) === studentClassId);
+
+  if (!examClass?.className || !studentClass?.className) return false;
+
+  const sameName =
+    String(examClass.className).trim().toLowerCase() ===
+    String(studentClass.className).trim().toLowerCase();
+  const sameGrade =
+    !examClass.gradeLevel ||
+    !studentClass.gradeLevel ||
+    Number(examClass.gradeLevel) === Number(studentClass.gradeLevel);
+
+  return sameName && sameGrade;
 }
 
 /** Real-world class label: "Grade 13 — 13 Commerce A (2026)" */
@@ -922,6 +975,7 @@ const featureConfigs = {
       endpoint: "/results",
       method: "post",
       submitLabel: "Add Result",
+      extraOptionEndpoints: ["/classes"],
       fields: [
         {
           name: "exam",
@@ -942,11 +996,8 @@ const featureConfigs = {
           optionsEndpoint: "/student-profiles",
           optionValue: "_id",
           dependsOn: "exam",
-          // Same class matching as Attendance — include duplicate class rows
-          // that share className + academicYear (exact Mongo id only was too strict).
-          filterBy: (item, values, asyncOptions) => {
-            if (!values.exam) return false;
-
+          // Reload students for the exam class (server expands duplicate class rows).
+          getOptionsQuery: (values, asyncOptions) => {
             const exams = resolveAsyncOptionItems(
               { optionsEndpoint: "/exams" },
               asyncOptions
@@ -954,21 +1005,13 @@ const featureConfigs = {
             const selectedExam = exams.find(
               (exam) => String(exam._id) === String(values.exam)
             );
-
-            if (!selectedExam) return false;
-
-            const examClassId = selectedExam.class?._id || selectedExam.class;
-            const classCatalog = [];
-            if (selectedExam.class && typeof selectedExam.class === "object") {
-              classCatalog.push(selectedExam.class);
-            }
-
-            return studentMatchesSelectedClass(
-              item,
-              examClassId,
-              classCatalog
-            );
+            const classId =
+              selectedExam?.class?._id || selectedExam?.class || "";
+            return classId ? { classId: String(classId) } : null;
           },
+          // Server already narrows by exam class (+ twins / attendance).
+          // Keep only the dependsOn gate on the client.
+          filterBy: (_item, values) => Boolean(values.exam),
           getOptionLabel: (item) => {
             const name = item.user?.fullName || "Student";
             const code = item.studentId || "No ID";
@@ -2224,14 +2267,17 @@ function FeatureForm({ form, token, onSaved, onError }) {
     const loadAsyncOptions = async () => {
       const endpoints = [
         ...new Set(
-          form.fields
-            .filter(
-              (field) =>
-                (field.type === "async-select" ||
-                  field.type === "searchable-async-select") &&
-                field.optionsEndpoint
-            )
-            .map((field) => field.optionsEndpoint)
+          [
+            ...(form.extraOptionEndpoints || []),
+            ...form.fields
+              .filter(
+                (field) =>
+                  (field.type === "async-select" ||
+                    field.type === "searchable-async-select") &&
+                  field.optionsEndpoint
+              )
+              .map((field) => field.optionsEndpoint),
+          ].filter(Boolean)
         ),
       ];
 
@@ -2273,7 +2319,51 @@ function FeatureForm({ form, token, onSaved, onError }) {
     };
 
     loadAsyncOptions();
-  }, [form.fields, token, onError]);
+  }, [form.fields, form.extraOptionEndpoints, token, onError]);
+
+  const reloadDependentOptions = async (nextValues, parentFieldName) => {
+    const dependentFields = form.fields.filter(
+      (field) =>
+        field.dependsOn === parentFieldName &&
+        typeof field.getOptionsQuery === "function" &&
+        field.optionsEndpoint
+    );
+
+    if (!dependentFields.length || !token) return;
+
+    try {
+      setLoadingOptions(true);
+
+      const updates = {};
+      await Promise.all(
+        dependentFields.map(async (field) => {
+          const query = field.getOptionsQuery(nextValues, asyncOptions);
+          if (!query) {
+            updates[field.optionsEndpoint] = [];
+            return;
+          }
+
+          try {
+            const response = await api.get(field.optionsEndpoint, {
+              headers: { Authorization: `Bearer ${token}` },
+              params: query,
+            });
+            updates[field.optionsEndpoint] = response.data;
+          } catch (endpointError) {
+            console.warn(
+              `Failed to reload options from ${field.optionsEndpoint}:`,
+              endpointError.response?.data?.message || endpointError.message
+            );
+            updates[field.optionsEndpoint] = [];
+          }
+        })
+      );
+
+      setAsyncOptions((current) => ({ ...current, ...updates }));
+    } finally {
+      setLoadingOptions(false);
+    }
+  };
 
   const updateFieldValue = (fieldName, nextValue) => {
     setValues((current) => {
@@ -2329,6 +2419,15 @@ function FeatureForm({ form, token, onSaved, onError }) {
 
       return next;
     });
+
+    // After parent changes, reload dependent option lists (e.g. students for exam class).
+    const nextValues = { ...values, [fieldName]: nextValue };
+    form.fields.forEach((field) => {
+      if (field.dependsOn === fieldName) {
+        nextValues[field.name] = "";
+      }
+    });
+    reloadDependentOptions(nextValues, fieldName);
   };
 
   const submitForm = async (event) => {

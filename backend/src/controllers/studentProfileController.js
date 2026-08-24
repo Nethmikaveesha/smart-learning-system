@@ -1,11 +1,15 @@
 import StudentProfile from "../models/StudentProfile.js";
 import User from "../models/User.js";
+import Attendance from "../models/Attendance.js";
 import bcrypt from "bcryptjs";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { resolveOrCreateClass } from "../utils/resolveReference.js";
 import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
 import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
-import { getTeacherScope } from "../utils/teacherScope.js";
+import {
+  getTeacherScope,
+  resolveClassTwinIds,
+} from "../utils/teacherScope.js";
 import { generateUniqueStudentId } from "../utils/generateRoleIds.js";
 
 export const createStudentProfile = async (req, res) => {
@@ -71,7 +75,7 @@ export const createStudentProfile = async (req, res) => {
 
 export const getAllStudentProfiles = async (req, res) => {
   try {
-    const filter = {};
+    let filter = {};
 
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
@@ -80,15 +84,59 @@ export const getAllStudentProfiles = async (req, res) => {
         return res.status(200).json([]);
       }
 
-      const orFilters = [];
+      const scopeOrFilters = [];
       if (scope.classIds.length > 0) {
-        orFilters.push({ class: { $in: scope.classIds } });
+        scopeOrFilters.push({ class: { $in: scope.classIds } });
       }
       if (scope.subjectIds.length > 0) {
-        orFilters.push({ subjects: { $in: scope.subjectIds } });
+        scopeOrFilters.push({ subjects: { $in: scope.subjectIds } });
       }
 
-      filter.$or = orFilters;
+      // Attendance Management can list students via class-scoped attendance
+      // rows. Include those students so Marks Management can select them too.
+      if (scope.classIds.length > 0) {
+        const attendanceStudentIds = await Attendance.distinct("student", {
+          class: { $in: scope.classIds },
+        });
+        if (attendanceStudentIds.length > 0) {
+          scopeOrFilters.push({ _id: { $in: attendanceStudentIds } });
+        }
+      }
+
+      filter = { $or: scopeOrFilters };
+
+      // Optional class narrowing for Marks (exam class) / Attendance forms.
+      // Includes duplicate Class rows with the same name/grade, and students
+      // who already have attendance rows for those class ids.
+      if (req.query.classId) {
+        const twinIds = await resolveClassTwinIds(req.query.classId, {
+          ignoreYear: true,
+        });
+        if (twinIds.length === 0) {
+          return res.status(200).json([]);
+        }
+
+        const attendanceInClass = await Attendance.distinct("student", {
+          class: { $in: twinIds },
+        });
+
+        const classMatchOr = [{ class: { $in: twinIds } }];
+        if (attendanceInClass.length > 0) {
+          classMatchOr.push({ _id: { $in: attendanceInClass } });
+        }
+
+        filter = {
+          $and: [{ $or: scopeOrFilters }, { $or: classMatchOr }],
+        };
+      }
+    } else if (req.query.classId) {
+      const twinIds = await resolveClassTwinIds(req.query.classId, {
+        ignoreYear: true,
+      });
+      if (twinIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter = { class: { $in: twinIds } };
     }
 
     const profiles = await StudentProfile.find(filter)

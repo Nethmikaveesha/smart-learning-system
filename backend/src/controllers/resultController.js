@@ -8,7 +8,7 @@ import {
   getPassMark,
 } from "../utils/grading.js";
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
-import { getTeacherScope } from "../utils/teacherScope.js";
+import { getTeacherScope, resolveClassTwinIds } from "../utils/teacherScope.js";
 import Exam from "../models/Exam.js";
 
 /**
@@ -82,6 +82,33 @@ export const addResult = async (req, res) => {
         return res.status(403).json({
           message: "You can only add marks for exams in your assigned classes or subjects",
         });
+      }
+
+      // Allow students on duplicate class rows (same name/grade) or with
+      // attendance already recorded for the exam class — matches Marks dropdown.
+      if (examRecord?.class) {
+        const twinIds = await resolveClassTwinIds(examRecord.class, {
+          ignoreYear: true,
+        });
+        const twinIdSet = new Set(twinIds.map((id) => String(id)));
+        const studentClassId = String(access.profile?.class || "");
+        const classMatched = studentClassId && twinIdSet.has(studentClassId);
+
+        let attendanceMatched = false;
+        if (!classMatched && twinIds.length > 0) {
+          const attendanceHit = await Attendance.exists({
+            student,
+            class: { $in: twinIds },
+          });
+          attendanceMatched = Boolean(attendanceHit);
+        }
+
+        if (!classMatched && !attendanceMatched) {
+          return res.status(403).json({
+            message:
+              "This student is not in the selected exam's class. Check the student's class assignment.",
+          });
+        }
       }
     }
 
