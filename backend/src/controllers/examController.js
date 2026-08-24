@@ -69,20 +69,28 @@ export const getAllExams = async (req, res) => {
 
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
-      filter.$or = [
-        { class: { $in: scope.classIds } },
-        { subject: { $in: scope.subjectIds } },
-      ];
 
       // No assignments → empty list (do not leak school-wide exams).
       if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
         return res.status(200).json([]);
       }
+
+      // Marks / exam lists should match the teacher's assigned subject(s).
+      // Do not use class-only OR, or Accounting/BS/ECO all appear together.
+      if (scope.subjectIds.length > 0) {
+        filter.subject = { $in: scope.subjectIds };
+        if (scope.classIds.length > 0) {
+          filter.class = { $in: scope.classIds };
+        }
+      } else {
+        filter.class = { $in: scope.classIds };
+      }
     }
 
     const exams = await Exam.find(filter)
       .populate("class", "className gradeLevel academicYear")
-      .populate("subject", "subjectName subjectCode");
+      .populate("subject", "subjectName subjectCode")
+      .sort({ examDate: -1, createdAt: -1 });
 
     res.status(200).json(exams);
   } catch (error) {
