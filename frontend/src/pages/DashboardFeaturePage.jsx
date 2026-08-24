@@ -714,7 +714,19 @@ const featureConfigs = {
   },
   "/admin/question-paper-details": {
     title: "Question Paper Details",
-    endpoint: "/essays/questions",
+    description:
+      "School-wide essay question papers created by teachers. Use this list to review what papers exist for each grade and subject.",
+    endpoint: "/essays/questions?scope=department",
+    tableColumns: [
+      "gradeLevel",
+      "question",
+      "subject",
+      "createdBy",
+      "maxMarks",
+      "createdAt",
+    ],
+    emptyMessage:
+      "No question papers yet. Teachers add papers from Create Paper in the Teacher Workspace.",
   },
   "/admin/audit-logs": {
     title: "Audit Logs",

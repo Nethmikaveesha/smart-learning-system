@@ -445,7 +445,12 @@ export const getAllEssaySubmissions = async (req, res) => {
 export const getEssayQuestions = async (req, res) => {
   try {
     const filter = {};
-    const scope = String(req.query.scope || "mine").toLowerCase();
+    const rawScope = String(req.query.scope || "").toLowerCase();
+    // Teachers default to "mine". Admins default to department-wide papers
+    // so oversight pages like Question Paper Details are not empty.
+    const scope =
+      rawScope ||
+      (isAdminRole(req.user?.role) ? "department" : "mine");
 
     if (req.query.gradeLevel) {
       const grade = Number(req.query.gradeLevel);
@@ -468,13 +473,12 @@ export const getEssayQuestions = async (req, res) => {
         // Default + unknown scopes → mine
         Object.assign(filter, await getOwnedPapersFilter(req.user._id));
       }
-    } else if (isAdminRole(req.user?.role) && scope === "department") {
-      // Admin department view: all papers (optionally still grade-filtered above).
     } else if (isAdminRole(req.user?.role) && scope === "shared") {
       Object.assign(filter, { sharedWith: { $exists: true, $ne: [] } });
     } else if (isAdminRole(req.user?.role) && scope === "mine") {
       Object.assign(filter, { createdBy: req.user._id });
     }
+    // Admin department (default): no creator filter — all school papers.
 
     const questions = await EssayQuestion.find(filter)
       .populate("subject", "subjectName subjectCode")
