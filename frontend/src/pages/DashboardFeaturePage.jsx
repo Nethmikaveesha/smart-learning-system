@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -2349,7 +2349,10 @@ function FeatureForm({ form, token, onSaved, onError }) {
       const updates = {};
       await Promise.all(
         dependentFields.map(async (field) => {
-          const query = field.getOptionsQuery(nextValues, asyncOptions);
+          const query = field.getOptionsQuery(
+            nextValues,
+            asyncOptionsRef.current
+          );
           if (!query) {
             updates[field.optionsEndpoint] = [];
             return;

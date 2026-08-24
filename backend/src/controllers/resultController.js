@@ -104,10 +104,21 @@ export const addResult = async (req, res) => {
         }
 
         if (!classMatched && !attendanceMatched) {
-          return res.status(403).json({
-            message:
-              "This student is not in the selected exam's class. Check the student's class assignment.",
-          });
+          // Real-world fallback: teacher already passed exam+student scope checks.
+          // Allow save when the student takes this exam subject (class docs may drift).
+          const examSubjectId = String(examRecord.subject || "");
+          const takesSubject =
+            examSubjectId &&
+            (access.profile?.subjects || []).some(
+              (subjectId) => String(subjectId) === examSubjectId
+            );
+
+          if (!takesSubject) {
+            return res.status(403).json({
+              message:
+                "This student is not in the selected exam's class. Check the student's class assignment.",
+            });
+          }
         }
       }
     }
