@@ -89,6 +89,44 @@ export async function resolveClassTwinIds(
   return uniqueObjectIds([classDoc._id, ...twins.map((item) => item._id)]);
 }
 
+/**
+ * Resolve subject ids to themselves plus duplicate Subject rows that share
+ * the same subjectName / subjectCode (common after reseeding catalogs).
+ */
+export async function resolveSubjectTwinIds(subjectIds = []) {
+  const originalIds = uniqueObjectIds(subjectIds);
+  if (!originalIds.length) return [];
+
+  const originals = await Subject.find({ _id: { $in: originalIds } }).select(
+    "subjectName subjectCode"
+  );
+
+  const queries = [];
+  for (const subject of originals) {
+    if (subject.subjectName) {
+      queries.push({
+        subjectName: {
+          $regex: `^${escapeRegex(String(subject.subjectName).trim())}$`,
+          $options: "i",
+        },
+      });
+    }
+    if (subject.subjectCode) {
+      queries.push({
+        subjectCode: {
+          $regex: `^${escapeRegex(String(subject.subjectCode).trim())}$`,
+          $options: "i",
+        },
+      });
+    }
+  }
+
+  if (!queries.length) return originalIds;
+
+  const twins = await Subject.find({ $or: queries }).select("_id");
+  return uniqueObjectIds([...originalIds, ...twins.map((item) => item._id)]);
+}
+
 /** Unique display labels like "12 Commerce A (2026)". */
 export function formatClassScopeLabel(classItem) {
   const name = classItem?.className || "Class";

@@ -4,6 +4,7 @@ import {
   assertTeacherOwnsClass,
   assertTeacherOwnsSubject,
   getTeacherScope,
+  resolveSubjectTwinIds,
 } from "../utils/teacherScope.js";
 
 export const createExam = async (req, res) => {
@@ -65,30 +66,69 @@ export const createExam = async (req, res) => {
 
 export const getAllExams = async (req, res) => {
   try {
-    const filter = {};
+    if (req.user?.role !== "teacher") {
+      const exams = await Exam.find()
+        .populate("class", "className gradeLevel academicYear")
+        .populate("subject", "subjectName subjectCode")
+        .sort({ examDate: -1, createdAt: -1 });
+      return res.status(200).json(exams);
+    }
 
-    if (req.user?.role === "teacher") {
-      const scope = await getTeacherScope(req.user._id);
+    const scope = await getTeacherScope(req.user._id);
 
-      // No assignments → empty list (do not leak school-wide exams).
-      if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
-        return res.status(200).json([]);
-      }
+    // No assignments → empty list (do not leak school-wide exams).
+    if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
+      return res.status(200).json([]);
+    }
 
-      // Real-world Marks workflow: a subject teacher must see every exam
-      // created for their assigned subject(s). Do NOT also require class id
-      // match — duplicate/seeded Class rows often drift and hide all exams.
-      if (scope.subjectIds.length > 0) {
-        filter.subject = { $in: scope.subjectIds };
+    const populateOptions = [
+      { path: "class", select: "className gradeLevel academicYear" },
+      { path: "subject", select: "subjectName subjectCode" },
+    ];
+
+    let exams = [];
+
+    // 1) Preferred: exams for assigned subject(s), including duplicate
+    //    Subject catalog rows that share the same name/code.
+    if (scope.subjectIds.length > 0) {
+      const twinSubjectIds = await resolveSubjectTwinIds(scope.subjectIds);
+      exams = await Exam.find({ subject: { $in: twinSubjectIds } })
+        .populate(populateOptions)
+        .sort({ examDate: -1, createdAt: -1 });
+    }
+
+    // 2) Fallback: exams in the teacher's classes whose subject NAME matches
+    //    an assigned subject (handles Exam.subject ObjectId drift).
+    if (exams.length === 0 && scope.classIds.length > 0) {
+      const classExams = await Exam.find({ class: { $in: scope.classIds } })
+        .populate(populateOptions)
+        .sort({ examDate: -1, createdAt: -1 });
+
+      if (scope.subjectLabels.length > 0) {
+        const labelSet = new Set(
+          scope.subjectLabels.map((label) => String(label).trim().toLowerCase())
+        );
+        exams = classExams.filter((exam) =>
+          labelSet.has(
+            String(exam.subject?.subjectName || "")
+              .trim()
+              .toLowerCase()
+          )
+        );
       } else {
-        filter.class = { $in: scope.classIds };
+        // Class-only teacher (no subject assignment): show class exams.
+        exams = classExams;
       }
     }
 
-    const exams = await Exam.find(filter)
-      .populate("class", "className gradeLevel academicYear")
-      .populate("subject", "subjectName subjectCode")
-      .sort({ examDate: -1, createdAt: -1 });
+    // 3) Last safe fallback for Marks: if subject query found nothing but the
+    //    teacher has classes, show class exams. Better a usable Marks page
+    //    than a permanently empty dropdown when seed data drifted.
+    if (exams.length === 0 && scope.classIds.length > 0) {
+      exams = await Exam.find({ class: { $in: scope.classIds } })
+        .populate(populateOptions)
+        .sort({ examDate: -1, createdAt: -1 });
+    }
 
     res.status(200).json(exams);
   } catch (error) {
