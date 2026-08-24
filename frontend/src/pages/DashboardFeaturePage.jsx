@@ -1260,8 +1260,22 @@ const featureConfigs = {
   },
   "/parent/child-overview": {
     title: "Child Overview",
+    description:
+      "Profile and current academic status for your linked child.",
     endpoint: "/parent-dashboard",
-    dataPath: "student",
+    layout: "summary",
+    summaryFields: [
+      { label: "Student Name", path: "student.user.fullName" },
+      { label: "Student ID", path: "student.studentId" },
+      { label: "Class", path: "student.class.className" },
+      { label: "Attendance", path: "attendancePercentage", suffix: "%" },
+      { label: "Risk Status", path: "latestCommerceRiskLevel" },
+      { label: "Overall Average", path: "overallAverage" },
+      { label: "Latest Exam", path: "latestResult.exam.examName" },
+      { label: "Latest Marks", path: "latestResult.marks" },
+      { label: "Latest Grade", path: "latestResult.grade" },
+    ],
+    emptyMessage: "No linked child profile found for this parent account.",
   },
   "/parent/marks-rankings": {
     title: "Marks & Rankings",
