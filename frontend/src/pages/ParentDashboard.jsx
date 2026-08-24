@@ -222,8 +222,8 @@ function ParentDashboard() {
             />
             <MetricCard
               label="Risk Status"
-              value={formatRiskStatus(data.riskStatus)}
-              badgeClass={getRiskBadgeClass(formatRiskStatus(data.riskStatus))}
+              value={getDashboardRiskLabel(data)}
+              badgeClass={getRiskBadgeClass(getDashboardRiskLabel(data))}
             />
             <MetricCard
               label="Latest Marks"
@@ -804,16 +804,29 @@ function formatPercent(value) {
   return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
 }
 
+function getDashboardRiskLabel(data) {
+  if (!data?.commerceRiskAssessed) return "Not Assessed";
+  if (data.latestCommerceRiskLevel) {
+    return formatRiskStatus(data.latestCommerceRiskLevel);
+  }
+  return formatRiskStatus(data.riskStatus);
+}
+
 function formatRiskStatus(status) {
-  if (!status) return "--";
-  if (status === "Low") return "Low Risk";
-  if (status === "Medium") return "Medium Risk";
-  if (status === "High") return "High Risk";
-  return status;
+  if (!status) return "Not Assessed";
+  const normalized = String(status).trim();
+  if (/^low(\s+risk)?$/i.test(normalized)) return "Low Risk";
+  if (/^medium(\s+risk)?$/i.test(normalized)) return "Medium Risk";
+  if (/^high(\s+risk)?$/i.test(normalized)) return "High Risk";
+  return normalized;
 }
 
 function getRiskBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus.includes("not assessed") || !normalizedStatus) {
+    return "bg-slate-100 text-slate-700";
+  }
 
   if (normalizedStatus.includes("high")) {
     return "bg-red-100 text-red-700";

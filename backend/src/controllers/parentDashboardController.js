@@ -1,6 +1,7 @@
 import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
 import Attendance from "../models/Attendance.js";
+import CommerceRisk from "../models/CommerceRisk.js";
 import {
   calculateOverallAverage,
   dedupeResults,
@@ -27,7 +28,7 @@ async function getAttendanceSummary(studentId, attendancePercentage) {
   };
 }
 
-function buildAlerts({ results, attendancePercentage, riskStatus }) {
+function buildAlerts({ results, attendancePercentage, riskStatus, commerceRiskAssessed }) {
   const alerts = [];
 
   const weakSubjects = results.filter((result) => Number(result.marks) < 50);
@@ -48,7 +49,10 @@ function buildAlerts({ results, attendancePercentage, riskStatus }) {
     alerts.push("New term test results have been published.");
   }
 
-  if (riskStatus === "High" || riskStatus === "Medium") {
+  if (
+    commerceRiskAssessed &&
+    (riskStatus === "High" || riskStatus === "Medium")
+  ) {
     alerts.push(`Risk status is currently ${riskStatus}.`);
   }
 
@@ -187,6 +191,26 @@ export const getParentDashboard = async (req, res) => {
 
     const overallAverage = calculateOverallAverage(results);
 
+    // Profile riskStatus defaults to "Low" — only CommerceRisk counts as assessed.
+    const latestCommerceRisk = await CommerceRisk.findOne({
+      studentProfile: studentProfile._id,
+    })
+      .sort({ createdAt: -1 })
+      .select("riskLevel createdAt")
+      .lean();
+
+    const latestCommerceRiskLevel = latestCommerceRisk?.riskLevel
+      ? String(latestCommerceRisk.riskLevel)
+      : null;
+    const commerceRiskAssessed = Boolean(latestCommerceRiskLevel);
+    const shortRisk = latestCommerceRiskLevel
+      ? latestCommerceRiskLevel.replace(/ Risk$/i, "")
+      : null;
+    const riskStatus =
+      commerceRiskAssessed && ["High", "Medium", "Low"].includes(shortRisk)
+        ? shortRisk
+        : null;
+
     res.status(200).json({
       linkedChildren: linkedChildren.map((child) => ({
         studentId: child.studentId,
@@ -201,13 +225,16 @@ export const getParentDashboard = async (req, res) => {
       subjectPerformance,
       overallAverage,
       attendancePercentage: studentProfile.attendancePercentage,
-      riskStatus: studentProfile.riskStatus,
+      riskStatus,
+      commerceRiskAssessed,
+      latestCommerceRiskLevel,
       attendanceRecords,
       attendanceSummary,
       alerts: buildAlerts({
         results,
         attendancePercentage: studentProfile.attendancePercentage,
-        riskStatus: studentProfile.riskStatus,
+        riskStatus,
+        commerceRiskAssessed,
       }),
       recommendedAction: buildRecommendedAction(results),
     });
