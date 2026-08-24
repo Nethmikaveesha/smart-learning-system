@@ -3141,7 +3141,24 @@ function getFeatureConfig(pathname, user) {
       : {
           title: "Notifications",
           endpoint: "/risk-notifications",
-          description: "Latest risk and dashboard notifications.",
+          description:
+            user?.role === "parent"
+              ? "Alerts when your linked child is at Medium or High academic risk."
+              : "Latest risk alerts for students in your assigned classes.",
+          tableColumns:
+            user?.role === "parent"
+              ? ["studentName", "className", "riskStatus", "message"]
+              : [
+                  "studentName",
+                  "studentId",
+                  "className",
+                  "riskStatus",
+                  "message",
+                ],
+          emptyMessage:
+            user?.role === "parent"
+              ? "No risk alerts right now. Notifications appear here when your child is assessed as Medium or High risk."
+              : "No Medium or High risk students in your scope right now.",
         };
   }
 
