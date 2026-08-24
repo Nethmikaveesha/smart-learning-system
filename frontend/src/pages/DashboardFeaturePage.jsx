@@ -942,6 +942,8 @@ const featureConfigs = {
           optionsEndpoint: "/student-profiles",
           optionValue: "_id",
           dependsOn: "exam",
+          // Same class matching as Attendance — include duplicate class rows
+          // that share className + academicYear (exact Mongo id only was too strict).
           filterBy: (item, values, asyncOptions) => {
             if (!values.exam) return false;
 
@@ -956,15 +958,24 @@ const featureConfigs = {
             if (!selectedExam) return false;
 
             const examClassId = selectedExam.class?._id || selectedExam.class;
-            const studentClassId = item.class?._id || item.class;
+            const classCatalog = [];
+            if (selectedExam.class && typeof selectedExam.class === "object") {
+              classCatalog.push(selectedExam.class);
+            }
 
-            return String(studentClassId) === String(examClassId);
+            return studentMatchesSelectedClass(
+              item,
+              examClassId,
+              classCatalog
+            );
           },
           getOptionLabel: (item) => {
             const name = item.user?.fullName || "Student";
             const code = item.studentId || "No ID";
             return `${name} (${code})`;
           },
+          emptyOptionsMessage:
+            "No students found for this exam's class. Ask admin to assign students to the class.",
         },
         {
           name: "marks",
