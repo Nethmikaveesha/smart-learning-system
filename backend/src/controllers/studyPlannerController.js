@@ -3,6 +3,7 @@ import Result from "../models/Result.js";
 import Exam from "../models/Exam.js";
 import ExamTimetable from "../models/ExamTimetable.js";
 import Class from "../models/Class.js";
+import Subject from "../models/Subject.js";
 import { resolveCommerceSubjectMarks } from "../utils/commerceMarks.js";
 
 function escapeRegex(value) {
@@ -47,6 +48,55 @@ function subjectKey(subject) {
   )
     .trim()
     .toLowerCase();
+}
+
+/**
+ * Resolve which classes a student should see exams for.
+ * Prefers profile.class; otherwise infers from latest exam result or
+ * subject→class links, and soft-heals the profile when confident.
+ */
+async function resolveStudentClassIds(studentProfile) {
+  let classDoc = studentProfile.class || null;
+
+  if (!classDoc) {
+    const latestWithClass = await Result.findOne({
+      student: studentProfile._id,
+    })
+      .populate({
+        path: "exam",
+        select: "class",
+        populate: { path: "class", select: "className academicYear" },
+      })
+      .sort({ createdAt: -1 });
+
+    classDoc = latestWithClass?.exam?.class || null;
+  }
+
+  if (!classDoc) {
+    const subjectIds = (studentProfile.subjects || [])
+      .map((item) => item?._id || item)
+      .filter(Boolean);
+
+    if (subjectIds.length > 0) {
+      const subjects = await Subject.find({ _id: { $in: subjectIds } }).select(
+        "classes"
+      );
+      const linkedClassIds = subjects.flatMap((item) => item.classes || []);
+      if (linkedClassIds.length > 0) {
+        classDoc = await Class.findById(linkedClassIds[0]).select(
+          "className academicYear"
+        );
+      }
+    }
+  }
+
+  if (classDoc && !studentProfile.class) {
+    studentProfile.class = classDoc._id;
+    await studentProfile.save();
+  }
+
+  const classIds = classDoc ? await expandClassIds(classDoc) : [];
+  return { classDoc, classIds };
 }
 
 function buildTimetableRow(examLike, results, commerceBySubject, today) {
@@ -186,7 +236,7 @@ export const generateRevisionTimetable = async (req, res) => {
     const studentProfile = await StudentProfile.findOne({
       user: req.user._id,
     })
-      .populate("subjects", "subjectName")
+      .populate("subjects", "subjectName subjectCode")
       .populate("class", "className academicYear");
 
     if (!studentProfile) {
@@ -195,35 +245,59 @@ export const generateRevisionTimetable = async (req, res) => {
       });
     }
 
-    if (!studentProfile.class) {
+    const { classDoc, classIds } = await resolveStudentClassIds(studentProfile);
+    const today = startOfToday();
+    const subjectIds = (studentProfile.subjects || [])
+      .map((item) => item?._id || item)
+      .filter(Boolean);
+
+    let upcomingExams = [];
+    let upcomingTimetableRows = [];
+
+    if (classIds.length > 0) {
+      [upcomingExams, upcomingTimetableRows] = await Promise.all([
+        Exam.find({
+          class: { $in: classIds },
+          examDate: { $gte: today },
+          isActive: { $ne: false },
+        })
+          .populate("subject", "subjectName subjectCode")
+          .sort({ examDate: 1 }),
+        ExamTimetable.find({
+          class: { $in: classIds },
+          examDate: { $gte: today },
+        })
+          .populate("subject", "subjectName subjectCode")
+          .sort({ examDate: 1 }),
+      ]);
+    } else if (subjectIds.length > 0) {
+      // No class on profile: still show upcoming exams for the student's subjects.
+      [upcomingExams, upcomingTimetableRows] = await Promise.all([
+        Exam.find({
+          subject: { $in: subjectIds },
+          examDate: { $gte: today },
+          isActive: { $ne: false },
+        })
+          .populate("subject", "subjectName subjectCode")
+          .sort({ examDate: 1 })
+          .limit(30),
+        ExamTimetable.find({
+          subject: { $in: subjectIds },
+          examDate: { $gte: today },
+        })
+          .populate("subject", "subjectName subjectCode")
+          .sort({ examDate: 1 })
+          .limit(30),
+      ]);
+    } else {
       return res.status(200).json({
         message:
-          "No class is linked to your profile yet. Ask an admin to assign your class, then revision plans can appear here.",
+          "No class or subjects are linked to your profile yet. Ask an admin to assign your class and subjects, then revision plans can appear here.",
         studentId: studentProfile.studentId,
         timetable: [],
       });
     }
 
-    const classIds = await expandClassIds(studentProfile.class);
-    const today = startOfToday();
-
-    const [upcomingExams, upcomingTimetableRows] = await Promise.all([
-      Exam.find({
-        class: { $in: classIds },
-        examDate: { $gte: today },
-        isActive: { $ne: false },
-      })
-        .populate("subject", "subjectName subjectCode")
-        .sort({ examDate: 1 }),
-      ExamTimetable.find({
-        class: { $in: classIds },
-        examDate: { $gte: today },
-      })
-        .populate("subject", "subjectName subjectCode")
-        .sort({ examDate: 1 }),
-    ]);
-
-    // Prefer timetable entries; add Exam rows that are not already covered.
     const merged = [];
     const seen = new Set();
 
@@ -245,10 +319,11 @@ export const generateRevisionTimetable = async (req, res) => {
 
     if (merged.length === 0) {
       return res.status(200).json({
-        message:
-          "No upcoming exams are scheduled for your class yet. When a teacher adds an exam or exam timetable with a future date, your revision plan will appear here.",
+        message: classDoc
+          ? "No upcoming exams are scheduled for your class yet. When a teacher adds an exam or exam timetable with a future date, your revision plan will appear here."
+          : "No upcoming exams found for your subjects yet. When a teacher schedules a future exam, your revision plan will appear here.",
         studentId: studentProfile.studentId,
-        className: studentProfile.class?.className,
+        className: classDoc?.className,
         timetable: [],
       });
     }
@@ -278,7 +353,7 @@ export const generateRevisionTimetable = async (req, res) => {
     res.status(200).json({
       message: "Revision timetable generated successfully",
       studentId: studentProfile.studentId,
-      className: studentProfile.class?.className,
+      className: classDoc?.className,
       timetable,
     });
   } catch (error) {
