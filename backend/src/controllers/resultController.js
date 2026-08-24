@@ -10,7 +10,7 @@ import {
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
 import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds } from "../utils/teacherScope.js";
 import Exam from "../models/Exam.js";
-import { recalculateExamAnalytics } from "../utils/examAnalytics.js";
+import { recalculateExamAnalytics, healExamAnalytics } from "../utils/examAnalytics.js";
 
 export const addResult = async (req, res) => {
   try {
@@ -211,14 +211,18 @@ export const updateResult = async (req, res) => {
 
 export const getAllResults = async (req, res) => {
   try {
-    // Heal older records that were saved before auto-ranking existed.
+    // Heal older records that were saved before auto-ranking existed,
+    // and single-student exams that still show a misleading zScore of 0.
     const examsNeedingRank = await Result.distinct("exam", {
       $or: [{ rank: { $lte: 0 } }, { rank: null }],
     });
+    await healExamAnalytics(examsNeedingRank);
 
-    for (const examId of examsNeedingRank) {
-      await recalculateExamAnalytics(examId);
-    }
+    const singletonExams = await Result.aggregate([
+      { $group: { _id: "$exam", count: { $sum: 1 } } },
+      { $match: { count: 1 } },
+    ]);
+    await healExamAnalytics(singletonExams.map((row) => row._id));
 
     const filter = {};
 
