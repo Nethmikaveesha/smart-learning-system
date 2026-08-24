@@ -10,43 +10,7 @@ import {
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
 import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds } from "../utils/teacherScope.js";
 import Exam from "../models/Exam.js";
-
-/**
- * Recalculate rank + Z-score for every result in one exam.
- * Rank 1 = highest marks. Single-student exams still get rank 1.
- */
-async function recalculateExamAnalytics(examId) {
-  const results = await Result.find({ exam: examId }).sort({ marks: -1 });
-
-  if (results.length === 0) {
-    return null;
-  }
-
-  const marksArray = results.map((result) => result.marks);
-  const mean =
-    marksArray.reduce((sum, mark) => sum + mark, 0) / marksArray.length;
-  const variance =
-    marksArray.reduce((sum, mark) => sum + Math.pow(mark - mean, 2), 0) /
-    marksArray.length;
-  const standardDeviation = Math.sqrt(variance);
-
-  for (let i = 0; i < results.length; i++) {
-    const zScore =
-      standardDeviation === 0
-        ? 0
-        : Number(((results[i].marks - mean) / standardDeviation).toFixed(2));
-
-    results[i].zScore = zScore;
-    results[i].rank = i + 1;
-    await results[i].save();
-  }
-
-  return {
-    mean: Number(mean.toFixed(2)),
-    standardDeviation: Number(standardDeviation.toFixed(2)),
-    count: results.length,
-  };
-}
+import { recalculateExamAnalytics } from "../utils/examAnalytics.js";
 
 export const addResult = async (req, res) => {
   try {

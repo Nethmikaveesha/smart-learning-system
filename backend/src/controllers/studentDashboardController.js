@@ -8,6 +8,7 @@ import {
 } from "../utils/studentResults.js";
 import { buildSubjectPerformance } from "../utils/subjectPerformance.js";
 import { resolveCommerceSubjectMarks } from "../utils/commerceMarks.js";
+import { healExamAnalytics } from "../utils/examAnalytics.js";
 
 export const getStudentDashboard = async (req, res) => {
   try {
@@ -26,7 +27,23 @@ export const getStudentDashboard = async (req, res) => {
       });
     }
 
-    const rawResults = await Result.find({
+    let rawResults = await Result.find({
+      student: studentProfile._id,
+    }).populate({
+      path: "exam",
+      select: "examName examDate",
+      populate: {
+        path: "subject",
+        select: "subjectName subjectCode",
+      },
+    });
+
+    // Heal stale Z-scores (e.g. lone 0.00 on single-student exams).
+    await healExamAnalytics(
+      rawResults.map((result) => result.exam?._id || result.exam)
+    );
+
+    rawResults = await Result.find({
       student: studentProfile._id,
     }).populate({
       path: "exam",

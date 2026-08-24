@@ -62,12 +62,16 @@ function StudentPerformanceTracker() {
           result.exam?.examName ||
           result.examName ||
           `Exam ${index + 1}`;
+        const rawZ = result.zScore;
+        const hasZScore =
+          rawZ !== null && rawZ !== undefined && rawZ !== "";
         return {
           name:
             examName.length > 16 ? `${examName.slice(0, 14)}…` : examName,
           examName,
           marks: Number(result.marks ?? 0),
-          zScore: Number(result.zScore ?? 0),
+          zScore: hasZScore ? Number(rawZ) : null,
+          zScoreLabel: hasZScore ? Number(rawZ) : "--",
           grade: result.grade || "--",
           rank: result.rank ?? "--",
           subject:
@@ -90,6 +94,7 @@ function StudentPerformanceTracker() {
       : null;
 
   const latest = chartData[chartData.length - 1];
+  const latestZScoreLabel = latest?.zScoreLabel ?? "--";
 
   return (
     <div className="p-6">
@@ -122,7 +127,7 @@ function StudentPerformanceTracker() {
             />
             <MetricCard
               label="Latest Z-Score"
-              value={latest ? latest.zScore : "--"}
+              value={latestZScoreLabel}
             />
           </section>
 
@@ -133,6 +138,8 @@ function StudentPerformanceTracker() {
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 Blue line = marks (0–100). Green line = Z-score (right axis).
+                Z-score needs at least 2 students in the same exam; otherwise it
+                shows as unavailable.
               </p>
             </div>
 
@@ -224,7 +231,7 @@ function StudentPerformanceTracker() {
                         <td className="p-3">{row.grade}</td>
                         <td className="p-3">{row.rank}</td>
                         <td className="p-3 font-semibold text-emerald-700">
-                          {row.zScore}
+                          {row.zScoreLabel}
                         </td>
                       </tr>
                     ))}
