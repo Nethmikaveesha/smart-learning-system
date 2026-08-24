@@ -138,7 +138,29 @@ export const getParentDashboard = async (req, res) => {
 
     const attendanceRecords = await Attendance.find({
       student: studentProfile._id,
-    }).sort({ date: -1 });
+    })
+      .populate({
+        path: "student",
+        select: "studentId",
+        populate: {
+          path: "user",
+          select: "fullName",
+        },
+      })
+      .populate("class", "className")
+      .sort({ date: -1 });
+
+    // Parent-facing rows: never expose MongoDB ObjectIds in the UI.
+    const attendanceRows = attendanceRecords.map((record) => ({
+      date: record.date,
+      status: record.status,
+      student:
+        record.student?.user?.fullName ||
+        studentProfile.user?.fullName ||
+        "Student",
+      studentCode: record.student?.studentId || studentProfile.studentId || "",
+      className: record.class?.className || studentProfile.class?.className || "",
+    }));
 
     const monthlyMap = {};
 
@@ -228,7 +250,7 @@ export const getParentDashboard = async (req, res) => {
       riskStatus,
       commerceRiskAssessed,
       latestCommerceRiskLevel,
-      attendanceRecords,
+      attendanceRecords: attendanceRows,
       attendanceSummary,
       alerts: buildAlerts({
         results,

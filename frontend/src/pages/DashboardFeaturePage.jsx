@@ -1289,8 +1289,11 @@ const featureConfigs = {
   },
   "/parent/attendance": {
     title: "Attendance",
+    description: "Daily attendance records for your linked child.",
     endpoint: "/parent-dashboard",
     dataPath: "attendanceRecords",
+    tableColumns: ["date", "student", "className", "status"],
+    emptyMessage: "No attendance records yet for your child.",
   },
   "/parent/risk-alerts": {
     title: "Risk Alerts",
@@ -3263,6 +3266,21 @@ function formatCellValue(column, value) {
     if (value === "superadmin") return "Super Admin";
     if (!value) return "N/A";
     return String(value).charAt(0).toUpperCase() + String(value).slice(1);
+  }
+
+  if (column === "student") {
+    if (value && typeof value === "object") {
+      return (
+        value.user?.fullName ||
+        value.fullName ||
+        value.studentId ||
+        "Student"
+      );
+    }
+    const text = String(value || "");
+    // Hide raw MongoDB ObjectIds from parent/teacher tables.
+    if (/^[a-f0-9]{24}$/i.test(text)) return "Student";
+    return text || "N/A";
   }
 
   if (column === "isActive") {
