@@ -968,13 +968,18 @@ const featureConfigs = {
   "/teacher/marks": {
     title: "Marks Management",
     description:
-      "Select an exam and student by name, enter marks, then save. Grade and risk status are calculated automatically by the API. Use Edit Result to correct an existing mark.",
+      "Select one of your subject exams, choose a student from that exam’s class, enter marks out of 100, then save. Grade, rank, and Z-score are calculated automatically. Use Edit Existing Result to correct a saved mark.",
     endpoint: "/results",
     tableColumns: ["student", "exam", "marks", "grade", "rank", "zScore"],
+    emptyMessage:
+      "No results yet. Create an exam for your subject, then add student marks here.",
     form: {
       endpoint: "/results",
       method: "post",
       submitLabel: "Add Result",
+      formTitle: "Add Exam Result",
+      formDescription:
+        "Pick the exam first. The student list then shows learners in that exam’s class (same as Attendance).",
       extraOptionEndpoints: ["/classes"],
       fields: [
         {
@@ -986,6 +991,8 @@ const featureConfigs = {
           optionsEndpoint: "/exams",
           optionValue: "_id",
           getOptionLabel: formatExamOptionLabel,
+          emptyOptionsMessage:
+            "No exams for your subject yet. Create one under Create Exam, then return here.",
         },
         {
           name: "student",
@@ -996,7 +1003,8 @@ const featureConfigs = {
           optionsEndpoint: "/student-profiles",
           optionValue: "_id",
           dependsOn: "exam",
-          // Reload students for the exam class (server expands duplicate class rows).
+          // Reload from API with exam class (expands duplicate class rows +
+          // attendance-linked students). Falls back to client class matching.
           getOptionsQuery: (values, asyncOptions) => {
             const exams = resolveAsyncOptionItems(
               { optionsEndpoint: "/exams" },
@@ -1009,8 +1017,7 @@ const featureConfigs = {
               selectedExam?.class?._id || selectedExam?.class || "";
             return classId ? { classId: String(classId) } : null;
           },
-          // Server already narrows by exam class (+ twins / attendance).
-          // Keep only the dependsOn gate on the client.
+          // Server returns the exam-class roster (twins + attendance-linked).
           filterBy: (_item, values) => Boolean(values.exam),
           getOptionLabel: (item) => {
             const name = item.user?.fullName || "Student";
@@ -1018,11 +1025,11 @@ const featureConfigs = {
             return `${name} (${code})`;
           },
           emptyOptionsMessage:
-            "No students found for this exam's class. Ask admin to assign students to the class.",
+            "No students found for this exam’s class. Check Attendance for the same class, or ask admin to assign the student.",
         },
         {
           name: "marks",
-          label: "Marks",
+          label: "Marks (0–100)",
           type: "number",
           required: true,
           placeholder: "e.g. 72",
@@ -2228,6 +2235,11 @@ function FeatureForm({ form, token, onSaved, onError }) {
   const [asyncOptions, setAsyncOptions] = useState({});
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [saving, setSaving] = useState(false);
+  const asyncOptionsRef = useRef(asyncOptions);
+
+  useEffect(() => {
+    asyncOptionsRef.current = asyncOptions;
+  }, [asyncOptions]);
 
   useEffect(() => {
     const loadExistingValues = async () => {

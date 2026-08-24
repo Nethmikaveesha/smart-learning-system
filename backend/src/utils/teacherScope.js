@@ -185,11 +185,19 @@ export async function getTeacherScope(teacherId) {
     studentQuery.$or.push({ subjects: { $in: taughtSubjectIds } });
   }
   if (classIds.length > 0) {
-    const attendanceStudentIds = await Attendance.distinct("student", {
-      class: { $in: classIds },
-    });
-    if (attendanceStudentIds.length > 0) {
-      studentQuery.$or.push({ _id: { $in: attendanceStudentIds } });
+    try {
+      const attendanceStudentIds = await Attendance.distinct("student", {
+        class: { $in: classIds },
+      });
+      if (attendanceStudentIds.length > 0) {
+        studentQuery.$or.push({ _id: { $in: attendanceStudentIds } });
+      }
+    } catch (attendanceScopeError) {
+      // Attendance lookup must never blank the whole teacher scope.
+      console.warn(
+        "getTeacherScope attendance lookup failed:",
+        attendanceScopeError.message
+      );
     }
   }
 

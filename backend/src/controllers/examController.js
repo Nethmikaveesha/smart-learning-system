@@ -75,13 +75,11 @@ export const getAllExams = async (req, res) => {
         return res.status(200).json([]);
       }
 
-      // Marks / exam lists should match the teacher's assigned subject(s).
-      // Do not use class-only OR, or Accounting/BS/ECO all appear together.
+      // Real-world Marks workflow: a subject teacher must see every exam
+      // created for their assigned subject(s). Do NOT also require class id
+      // match — duplicate/seeded Class rows often drift and hide all exams.
       if (scope.subjectIds.length > 0) {
         filter.subject = { $in: scope.subjectIds };
-        if (scope.classIds.length > 0) {
-          filter.class = { $in: scope.classIds };
-        }
       } else {
         filter.class = { $in: scope.classIds };
       }
