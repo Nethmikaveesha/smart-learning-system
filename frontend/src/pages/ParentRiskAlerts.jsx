@@ -62,7 +62,9 @@ function ParentRiskAlerts() {
   const studentCode = data?.student?.studentId || "--";
   const className = data?.student?.class?.className || "--";
   const attendanceValue = data?.attendancePercentage || 0;
-  const currentRisk = formatRiskLabel(data?.riskStatus);
+  const currentRisk = data?.commerceRiskAssessed
+    ? formatRiskLabel(data?.latestCommerceRiskLevel || data?.riskStatus)
+    : "Not Assessed";
 
   const subjectMarks = useMemo(() => data?.subjectPerformance || [], [data]);
 
@@ -571,15 +573,20 @@ function InfoStat({ label, value }) {
 }
 
 function formatRiskLabel(status) {
-  if (!status) return "--";
-  if (status === "Low") return "Low Risk";
-  if (status === "Medium") return "Medium Risk";
-  if (status === "High") return "High Risk";
-  return status;
+  if (!status) return "Not Assessed";
+  const normalized = String(status).trim();
+  if (/^low(\s+risk)?$/i.test(normalized)) return "Low Risk";
+  if (/^medium(\s+risk)?$/i.test(normalized)) return "Medium Risk";
+  if (/^high(\s+risk)?$/i.test(normalized)) return "High Risk";
+  return normalized;
 }
 
 function getRiskBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus.includes("not assessed") || !normalizedStatus) {
+    return "bg-slate-100 text-slate-700";
+  }
 
   if (normalizedStatus.includes("high")) {
     return "bg-red-100 text-red-700";
