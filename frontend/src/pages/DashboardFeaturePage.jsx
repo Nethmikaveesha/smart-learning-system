@@ -428,8 +428,8 @@ const featureConfigs = {
           },
           hydrateMap: {
             examName: "examName",
-            classId: "class._id",
-            subjectId: "subject._id",
+            classId: "class",
+            subjectId: "subject",
             examDate: "examDate",
           },
         },
