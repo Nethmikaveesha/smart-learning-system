@@ -134,7 +134,15 @@ function TeacherDashboard() {
             />
             <MetricCard
               label="Attendance Rate"
-              value={data.averageAttendance ? `${data.averageAttendance}%` : "--"}
+              value={
+                data.averageAttendance === null ||
+                data.averageAttendance === undefined ||
+                data.averageAttendance === 0
+                  ? data.averageAttendance === 0
+                    ? "0%"
+                    : "--"
+                  : `${data.averageAttendance}%`
+              }
             />
             <MetricCard label="Ungraded Essays" value={data.ungradedEssays} />
           </section>
