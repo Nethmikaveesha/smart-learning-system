@@ -3,6 +3,7 @@ import Exam from "../models/Exam.js";
 import Result from "../models/Result.js";
 import EssaySubmission from "../models/EssaySubmission.js";
 import Attendance from "../models/Attendance.js";
+import CommerceRisk from "../models/CommerceRisk.js";
 import { isPassingMark, getPassMark } from "../utils/grading.js";
 import {
   dedupeResults,
@@ -42,6 +43,7 @@ function buildAlerts({
   results,
   averageAttendance,
   incompleteAttendanceWeek,
+  passMark,
 }) {
   const alerts = [];
 
@@ -51,16 +53,18 @@ function buildAlerts({
     );
   }
 
-  const lowSubjects = new Set();
-
+  const lowBySubject = new Map();
   results.forEach((result) => {
-    if (Number(result.marks) < 50) {
-      lowSubjects.add(getSubjectName(result));
+    if (!isPassingMark(result.marks, passMark)) {
+      const subject = getSubjectName(result) || "Subject";
+      lowBySubject.set(subject, (lowBySubject.get(subject) || 0) + 1);
     }
   });
 
-  lowSubjects.forEach((subject) => {
-    alerts.push(`1 student has low ${subject} performance.`);
+  lowBySubject.forEach((count, subject) => {
+    alerts.push(
+      `${count} result${count > 1 ? "s are" : " is"} below the pass mark in ${subject}.`
+    );
   });
 
   if (incompleteAttendanceWeek) {
@@ -70,6 +74,28 @@ function buildAlerts({
   }
 
   return alerts;
+}
+
+async function countHighRiskStudents(studentIds = []) {
+  if (!studentIds.length) return 0;
+
+  const latestRiskByStudent = await CommerceRisk.aggregate([
+    { $match: { studentProfile: { $in: studentIds } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: "$studentProfile",
+        riskLevel: { $first: "$riskLevel" },
+      },
+    },
+    {
+      $match: {
+        riskLevel: { $regex: /^High(\s+Risk)?$/i },
+      },
+    },
+  ]);
+
+  return latestRiskByStudent.length;
 }
 
 export const getTeacherDashboard = async (req, res) => {
@@ -109,14 +135,25 @@ export const getTeacherDashboard = async (req, res) => {
             },
           });
 
-    // Keep marks that belong to this teacher's assigned subjects.
+    // Keep marks that belong to this teacher's assigned subjects (+ class when set).
     const scopedRawResults = rawResults.filter((result) => {
       if (scope.subjectIdStrings.length === 0) return false;
       const subjectId =
         result.exam?.subject?._id?.toString() ||
         result.exam?.subject?.toString();
-      if (subjectId) return scope.subjectIdStrings.includes(subjectId);
-      return scope.subjectLabels.includes(getSubjectName(result));
+      const classId =
+        result.exam?.class?._id?.toString() ||
+        result.exam?.class?.toString();
+
+      const subjectOk = subjectId
+        ? scope.subjectIdStrings.includes(subjectId)
+        : scope.subjectLabels.includes(getSubjectName(result));
+      if (!subjectOk) return false;
+
+      if (classId && scope.classIdStrings.length > 0) {
+        return scope.classIdStrings.includes(classId);
+      }
+      return true;
     });
 
     const results = sortResultsByLatest(dedupeResults(scopedRawResults));
@@ -126,24 +163,24 @@ export const getTeacherDashboard = async (req, res) => {
       totalPublishedResults > 0
         ? Number(
             (
-              results.reduce((sum, item) => sum + item.marks, 0) /
+              results.reduce((sum, item) => sum + Number(item.marks || 0), 0) /
               totalPublishedResults
             ).toFixed(2)
           )
-        : 0;
+        : null;
 
     const passMark = await getPassMark();
     const passCount = results.filter((item) =>
       isPassingMark(item.marks, passMark)
     ).length;
+    // null = no published results yet; 0 = published results but none passed.
     const passRate =
       totalPublishedResults > 0
         ? Number(((passCount / totalPublishedResults) * 100).toFixed(2))
-        : 0;
+        : null;
 
-    const highRiskStudents = students.filter(
-      (student) => student.riskStatus === "High"
-    ).length;
+    // Profile.riskStatus defaults to Low — only CommerceRisk assessments count.
+    const highRiskStudents = await countHighRiskStudents(studentIds);
 
     const attendanceValues = students
       .map((student) => Number(student.attendancePercentage) || 0)
@@ -218,6 +255,7 @@ export const getTeacherDashboard = async (req, res) => {
       results,
       averageAttendance,
       incompleteAttendanceWeek,
+      passMark,
     });
 
     if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {

@@ -104,7 +104,11 @@ function TeacherDashboard() {
             />
             <MetricCard
               label="Average Marks"
-              value={data.averageMarks ? data.averageMarks : "--"}
+              value={
+                data.averageMarks === null || data.averageMarks === undefined
+                  ? "--"
+                  : `${data.averageMarks} / 100`
+              }
             />
             <MetricCard
               label="High-Risk Students"
@@ -121,7 +125,11 @@ function TeacherDashboard() {
             <MetricCard label="Total Exams" value={data.totalExams} />
             <MetricCard
               label="Pass Rate"
-              value={data.passRate ? `${data.passRate}%` : "--"}
+              value={
+                data.passRate === null || data.passRate === undefined
+                  ? "--"
+                  : `${data.passRate}%`
+              }
               badgeClass="bg-blue-100 text-blue-700"
             />
             <MetricCard
