@@ -190,6 +190,7 @@ export const registerUser = async (req, res) => {
 
     if (role === "teacher") {
       let subjectId = null;
+      let classId = null;
 
       if (assignedSubject) {
         const subject = await resolveSubject(assignedSubject);
@@ -209,15 +210,14 @@ export const registerUser = async (req, res) => {
       if (assignedClass) {
         const classRecord = await resolveOrCreateClass(assignedClass);
         assignedClassTeacherId = classRecord._id;
+        classId = classRecord._id;
+      }
 
+      if (subjectId || classId) {
         await syncTeacherClassSubjectAssignment({
           teacherId: user._id,
-          classId: classRecord._id,
+          classId,
           subjectId,
-        });
-      } else if (subjectId) {
-        await Subject.findByIdAndUpdate(subjectId, {
-          assignedTeacher: user._id,
         });
       }
     }
@@ -313,10 +313,17 @@ export const registerUser = async (req, res) => {
         await StudentProfile.findByIdAndUpdate(linkedParentStudentId, revert);
       }
       if (assignedSubjectId) {
-        await Subject.findByIdAndUpdate(assignedSubjectId, {
-          $unset: { assignedTeacher: 1 },
-          $set: { classes: [] },
-        });
+        const subjectDoc = await Subject.findById(assignedSubjectId).select(
+          "assignedTeacher"
+        );
+        if (
+          subjectDoc &&
+          String(subjectDoc.assignedTeacher || "") === String(createdUserId)
+        ) {
+          await Subject.findByIdAndUpdate(assignedSubjectId, {
+            $unset: { assignedTeacher: 1 },
+          });
+        }
       }
       if (assignedClassTeacherId && createdUserId) {
         // Only clear class teacher if this registration set it to the new user.

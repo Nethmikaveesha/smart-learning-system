@@ -160,12 +160,30 @@ export function uniqueClassLabels(classes = []) {
  * taken by students in those classes).
  */
 export async function getTeacherScope(teacherId) {
-  const teacher = await User.findById(teacherId).select("fullName email");
+  const teacher = await User.findById(teacherId).select(
+    "fullName email assignedSubject assignedClass"
+  );
 
-  // 1) Admin-assigned subjects only.
-  const subjects = await Subject.find({ assignedTeacher: teacherId })
+  // 1) Admin-assigned subjects: legacy Subject.assignedTeacher + User.assignedSubject
+  const subjectsFromPointer = await Subject.find({ assignedTeacher: teacherId })
     .select("subjectName subjectCode classes")
     .sort({ subjectName: 1 });
+
+  let subjectsFromUser = [];
+  if (teacher?.assignedSubject) {
+    const userSubject = await Subject.findById(teacher.assignedSubject).select(
+      "subjectName subjectCode classes"
+    );
+    if (userSubject) subjectsFromUser = [userSubject];
+  }
+
+  const subjectById = new Map();
+  [...subjectsFromPointer, ...subjectsFromUser].forEach((subject) => {
+    subjectById.set(String(subject._id), subject);
+  });
+  const subjects = [...subjectById.values()].sort((a, b) =>
+    String(a.subjectName || "").localeCompare(String(b.subjectName || ""))
+  );
 
   const taughtSubjectIds = subjects.map((subject) => subject._id);
 
@@ -184,7 +202,7 @@ export async function getTeacherScope(teacherId) {
   }
 
   // 2) Admin-assigned classes + classes linked from assigned subjects
-  //    + classes of students taking those subjects.
+  //    + classes of students taking those subjects + User.assignedClass.
   const seedQuery = {
     $or: [{ assignedTeacher: teacherId }],
   };
@@ -192,6 +210,7 @@ export async function getTeacherScope(teacherId) {
   const linkedClassIds = uniqueObjectIds([
     ...subjectLinkedClassIds,
     ...studentSubjectClassIds,
+    ...(teacher?.assignedClass ? [teacher.assignedClass] : []),
   ]);
 
   if (linkedClassIds.length > 0) {
@@ -274,8 +293,15 @@ export async function assertTeacherOwnsClass(teacherId, classId) {
 
 export async function assertTeacherOwnsSubject(teacherId, subjectId) {
   if (!subjectId) return false;
+
   const subject = await Subject.findById(subjectId).select("assignedTeacher");
+  if (subject && String(subject.assignedTeacher || "") === String(teacherId)) {
+    return true;
+  }
+
+  const teacher = await User.findById(teacherId).select("assignedSubject");
   return (
-    subject && String(subject.assignedTeacher || "") === String(teacherId)
+    teacher?.assignedSubject &&
+    String(teacher.assignedSubject) === String(subjectId)
   );
 }

@@ -191,41 +191,41 @@ export const updateUser = async (req, res) => {
           : null;
 
       let subjectId = null;
-      if (subjectRef) {
-        // Empty / "N/A" = leave current subject assignment unchanged
-        // (so email-only edits do not wipe teaching scope).
-        await Subject.updateMany(
-          { assignedTeacher: user._id },
-          { $unset: { assignedTeacher: "" }, $set: { classes: [] } }
-        );
+      let classId = null;
 
+      if (subjectRef) {
         const subject = await resolveSubject(subjectRef);
         if (subject) {
           subjectId = subject._id;
-          await Subject.findByIdAndUpdate(subject._id, {
-            assignedTeacher: user._id,
-          });
         }
       } else {
-        const currentSubject = await Subject.findOne({
-          assignedTeacher: user._id,
-        }).select("_id");
-        subjectId = currentSubject?._id || null;
+        // Keep existing user link when form leaves subject blank / N/A.
+        const current = await User.findById(user._id).select("assignedSubject");
+        subjectId = current?.assignedSubject || null;
+        if (!subjectId) {
+          const legacy = await Subject.findOne({
+            assignedTeacher: user._id,
+          }).select("_id");
+          subjectId = legacy?._id || null;
+        }
       }
 
       if (classRef) {
         const classRecord = await resolveOrCreateClass(classRef);
         if (classRecord) {
-          await syncTeacherClassSubjectAssignment({
-            teacherId: user._id,
-            classId: classRecord._id,
-            subjectId,
-          });
+          classId = classRecord._id;
         }
-      } else if (subjectId && req.body.assignedSubject !== undefined) {
-        // Subject changed without a class payload — keep subject link only.
-        await Subject.findByIdAndUpdate(subjectId, {
-          assignedTeacher: user._id,
+      } else {
+        const current = await User.findById(user._id).select("assignedClass");
+        classId = current?.assignedClass || null;
+      }
+
+      // Persist admin picks on the user + non-stealing Subject/Class links.
+      if (subjectRef || classRef) {
+        await syncTeacherClassSubjectAssignment({
+          teacherId: user._id,
+          classId,
+          subjectId,
         });
       }
     }

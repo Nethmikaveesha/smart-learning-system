@@ -6,11 +6,11 @@ import User from "../models/User.js";
 /**
  * Persist admin teacher ↔ class ↔ subject links without clobbering co-teachers.
  *
- * Class.assignedTeacher is singular (one "class teacher"). Commerce subjects
- * (ACC/BS/ECO) often share the same class, so we also store the class on
- * Subject.classes for that teacher's subject. The admin teacher list can then
- * show the admin-assigned class even when another teacher owns
- * Class.assignedTeacher.
+ * Subject.assignedTeacher and Class.assignedTeacher are singular. Commerce
+ * teachers often share the same subject code or class, so the admin-selected
+ * links are also stored on User.assignedSubject / User.assignedClass (source
+ * of truth for the Registered Teachers list). Legacy pointers are only set
+ * when free or already owned by this teacher.
  */
 export async function syncTeacherClassSubjectAssignment({
   teacherId,
@@ -27,25 +27,66 @@ export async function syncTeacherClassSubjectAssignment({
   const hasClass =
     classId && mongoose.Types.ObjectId.isValid(String(classId));
 
+  const userUpdate = {};
+
   let classDoc = null;
   if (hasClass) {
     classDoc = await Class.findById(classId);
-    if (!classDoc) return;
+    if (classDoc) {
+      userUpdate.assignedClass = classDoc._id;
+    }
   }
 
+  let subjectDoc = null;
   if (hasSubject) {
-    const subjectUpdate = { assignedTeacher: tid };
-    if (classDoc) {
-      // Admin form is single-class; replace so reassignment does not accumulate.
-      subjectUpdate.classes = [classDoc._id];
+    subjectDoc = await Subject.findById(subjectId);
+    if (subjectDoc) {
+      userUpdate.assignedSubject = subjectDoc._id;
     }
-    await Subject.findByIdAndUpdate(subjectId, subjectUpdate);
+  }
+
+  if (Object.keys(userUpdate).length > 0) {
+    await User.findByIdAndUpdate(tid, userUpdate);
+  }
+
+  if (subjectDoc) {
+    // Drop legacy subject ownership on other subjects for this teacher.
+    await Subject.updateMany(
+      { assignedTeacher: tid, _id: { $ne: subjectDoc._id } },
+      { $unset: { assignedTeacher: "" } }
+    );
+
+    const subjectUpdate = {};
+
+    // Only claim Subject.assignedTeacher when free or already ours.
+    if (
+      !subjectDoc.assignedTeacher ||
+      String(subjectDoc.assignedTeacher) === String(tid)
+    ) {
+      subjectUpdate.assignedTeacher = tid;
+    }
+
+    if (classDoc) {
+      // Accumulate classes so co-teachers do not erase each other's links.
+      await Subject.findByIdAndUpdate(subjectDoc._id, {
+        ...subjectUpdate,
+        $addToSet: { classes: classDoc._id },
+      });
+    } else if (Object.keys(subjectUpdate).length > 0) {
+      await Subject.findByIdAndUpdate(subjectDoc._id, subjectUpdate);
+    }
   } else if (classDoc) {
-    // Class-only update: attach to every subject this teacher already owns.
+    // Class-only: attach onto subjects this teacher already owns (legacy).
     const owned = await Subject.find({ assignedTeacher: tid }).select("_id");
+    const fromUser = await User.findById(tid).select("assignedSubject");
+    const subjectIds = [
+      ...owned.map((s) => s._id),
+      ...(fromUser?.assignedSubject ? [fromUser.assignedSubject] : []),
+    ];
+    const unique = [...new Set(subjectIds.map((id) => String(id)))];
     await Promise.all(
-      owned.map((s) =>
-        Subject.findByIdAndUpdate(s._id, { classes: [classDoc._id] })
+      unique.map((id) =>
+        Subject.findByIdAndUpdate(id, { $addToSet: { classes: classDoc._id } })
       )
     );
   }
@@ -69,12 +110,14 @@ export async function syncTeacherClassSubjectAssignment({
 }
 
 /**
- * Admin teacher rows: subject codes + class names from admin links only
- * (Class.assignedTeacher and Subject.classes for that teacher's subjects).
+ * Admin teacher rows: prefer User.assignedSubject / User.assignedClass
+ * (what Admin selected), with fallbacks to legacy singular pointers.
  */
 export async function buildTeachersWithAssignments() {
   const teachers = await User.find({ role: "teacher" })
     .select("-password")
+    .populate("assignedSubject", "subjectCode subjectName")
+    .populate("assignedClass", "className academicYear")
     .sort({ createdAt: -1 });
 
   const teacherIds = teachers.map((t) => t._id);
@@ -122,12 +165,12 @@ export async function buildTeachersWithAssignments() {
 
   return teachers.map((teacher) => {
     const tid = String(teacher._id);
-    const teacherSubjects = subjectsByTeacher.get(tid) || [];
+    const legacySubjects = subjectsByTeacher.get(tid) || [];
     const fromClassTeacher = classTeacherByTeacher.get(tid) || [];
 
     const seen = new Set(fromClassTeacher.map((c) => String(c._id)));
     const fromSubjectClasses = [];
-    teacherSubjects.forEach((s) => {
+    legacySubjects.forEach((s) => {
       (s.classes || []).forEach((cid) => {
         const id = String(cid);
         if (seen.has(id)) return;
@@ -138,19 +181,41 @@ export async function buildTeachersWithAssignments() {
       });
     });
 
-    const allClasses = [...fromClassTeacher, ...fromSubjectClasses];
-    const uniqueNames = [
-      ...new Set(allClasses.map((c) => c.className).filter(Boolean)),
-    ];
+    // Prefer explicit admin links stored on the user.
+    const userSubject = teacher.assignedSubject;
+    const userClass = teacher.assignedClass;
 
-    return {
-      ...teacher.toObject(),
-      assignedSubjectCode:
-        teacherSubjects
+    let subjectCode = "N/A";
+    if (userSubject?.subjectCode || userSubject?.subjectName) {
+      subjectCode = userSubject.subjectCode || userSubject.subjectName;
+    } else if (legacySubjects.length > 0) {
+      subjectCode =
+        legacySubjects
           .map((s) => s.subjectCode || s.subjectName)
           .filter(Boolean)
-          .join(", ") || "N/A",
-      assignedClassName: uniqueNames.join(", ") || "N/A",
+          .join(", ") || "N/A";
+    }
+
+    let className = "N/A";
+    if (userClass?.className) {
+      className = userClass.className;
+    } else {
+      const allClasses = [...fromClassTeacher, ...fromSubjectClasses];
+      const uniqueNames = [
+        ...new Set(allClasses.map((c) => c.className).filter(Boolean)),
+      ];
+      className = uniqueNames.join(", ") || "N/A";
+    }
+
+    const plain = teacher.toObject();
+    // Avoid leaking populated docs as nested objects in the table payload shape.
+    delete plain.assignedSubject;
+    delete plain.assignedClass;
+
+    return {
+      ...plain,
+      assignedSubjectCode: subjectCode,
+      assignedClassName: className,
     };
   });
 }

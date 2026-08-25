@@ -45,6 +45,21 @@ const userSchema = new mongoose.Schema(
       unique: true,
     },
 
+    // Admin-assigned teaching links (source of truth for Add Teacher list).
+    // Subject.assignedTeacher / Class.assignedTeacher are singular and get
+    // overwritten when another teacher shares the same subject/class.
+    assignedSubject: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subject",
+      default: null,
+    },
+
+    assignedClass: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Class",
+      default: null,
+    },
+
     parentId: {
       type: String,
       trim: true,
