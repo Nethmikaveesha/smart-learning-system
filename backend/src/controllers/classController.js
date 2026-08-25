@@ -17,11 +17,11 @@ function isTruthyQuery(value) {
 
 /**
  * Keep only real students on Class.students for API responses:
- * - role must be "student"
- * - must have a StudentProfile (source of Student ID)
+ * - exclude teacher/admin/parent roles
  * - never include the class assignedTeacher
+ * - attach StudentProfile.studentId when present
  *
- * Also soft-cleans teacher/parent/admin ids that were wrongly $addToSet'd.
+ * Also soft-cleans non-student ids that were wrongly $addToSet'd.
  */
 async function attachStudentIdsToClasses(classes = []) {
   const userIds = [];
@@ -69,22 +69,20 @@ async function attachStudentIdsToClasses(classes = []) {
         continue;
       }
 
-      const isAssignedTeacher =
-        assignedTeacherId && userKey === assignedTeacherId;
+      const userKey = String(student._id || "");
+      const assignedTeacherMatch =
+        Boolean(assignedTeacherId) && userKey === assignedTeacherId;
       const role = String(student.role || "").toLowerCase();
-      const isNonStudentRole = ["teacher", "admin", "superadmin", "parent"].includes(
-        role
-      );
+      const isNonStudentRole = [
+        "teacher",
+        "admin",
+        "superadmin",
+        "parent",
+      ].includes(role);
       const profileStudentId = studentIdByUser.get(userKey) || "";
 
-      // Keep enrolled students; drop teachers/staff even if a stale profile exists.
-      if (isAssignedTeacher || isNonStudentRole) {
-        if (userKey) invalidIds.push(student._id);
-        continue;
-      }
-
-      // Prefer confirmed students (role student, or legacy rows with a profile).
-      if (role && role !== "student" && !profileStudentId) {
+      // Drop teachers/staff even if a stale StudentProfile still exists.
+      if (assignedTeacherMatch || isNonStudentRole) {
         if (userKey) invalidIds.push(student._id);
         continue;
       }
