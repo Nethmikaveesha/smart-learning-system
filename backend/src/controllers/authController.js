@@ -409,6 +409,7 @@ export const loginUser = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        teacherId: user.teacherId || undefined,
       },
     });
   } catch (error) {
@@ -432,6 +433,7 @@ export const getCurrentUser = async (req, res) => {
         email: req.user.email,
         role: req.user.role,
         isActive: req.user.isActive,
+        teacherId: req.user.teacherId || undefined,
       },
     });
   } catch (error) {
