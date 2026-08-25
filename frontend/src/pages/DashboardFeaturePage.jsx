@@ -2994,6 +2994,7 @@ function DataTable({
                           ).filter((student) =>
                             isDisplayableClassStudent(student, {
                               currentUserId,
+                              currentUserTeacherId,
                               assignedTeacherId:
                                 row.assignedTeacher?._id ||
                                 row.assignedTeacher,
@@ -3009,6 +3010,7 @@ function DataTable({
                               ).filter((student) =>
                                 isDisplayableClassStudent(student, {
                                   currentUserId,
+                                  currentUserTeacherId,
                                   assignedTeacherId:
                                     row.assignedTeacher?._id ||
                                     row.assignedTeacher,
@@ -3100,12 +3102,20 @@ function getStudentDisplayId(student) {
 
 function isDisplayableClassStudent(
   student,
-  { currentUserId, assignedTeacherId } = {}
+  { currentUserId, currentUserTeacherId, assignedTeacherId } = {}
 ) {
   if (!student || typeof student !== "object") return false;
 
   const userKey = String(student._id || student.id || "");
   const role = String(student.role || "").toLowerCase();
+  const studentCode = String(
+    student.studentId || student.user?.studentId || ""
+  )
+    .trim()
+    .toLowerCase();
+  const teacherCode = String(currentUserTeacherId || "")
+    .trim()
+    .toLowerCase();
 
   if (role && role !== "student") return false;
   if (currentUserId && userKey && userKey === String(currentUserId)) {
@@ -3116,6 +3126,10 @@ function isDisplayableClassStudent(
     userKey &&
     userKey === String(assignedTeacherId)
   ) {
+    return false;
+  }
+  // Hide the logged-in teacher's own ID if it was stored as a "student".
+  if (teacherCode && studentCode && studentCode === teacherCode) {
     return false;
   }
 
