@@ -143,9 +143,8 @@ export default function CommerceSubjectsPanel({
         <div className="border-b border-slate-100 px-5 py-4">
           <h2 className="typo-card text-slate-950">Commerce Subjects</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Accounting, Business Studies, and Economics are fixed for A/L
-            Commerce. Assign a teacher here — do not create duplicate subject
-            records.
+            Core subjects for Grade 12 and 13 Commerce. Choose a subject and
+            assign the teacher responsible for it.
           </p>
         </div>
 
@@ -200,7 +199,7 @@ export default function CommerceSubjectsPanel({
                         onClick={() => openAssign(subject)}
                         className="rounded-lg bg-sky-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-sky-800"
                       >
-                        Assign / Edit
+                        Assign
                       </button>
                     </td>
                   </tr>
@@ -219,8 +218,8 @@ export default function CommerceSubjectsPanel({
               {editingSubject.subjectName}
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Subject name and code stay fixed. Only the teacher and status can
-              change.
+              Select the teacher for this subject, or leave it unassigned.
+              You can also set the subject as active or inactive.
             </p>
           </div>
 

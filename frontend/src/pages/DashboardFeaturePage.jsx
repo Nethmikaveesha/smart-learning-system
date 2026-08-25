@@ -370,7 +370,7 @@ const featureConfigs = {
   "/admin/subjects": {
     title: "Subjects",
     description:
-      "A/L Commerce uses three fixed subjects (ACC101, BS101, ECO101). Assign teachers here — creating duplicates is not needed.",
+      "Manage teaching assignments for the school’s A/L Commerce stream.",
     commerceSubjectsPanel: true,
   },
   "/admin/teacher-assignments": {
