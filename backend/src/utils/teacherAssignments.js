@@ -118,7 +118,7 @@ export async function buildTeachersWithAssignments() {
     .select("-password")
     .populate("assignedSubject", "subjectCode subjectName")
     .populate("assignedClass", "className academicYear")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: 1 });
 
   const teacherIds = teachers.map((t) => t._id);
 

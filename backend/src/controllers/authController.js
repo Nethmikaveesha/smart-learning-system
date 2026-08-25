@@ -173,6 +173,31 @@ export const registerUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Resolve teacher assignments before create so User.assignedSubject /
+    // assignedClass are stored on the same write (list display source of truth).
+    let teacherSubjectId = null;
+    let teacherClassId = null;
+    if (role === "teacher") {
+      if (assignedSubject) {
+        const subject = await resolveSubject(assignedSubject);
+        if (!subject) {
+          const err = new Error(
+            `Subject not found for reference: ${assignedSubject}`
+          );
+          err.statusCode = 404;
+          throw err;
+        }
+        teacherSubjectId = subject._id;
+        assignedSubjectId = subject._id;
+      }
+
+      if (assignedClass) {
+        const classRecord = await resolveOrCreateClass(assignedClass);
+        teacherClassId = classRecord._id;
+        assignedClassTeacherId = classRecord._id;
+      }
+    }
+
     const user = await User.create({
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
@@ -183,41 +208,19 @@ export const registerUser = async (req, res) => {
       teacherId: role === "teacher" ? resolvedIds.teacherId : undefined,
       parentId: role === "parent" ? resolvedIds.parentId : undefined,
       relationship: role === "parent" ? relationship : "",
+      assignedSubject: teacherSubjectId || undefined,
+      assignedClass: teacherClassId || undefined,
     });
     createdUserId = user._id;
 
     let profile = null;
 
     if (role === "teacher") {
-      let subjectId = null;
-      let classId = null;
-
-      if (assignedSubject) {
-        const subject = await resolveSubject(assignedSubject);
-
-        if (!subject) {
-          const err = new Error(
-            `Subject not found for reference: ${assignedSubject}`
-          );
-          err.statusCode = 404;
-          throw err;
-        }
-
-        subjectId = subject._id;
-        assignedSubjectId = subject._id;
-      }
-
-      if (assignedClass) {
-        const classRecord = await resolveOrCreateClass(assignedClass);
-        assignedClassTeacherId = classRecord._id;
-        classId = classRecord._id;
-      }
-
-      if (subjectId || classId) {
+      if (teacherSubjectId || teacherClassId) {
         await syncTeacherClassSubjectAssignment({
           teacherId: user._id,
-          classId,
-          subjectId,
+          classId: teacherClassId,
+          subjectId: teacherSubjectId,
         });
       }
     }

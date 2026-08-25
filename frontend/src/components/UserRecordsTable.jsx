@@ -34,7 +34,7 @@ function displayOrEmpty(value) {
 }
 
 function flattenTeacherRows(teachers) {
-  return teachers.map((teacher) => ({
+  const rows = (Array.isArray(teachers) ? teachers : []).map((teacher) => ({
     recordId: teacher._id,
     userId: teacher._id,
     fullName: teacher.fullName || "N/A",
@@ -46,7 +46,20 @@ function flattenTeacherRows(teachers) {
     assignedSubjectCode: teacher.assignedSubjectCode || "N/A",
     assignedClassName: teacher.assignedClassName || "N/A",
     status: teacher.isActive ? "Active" : "Inactive",
+    createdAt: teacher.createdAt || null,
   }));
+
+  // Oldest first so the most recently added teacher appears at the end.
+  return rows.sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (aTime !== bTime) return aTime - bTime;
+    return String(a.teacherId || "").localeCompare(
+      String(b.teacherId || ""),
+      undefined,
+      { numeric: true, sensitivity: "base" }
+    );
+  });
 }
 
 // General users include admins and parents.

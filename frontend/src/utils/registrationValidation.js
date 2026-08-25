@@ -99,5 +99,14 @@ export function validateRegistrationForm(values, role) {
     }
   }
 
+  if (role === "teacher") {
+    if (!values.assignedSubject?.trim()) {
+      errors.assignedSubject = "Select an assigned subject";
+    }
+    if (!values.assignedClass?.trim()) {
+      errors.assignedClass = "Select an assigned class";
+    }
+  }
+
   return errors;
 }
