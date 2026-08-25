@@ -2986,14 +2986,32 @@ function DataTable({
                     >
                       {column === "students" ? (
                         <StudentsSummaryCell
-                          students={row[column]}
+                          students={(Array.isArray(row[column])
+                            ? row[column]
+                            : []
+                          ).filter((student) =>
+                            isDisplayableClassStudent(student, {
+                              currentUserId,
+                              assignedTeacherId:
+                                row.assignedTeacher?._id ||
+                                row.assignedTeacher,
+                            })
+                          )}
                           onView={() =>
                             setStudentsModal({
                               className: row.className || "Class",
                               academicYear: row.academicYear || "",
-                              students: Array.isArray(row[column])
+                              students: (Array.isArray(row[column])
                                 ? row[column]
-                                : [],
+                                : []
+                              ).filter((student) =>
+                                isDisplayableClassStudent(student, {
+                                  currentUserId,
+                                  assignedTeacherId:
+                                    row.assignedTeacher?._id ||
+                                    row.assignedTeacher,
+                                })
+                              ),
                             })
                           }
                         />
@@ -3076,6 +3094,30 @@ function getStudentDisplayName(student) {
 function getStudentDisplayId(student) {
   if (!student || typeof student !== "object") return "No ID";
   return student.studentId || student.user?.studentId || "No ID";
+}
+
+function isDisplayableClassStudent(
+  student,
+  { currentUserId, assignedTeacherId } = {}
+) {
+  if (!student || typeof student !== "object") return false;
+
+  const userKey = String(student._id || student.id || "");
+  const role = String(student.role || "").toLowerCase();
+
+  if (role && role !== "student") return false;
+  if (currentUserId && userKey && userKey === String(currentUserId)) {
+    return false;
+  }
+  if (
+    assignedTeacherId &&
+    userKey &&
+    userKey === String(assignedTeacherId)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function StudentsSummaryCell({ students, onView }) {

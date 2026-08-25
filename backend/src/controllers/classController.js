@@ -16,8 +16,12 @@ function isTruthyQuery(value) {
 }
 
 /**
- * Attach StudentProfile.studentId onto populated Class.students (User refs)
- * so teacher/admin UIs can show ID + name without a second round-trip.
+ * Keep only real students on Class.students for API responses:
+ * - role must be "student"
+ * - must have a StudentProfile (source of Student ID)
+ * - never include the class assignedTeacher
+ *
+ * Also soft-cleans teacher/parent/admin ids that were wrongly $addToSet'd.
  */
 async function attachStudentIdsToClasses(classes = []) {
   const userIds = [];
@@ -28,11 +32,14 @@ async function attachStudentIdsToClasses(classes = []) {
     }
   }
 
-  if (!userIds.length) return classes;
+  const uniqueUserIds = [...new Set(userIds.map((id) => String(id)))];
 
-  const profiles = await StudentProfile.find({
-    user: { $in: userIds },
-  }).select("user studentId");
+  const profiles =
+    uniqueUserIds.length > 0
+      ? await StudentProfile.find({
+          user: { $in: uniqueUserIds },
+        }).select("user studentId")
+      : [];
 
   const studentIdByUser = new Map(
     profiles.map((profile) => [
@@ -41,23 +48,74 @@ async function attachStudentIdsToClasses(classes = []) {
     ])
   );
 
-  return classes.map((classItem) => {
+  const cleanupJobs = [];
+
+  const result = classes.map((classItem) => {
     const plain =
       typeof classItem.toObject === "function"
         ? classItem.toObject()
         : { ...classItem };
 
-    plain.students = (plain.students || []).map((student) => {
-      if (!student || typeof student !== "object") return student;
+    const assignedTeacherId = String(
+      plain.assignedTeacher?._id || plain.assignedTeacher || ""
+    );
+
+    const validStudents = [];
+    const invalidIds = [];
+
+    for (const student of plain.students || []) {
+      if (!student || typeof student !== "object") {
+        if (student) invalidIds.push(student);
+        continue;
+      }
+
       const userKey = String(student._id || "");
-      return {
-        ...student,
-        studentId: studentIdByUser.get(userKey) || student.studentId || "",
-      };
-    });
+      const role = String(student.role || "").toLowerCase();
+      const profileStudentId = studentIdByUser.get(userKey) || "";
+
+      const isAssignedTeacher =
+        assignedTeacherId && userKey === assignedTeacherId;
+      const isStudentRole = role === "student";
+      const hasStudentProfile = Boolean(profileStudentId);
+
+      if (isAssignedTeacher || !isStudentRole || !hasStudentProfile) {
+        if (userKey) invalidIds.push(student._id);
+        continue;
+      }
+
+      validStudents.push({
+        _id: student._id,
+        fullName: student.fullName,
+        email: student.email,
+        role: student.role,
+        studentId: profileStudentId,
+      });
+    }
+
+    plain.students = validStudents;
+
+    if (invalidIds.length > 0 && plain._id) {
+      cleanupJobs.push(
+        Class.updateOne(
+          { _id: plain._id },
+          { $pull: { students: { $in: invalidIds } } }
+        ).catch((cleanupError) => {
+          console.warn(
+            "Class.students cleanup skipped:",
+            cleanupError.message
+          );
+        })
+      );
+    }
 
     return plain;
   });
+
+  if (cleanupJobs.length > 0) {
+    await Promise.all(cleanupJobs);
+  }
+
+  return result;
 }
 
 function escapeRegex(value) {
