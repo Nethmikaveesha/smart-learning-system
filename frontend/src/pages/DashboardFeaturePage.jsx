@@ -1482,7 +1482,10 @@ function DashboardFeaturePage() {
           onSaved={handleSaved}
           onError={handleFeedbackError}
         />
-      ) : config.form || config.registerForm || config.action ? null : (
+      ) : config.form ||
+        config.registerForm ||
+        config.action ||
+        config.commerceSubjectsPanel ? null : (
         <EmptyState />
       )}
         </>
