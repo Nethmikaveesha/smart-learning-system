@@ -699,10 +699,10 @@ const featureConfigs = {
     endpoint: "/backups",
     layout: "summary",
     summaryFields: [
-      { label: "Backup files", path: "count" },
-      { label: "Latest file", path: "latest.fileName" },
-      { label: "Latest created", path: "latest.createdAt" },
-      { label: "Note", path: "note" },
+      { label: "Available backups", path: "count" },
+      { label: "Latest backup", path: "latest.fileName" },
+      { label: "Created on", path: "latest.createdAt" },
+      { label: "Status", path: "note" },
     ],
     action: {
       endpoint: "/backups",

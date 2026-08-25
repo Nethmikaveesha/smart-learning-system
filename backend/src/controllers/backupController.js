@@ -45,8 +45,8 @@ export const listBackups = async (req, res) => {
       latest: backups[0] || null,
       note:
         backups.length === 0
-          ? "No backups yet. Click Run Database Backup to create one."
-          : `Showing ${backups.length} backup file(s) from backend/database-backups.`,
+          ? "No backups yet. Click Create Backup to save a copy of school records."
+          : `${backups.length} backup${backups.length === 1 ? "" : "s"} available to restore if needed.`,
     });
   } catch (error) {
     res.status(500).json({
