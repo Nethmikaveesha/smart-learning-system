@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
-import { toastSuccess } from "../utils/toastBridge";
 
 function formatDateTime(value) {
   if (!value) return "N/A";
@@ -92,15 +91,13 @@ export default function DatabaseBackupPanel({
       setCreating(true);
       onError?.("");
 
-      const res = await api.post(
+      // Success toast comes from the shared axios interceptor (avoid double alerts).
+      await api.post(
         "/backups",
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      toastSuccess(
-        res.data?.message || "Backup created successfully."
-      );
       onSaved?.();
       await load();
     } catch (createError) {
@@ -125,15 +122,13 @@ export default function DatabaseBackupPanel({
       setRestoringFile(fileName);
       onError?.("");
 
-      const res = await api.post(
+      // Success toast comes from the shared axios interceptor (avoid double alerts).
+      await api.post(
         "/backups/restore",
         { fileName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      toastSuccess(
-        res.data?.message || "School data restored from the selected backup."
-      );
       onSaved?.();
       await load();
     } catch (restoreError) {
