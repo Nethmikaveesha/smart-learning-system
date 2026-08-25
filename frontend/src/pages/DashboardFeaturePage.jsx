@@ -376,7 +376,15 @@ const featureConfigs = {
   "/admin/teacher-assignments": {
     title: "Teacher Assignments",
     endpoint: "/subjects",
-    description: "Review subject, class, and teacher assignment records.",
+    description:
+      "Overview of each Commerce subject, its assigned teacher, and linked classes.",
+    tableColumns: [
+      "subjectCode",
+      "subjectName",
+      "assignedTeacher",
+      "classes",
+      "isActive",
+    ],
   },
   "/admin/exam-timetables": {
     title: "Exam Timetables",
@@ -3281,6 +3289,36 @@ function formatCellValue(column, value) {
 
   if (column === "keywords" && Array.isArray(value)) {
     return value.filter(Boolean).join(", ") || "N/A";
+  }
+
+  if (column === "assignedTeacher") {
+    if (!value) return "Not assigned";
+    if (typeof value === "object") {
+      const id = value.teacherId || "";
+      const name = value.fullName || "";
+      if (id && name) return `${id} — ${name}`;
+      return name || id || "Not assigned";
+    }
+    if (/^[a-f0-9]{24}$/i.test(String(value))) return "Not assigned";
+    return String(value);
+  }
+
+  // Subject.classes can hold twin Class rows with the same className.
+  if (column === "classes" && Array.isArray(value)) {
+    const names = [];
+    const seen = new Set();
+    for (const item of value) {
+      const name =
+        typeof item === "string"
+          ? item.trim()
+          : String(item?.className || "").trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+    return names.join(", ") || "N/A";
   }
 
   if (column === "modelAnswer" && typeof value === "string") {

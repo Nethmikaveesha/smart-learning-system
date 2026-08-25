@@ -176,9 +176,26 @@ export const getAllSubjects = async (req, res) => {
 
     const subjects = await Subject.find(filter)
       .populate("assignedTeacher", "fullName email teacherId")
-      .populate("classes", "className");
+      .populate("classes", "className academicYear");
 
-    res.status(200).json(subjects);
+    // Twin Class rows (same className, different _id) can sit on Subject.classes.
+    // Dedupe by className for admin review tables.
+    const payload = subjects.map((subject) => {
+      const plain = subject.toObject();
+      const seen = new Set();
+      plain.classes = (plain.classes || []).filter((classItem) => {
+        const name = String(classItem?.className || "")
+          .trim()
+          .toLowerCase();
+        if (!name) return false;
+        if (seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      });
+      return plain;
+    });
+
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({
       message: error.message,
