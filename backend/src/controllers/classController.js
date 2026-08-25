@@ -69,16 +69,22 @@ async function attachStudentIdsToClasses(classes = []) {
         continue;
       }
 
-      const userKey = String(student._id || "");
-      const role = String(student.role || "").toLowerCase();
-      const profileStudentId = studentIdByUser.get(userKey) || "";
-
       const isAssignedTeacher =
         assignedTeacherId && userKey === assignedTeacherId;
-      const isStudentRole = role === "student";
-      const hasStudentProfile = Boolean(profileStudentId);
+      const role = String(student.role || "").toLowerCase();
+      const isNonStudentRole = ["teacher", "admin", "superadmin", "parent"].includes(
+        role
+      );
+      const profileStudentId = studentIdByUser.get(userKey) || "";
 
-      if (isAssignedTeacher || !isStudentRole || !hasStudentProfile) {
+      // Keep enrolled students; drop teachers/staff even if a stale profile exists.
+      if (isAssignedTeacher || isNonStudentRole) {
+        if (userKey) invalidIds.push(student._id);
+        continue;
+      }
+
+      // Prefer confirmed students (role student, or legacy rows with a profile).
+      if (role && role !== "student" && !profileStudentId) {
         if (userKey) invalidIds.push(student._id);
         continue;
       }
@@ -87,7 +93,7 @@ async function attachStudentIdsToClasses(classes = []) {
         _id: student._id,
         fullName: student.fullName,
         email: student.email,
-        role: student.role,
+        role: student.role || "student",
         studentId: profileStudentId,
       });
     }
