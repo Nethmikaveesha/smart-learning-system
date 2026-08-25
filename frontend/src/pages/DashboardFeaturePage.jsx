@@ -389,7 +389,7 @@ const featureConfigs = {
   "/admin/exam-timetables": {
     title: "Exam Timetables",
     description:
-      "Schedule exam dates, times, and rooms. Select class and subject by name. This is separate from marks exams.",
+      "Add the schedule (time and room) for exams already created under Exams. One timetable entry per exam.",
     endpoint: "/exam-timetables",
     tableColumns: [
       "examName",
@@ -404,19 +404,47 @@ const featureConfigs = {
       endpoint: "/exam-timetables",
       method: "post",
       submitLabel: "Create Timetable",
+      formTitle: "Create Exam Timetable",
+      formDescription:
+        "Select an exam from Exams, then set the start time, end time, and room.",
       fields: [
+        {
+          name: "examId",
+          label: "Linked Exam",
+          type: "async-select",
+          required: true,
+          placeholder: "Select exam (from Exams page)",
+          optionsEndpoint: "/exams",
+          optionValue: "_id",
+          getOptionLabel: (item) => {
+            const className = item.class?.className || "Class";
+            const subjectName = item.subject?.subjectName || "Subject";
+            const date = item.examDate
+              ? new Date(item.examDate).toLocaleDateString("en-GB")
+              : "";
+            return `${item.examName || "Exam"} — ${className} — ${subjectName}${
+              date ? ` (${date})` : ""
+            }`;
+          },
+          hydrateMap: {
+            examName: "examName",
+            classId: "class._id",
+            subjectId: "subject._id",
+            examDate: "examDate",
+          },
+        },
         {
           name: "examName",
           label: "Exam Name",
           required: true,
-          placeholder: "e.g. Term Test 1 - Accounting",
+          placeholder: "Filled from Linked Exam",
         },
         {
           name: "classId",
           label: "Class",
           type: "async-select",
           required: true,
-          placeholder: "Select class",
+          placeholder: "Filled from Linked Exam",
           optionsEndpoint: "/classes",
           optionValue: "_id",
           getOptionLabel: formatClassOptionLabel,
@@ -426,7 +454,7 @@ const featureConfigs = {
           label: "Subject",
           type: "async-select",
           required: true,
-          placeholder: "Select subject",
+          placeholder: "Filled from Linked Exam",
           optionsEndpoint: "/subjects",
           optionValue: "_id",
           getOptionLabel: (item) =>
@@ -471,7 +499,8 @@ const featureConfigs = {
         idField: "timetableId",
         submitLabel: "Update Timetable",
         formTitle: "Edit Exam Timetable",
-        formDescription: "Select a timetable entry and update its details.",
+        formDescription:
+          "Update time, room, or instructions. Linked exam details stay matched to Exams.",
         fields: [
           {
             name: "timetableId",
@@ -483,39 +512,6 @@ const featureConfigs = {
             optionValue: "_id",
             getOptionLabel: (item) =>
               `${item.examName || "Exam"} — ${item.class?.className || "Class"}`,
-          },
-          {
-            name: "examName",
-            label: "Exam Name",
-            required: true,
-            placeholder: "e.g. Term Test 1 - Accounting",
-          },
-          {
-            name: "classId",
-            label: "Class",
-            type: "async-select",
-            required: true,
-            placeholder: "Select class",
-            optionsEndpoint: "/classes",
-            optionValue: "_id",
-            getOptionLabel: formatClassOptionLabel,
-          },
-          {
-            name: "subjectId",
-            label: "Subject",
-            type: "async-select",
-            required: true,
-            placeholder: "Select subject",
-            optionsEndpoint: "/subjects",
-            optionValue: "_id",
-            getOptionLabel: (item) =>
-              `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
-          },
-          {
-            name: "examDate",
-            label: "Exam Date",
-            type: "date",
-            required: true,
           },
           {
             name: "startTime",
@@ -534,6 +530,12 @@ const featureConfigs = {
             label: "Location",
             placeholder: "e.g. Main Hall",
             defaultValue: "Main Hall",
+          },
+          {
+            name: "instructions",
+            label: "Instructions",
+            type: "textarea",
+            placeholder: "Optional instructions for students...",
           },
         ],
       },
@@ -563,7 +565,7 @@ const featureConfigs = {
   "/admin/exams": {
     title: "Exams",
     description:
-      "Create exams used for Marks Management, ranks, and Z-scores. Pick class and subject by name.",
+      "Create one exam per class and subject for marks, ranks, and Z-scores. After saving, add the time and room under Exam Timetables.",
     endpoint: "/exams",
     tableColumns: ["examName", "class", "subject", "examDate", "totalMarks"],
     form: {
@@ -2228,6 +2230,28 @@ function resolveRecordFieldValue(record, fieldName) {
   return String(raw);
 }
 
+function getNestedRecordValue(record, path) {
+  if (!path) return undefined;
+  return path.split(".").reduce((value, key) => value?.[key], record);
+}
+
+function formatHydratedFormValue(raw, fieldType) {
+  if (raw === undefined || raw === null || raw === "") return "";
+
+  if (fieldType === "date") {
+    const date = new Date(raw);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  if (typeof raw === "object") {
+    return String(raw._id || raw.id || "");
+  }
+
+  return String(raw);
+}
+
 function FeatureForm({ form, token, onSaved, onError }) {
   const initialValues = getFeatureFormInitialValues(form.fields);
 
@@ -2412,6 +2436,30 @@ function FeatureForm({ form, token, onSaved, onError }) {
                 : selectedOption
             )
           : "";
+      }
+
+      // Hydrate related fields from a selected source record (e.g. link timetable → exam).
+      if (changedField?.hydrateMap && typeof changedField.hydrateMap === "object") {
+        const records = resolveAsyncOptionItems(changedField, asyncOptions);
+        const selected = records.find((item) => {
+          if (typeof item === "string" || typeof item === "number") {
+            return String(item) === String(nextValue);
+          }
+          return (
+            String(item[changedField.optionValue] || item._id || "") ===
+            String(nextValue)
+          );
+        });
+
+        Object.entries(changedField.hydrateMap).forEach(([targetField, path]) => {
+          const targetConfig = form.fields.find((field) => field.name === targetField);
+          next[targetField] = selected
+            ? formatHydratedFormValue(
+                getNestedRecordValue(selected, path),
+                targetConfig?.type
+              )
+            : "";
+        });
       }
 
       // When the edit-target record is selected, hydrate the rest of the form.

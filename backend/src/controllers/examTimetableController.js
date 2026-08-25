@@ -1,3 +1,4 @@
+import Exam from "../models/Exam.js";
 import ExamTimetable from "../models/ExamTimetable.js";
 import StudentProfile from "../models/StudentProfile.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
@@ -8,9 +9,17 @@ import {
 } from "../utils/teacherScope.js";
 import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
+function toDateInputValue(value) {
+  if (!value) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date;
+}
+
 export const createExamTimetable = async (req, res) => {
   try {
     const {
+      examId,
       examName,
       classId,
       subjectId,
@@ -21,11 +30,65 @@ export const createExamTimetable = async (req, res) => {
       instructions,
     } = req.body;
 
+    if (!startTime || !endTime) {
+      return res.status(400).json({
+        message: "startTime and endTime are required",
+      });
+    }
+
+    if (String(startTime) >= String(endTime)) {
+      return res.status(400).json({
+        message: "End time must be after start time",
+      });
+    }
+
+    let resolvedName = examName;
+    let resolvedClassId = classId;
+    let resolvedSubjectId = subjectId;
+    let resolvedDate = examDate;
+    let linkedExamId = null;
+
+    if (examId) {
+      const exam = await Exam.findById(examId);
+      if (!exam) {
+        return res.status(404).json({ message: "Linked exam not found" });
+      }
+
+      const alreadyScheduled = await ExamTimetable.findOne({ exam: exam._id });
+      if (alreadyScheduled) {
+        return res.status(409).json({
+          message:
+            "A timetable already exists for this exam. Edit that timetable instead of creating a duplicate.",
+        });
+      }
+
+      linkedExamId = exam._id;
+      resolvedName = exam.examName;
+      resolvedClassId = exam.class;
+      resolvedSubjectId = exam.subject;
+      resolvedDate = exam.examDate;
+    }
+
+    if (
+      !resolvedName?.trim() ||
+      !resolvedClassId ||
+      !resolvedSubjectId ||
+      !resolvedDate
+    ) {
+      return res.status(400).json({
+        message:
+          "Select a linked exam, or provide examName, classId, subjectId, and examDate",
+      });
+    }
+
     if (req.user?.role === "teacher") {
-      const ownsClass = await assertTeacherOwnsClass(req.user._id, classId);
+      const ownsClass = await assertTeacherOwnsClass(
+        req.user._id,
+        resolvedClassId
+      );
       const ownsSubject = await assertTeacherOwnsSubject(
         req.user._id,
-        subjectId
+        resolvedSubjectId
       );
       if (!ownsClass && !ownsSubject) {
         return res.status(403).json({
@@ -36,21 +99,22 @@ export const createExamTimetable = async (req, res) => {
     }
 
     const timetable = await ExamTimetable.create({
-      examName,
-      class: classId,
-      subject: subjectId,
-      examDate,
+      exam: linkedExamId || undefined,
+      examName: String(resolvedName).trim(),
+      class: resolvedClassId,
+      subject: resolvedSubjectId,
+      examDate: toDateInputValue(resolvedDate),
       startTime,
       endTime,
-      location,
-      instructions,
+      location: location || "Main Hall",
+      instructions: instructions || "",
     });
 
     await createAuditLog({
       userId: req.user?._id,
       action: "CREATE",
       module: "Exam Timetable",
-      description: `Exam timetable created: ${examName}`,
+      description: `Exam timetable created: ${timetable.examName}`,
     });
 
     res.status(201).json({
@@ -58,6 +122,12 @@ export const createExamTimetable = async (req, res) => {
       timetable,
     });
   } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        message:
+          "A timetable already exists for this exam. Edit that timetable instead of creating a duplicate.",
+      });
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -83,9 +153,7 @@ export const getAllExamTimetables = async (req, res) => {
 
       const classIds = [
         ...new Set(
-          children
-            .map((child) => child.class?.toString())
-            .filter(Boolean)
+          children.map((child) => child.class?.toString()).filter(Boolean)
         ),
       ];
 
@@ -105,7 +173,8 @@ export const getAllExamTimetables = async (req, res) => {
     const timetables = await ExamTimetable.find(filter)
       .populate("class", "className gradeLevel academicYear")
       .populate("subject", "subjectName subjectCode")
-      .sort({ examDate: 1 });
+      .populate("exam", "examName totalMarks")
+      .sort({ examDate: -1, startTime: 1 });
 
     res.status(200).json(timetables);
   } catch (error) {
@@ -145,22 +214,37 @@ export const updateExamTimetable = async (req, res) => {
       }
     }
 
+    const nextStart = startTime !== undefined ? startTime : existing.startTime;
+    const nextEnd = endTime !== undefined ? endTime : existing.endTime;
+    if (nextStart && nextEnd && String(nextStart) >= String(nextEnd)) {
+      return res.status(400).json({
+        message: "End time must be after start time",
+      });
+    }
+
+    // Linked exam keeps name/class/subject/date aligned with Marks exams.
     const update = {
-      ...(examName !== undefined ? { examName } : {}),
-      ...(classId !== undefined ? { class: classId } : {}),
-      ...(subjectId !== undefined ? { subject: subjectId } : {}),
-      ...(examDate !== undefined ? { examDate } : {}),
       ...(startTime !== undefined ? { startTime } : {}),
       ...(endTime !== undefined ? { endTime } : {}),
       ...(location !== undefined ? { location } : {}),
       ...(instructions !== undefined ? { instructions } : {}),
     };
 
+    if (!existing.exam) {
+      if (examName !== undefined) update.examName = examName;
+      if (classId !== undefined) update.class = classId;
+      if (subjectId !== undefined) update.subject = subjectId;
+      if (examDate !== undefined) update.examDate = examDate;
+    }
+
     const timetable = await ExamTimetable.findByIdAndUpdate(
       req.params.id,
       update,
       { new: true }
-    );
+    )
+      .populate("class", "className gradeLevel academicYear")
+      .populate("subject", "subjectName subjectCode")
+      .populate("exam", "examName totalMarks");
 
     await createAuditLog({
       userId: req.user?._id,
