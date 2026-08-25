@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import UserRecordsTable from "../components/UserRecordsTable";
+import CommerceSubjectsPanel from "../components/CommerceSubjectsPanel";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
 import { isSuperAdmin } from "../utils/adminRoles";
@@ -368,96 +369,9 @@ const featureConfigs = {
   },
   "/admin/subjects": {
     title: "Subjects",
-    endpoint: "/subjects",
-    form: {
-      endpoint: "/subjects",
-      method: "post",
-      submitLabel: "Create Subject",
-      fields: [
-        {
-          name: "subjectName",
-          label: "Subject Name",
-          type: "async-select",
-          required: true,
-          placeholder: "Select subject",
-          optionsEndpoint: "/subjects/catalog",
-          optionValue: "subjectName",
-          getOptionLabel: (item) => item.subjectName,
-          syncPair: { field: "subjectCode", valueKey: "subjectCode" },
-        },
-        {
-          name: "subjectCode",
-          label: "Subject Code",
-          type: "async-select",
-          required: true,
-          placeholder: "Select code",
-          optionsEndpoint: "/subjects/catalog",
-          optionValue: "subjectCode",
-          getOptionLabel: (item) =>
-            `${item.subjectCode} — ${item.subjectName}`,
-          syncPair: { field: "subjectName", valueKey: "subjectName" },
-        },
-      ],
-    },
-    extraForms: [
-      {
-        endpoint: "/subjects",
-        method: "put",
-        idField: "subjectId",
-        submitLabel: "Update Subject",
-        formTitle: "Edit Subject",
-        formDescription:
-          "Select a subject, update name/code/teacher, then save.",
-        fields: [
-          {
-            name: "subjectId",
-            label: "Subject to edit",
-            type: "async-select",
-            required: true,
-            omitFromPayload: true,
-            optionsEndpoint: "/subjects",
-            optionValue: "_id",
-            getOptionLabel: (item) =>
-              `${item.subjectName}${item.subjectCode ? ` (${item.subjectCode})` : ""}`,
-          },
-          {
-            name: "subjectName",
-            label: "Subject Name",
-            type: "async-select",
-            required: true,
-            placeholder: "Select subject",
-            optionsEndpoint: "/subjects/catalog",
-            optionValue: "subjectName",
-            getOptionLabel: (item) => item.subjectName,
-            syncPair: { field: "subjectCode", valueKey: "subjectCode" },
-          },
-          {
-            name: "subjectCode",
-            label: "Subject Code",
-            type: "async-select",
-            required: true,
-            placeholder: "Select code",
-            optionsEndpoint: "/subjects/catalog",
-            optionValue: "subjectCode",
-            getOptionLabel: (item) =>
-              `${item.subjectCode} — ${item.subjectName}`,
-            syncPair: { field: "subjectName", valueKey: "subjectName" },
-          },
-          {
-            name: "assignedTeacher",
-            label: "Assigned Teacher (Optional)",
-            type: "searchable-async-select",
-            optionsEndpoint: "/users/teachers",
-            optionValue: "_id",
-            allowEmpty: true,
-            emptyLabel: "Not assigned",
-            placeholder: "Select a teacher",
-            getOptionLabel: (item) =>
-              `${item.teacherId || "No ID"} — ${item.fullName || "Teacher"}`,
-          },
-        ],
-      },
-    ],
+    description:
+      "A/L Commerce uses three fixed subjects (ACC101, BS101, ECO101). Assign teachers here — creating duplicates is not needed.",
+    commerceSubjectsPanel: true,
   },
   "/admin/teacher-assignments": {
     title: "Teacher Assignments",
@@ -1502,6 +1416,15 @@ function DashboardFeaturePage() {
           rolePreset={config.rolePreset}
           registerEndpoint={config.registerEndpoint}
           token={token}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
+        />
+      )}
+
+      {config.commerceSubjectsPanel && (
+        <CommerceSubjectsPanel
+          token={token}
+          refreshKey={refreshKey}
           onSaved={handleSaved}
           onError={handleFeedbackError}
         />
