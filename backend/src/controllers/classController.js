@@ -307,8 +307,16 @@ export const getAllClasses = async (req, res) => {
       .populate("students", "fullName email role")
       .sort({ gradeLevel: 1, className: 1 });
 
-    const classesWithStudentIds = await attachStudentIdsToClasses(classes);
-    res.status(200).json(classesWithStudentIds);
+    try {
+      const classesWithStudentIds = await attachStudentIdsToClasses(classes);
+      return res.status(200).json(classesWithStudentIds);
+    } catch (enrichError) {
+      console.warn(
+        "attachStudentIdsToClasses failed:",
+        enrichError.message
+      );
+      return res.status(200).json(classes);
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
