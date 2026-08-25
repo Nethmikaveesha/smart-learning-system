@@ -1,10 +1,64 @@
 import Class from "../models/Class.js";
+import StudentProfile from "../models/StudentProfile.js";
+import User from "../models/User.js";
 import {
   inferGradeLevel,
   normalizeGradeLevel,
 } from "../utils/gradeLevel.js";
 import { getCommerceClassCatalog } from "../utils/commerceClasses.js";
 import { getTeacherScope } from "../utils/teacherScope.js";
+
+function isTruthyQuery(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+/**
+ * Attach StudentProfile.studentId onto populated Class.students (User refs)
+ * so teacher/admin UIs can show ID + name without a second round-trip.
+ */
+async function attachStudentIdsToClasses(classes = []) {
+  const userIds = [];
+  for (const classItem of classes) {
+    for (const student of classItem.students || []) {
+      const id = student?._id || student;
+      if (id) userIds.push(id);
+    }
+  }
+
+  if (!userIds.length) return classes;
+
+  const profiles = await StudentProfile.find({
+    user: { $in: userIds },
+  }).select("user studentId");
+
+  const studentIdByUser = new Map(
+    profiles.map((profile) => [
+      String(profile.user),
+      profile.studentId || "",
+    ])
+  );
+
+  return classes.map((classItem) => {
+    const plain =
+      typeof classItem.toObject === "function"
+        ? classItem.toObject()
+        : { ...classItem };
+
+    plain.students = (plain.students || []).map((student) => {
+      if (!student || typeof student !== "object") return student;
+      const userKey = String(student._id || "");
+      return {
+        ...student,
+        studentId: studentIdByUser.get(userKey) || student.studentId || "",
+      };
+    });
+
+    return plain;
+  });
+}
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -165,13 +219,25 @@ export const getAllClasses = async (req, res) => {
       }
     }
 
-    // Teachers see classes they own and classes linked to their subjects.
+    // Teachers: My Classes uses assignedOnly (admin assignment only).
+    // Other callers keep expanded teaching scope (twins / subject links).
     if (req.user?.role === "teacher") {
-      const scope = await getTeacherScope(req.user._id);
-      if (!scope.classIds.length) {
-        return res.status(200).json([]);
+      if (isTruthyQuery(req.query.assignedOnly)) {
+        const teacher = await User.findById(req.user._id).select(
+          "assignedClass"
+        );
+        if (teacher?.assignedClass) {
+          filter._id = teacher.assignedClass;
+        } else {
+          filter.assignedTeacher = req.user._id;
+        }
+      } else {
+        const scope = await getTeacherScope(req.user._id);
+        if (!scope.classIds.length) {
+          return res.status(200).json([]);
+        }
+        filter._id = { $in: scope.classIds };
       }
-      filter._id = { $in: scope.classIds };
     }
 
     const classes = await Class.find(filter)
@@ -179,7 +245,8 @@ export const getAllClasses = async (req, res) => {
       .populate("students", "fullName email role")
       .sort({ gradeLevel: 1, className: 1 });
 
-    res.status(200).json(classes);
+    const classesWithStudentIds = await attachStudentIdsToClasses(classes);
+    res.status(200).json(classesWithStudentIds);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -775,7 +775,7 @@ const featureConfigs = {
   "/teacher/classes": {
     title: "My Classes",
     description: "Classes assigned to you for teaching and attendance.",
-    endpoint: "/classes",
+    endpoint: "/classes?assignedOnly=true",
     tableColumns: [
       "className",
       "stream",
@@ -2849,6 +2849,7 @@ function DataTable({
   onError,
 }) {
   const [actionUserId, setActionUserId] = useState(null);
+  const [studentsModal, setStudentsModal] = useState(null);
   const columns = tableColumns || getColumns(rows);
   const {
     searchQuery,
@@ -2983,7 +2984,22 @@ function DataTable({
                       key={column}
                       className="max-w-sm p-3 align-top text-slate-700"
                     >
-                      {formatCellValue(column, row[column])}
+                      {column === "students" ? (
+                        <StudentsSummaryCell
+                          students={row[column]}
+                          onView={() =>
+                            setStudentsModal({
+                              className: row.className || "Class",
+                              academicYear: row.academicYear || "",
+                              students: Array.isArray(row[column])
+                                ? row[column]
+                                : [],
+                            })
+                          }
+                        />
+                      ) : (
+                        formatCellValue(column, row[column])
+                      )}
                     </td>
                   ))}
 
@@ -3033,6 +3049,125 @@ function DataTable({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+
+      {studentsModal ? (
+        <ClassStudentsModal
+          className={studentsModal.className}
+          academicYear={studentsModal.academicYear}
+          students={studentsModal.students}
+          onClose={() => setStudentsModal(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function getStudentDisplayName(student) {
+  if (!student) return "Student";
+  if (typeof student === "string") return student;
+  return (
+    student.fullName ||
+    student.user?.fullName ||
+    student.email ||
+    "Student"
+  );
+}
+
+function getStudentDisplayId(student) {
+  if (!student || typeof student !== "object") return "No ID";
+  return student.studentId || student.user?.studentId || "No ID";
+}
+
+function StudentsSummaryCell({ students, onView }) {
+  const list = Array.isArray(students) ? students : [];
+  if (list.length === 0) {
+    return <span className="text-slate-500">No students</span>;
+  }
+
+  const countLabel =
+    list.length === 1 ? "1 student" : `${list.length} students`;
+
+  return (
+    <button
+      type="button"
+      onClick={onView}
+      className="text-left text-sm font-semibold text-blue-700 transition hover:text-blue-900 hover:underline"
+    >
+      {countLabel} — View Students
+    </button>
+  );
+}
+
+function ClassStudentsModal({ className, academicYear, students, onClose }) {
+  const title = academicYear ? `${className} (${academicYear})` : className;
+  const sorted = [...(students || [])].sort((a, b) =>
+    getStudentDisplayName(a).localeCompare(getStudentDisplayName(b))
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="class-students-modal-title"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2
+              id="class-students-modal-title"
+              className="typo-card text-slate-950"
+            >
+              Students
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Close
+          </button>
+        </div>
+
+        {sorted.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">
+            No students assigned to this class.
+          </p>
+        ) : (
+          <div className="mt-4 max-h-80 overflow-y-auto rounded-xl border border-slate-200">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-slate-100 text-slate-700">
+                <tr>
+                  <th className="p-3 font-semibold">Student ID</th>
+                  <th className="p-3 font-semibold">Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((student, index) => (
+                  <tr
+                    key={student._id || student.id || index}
+                    className="border-t border-slate-200"
+                  >
+                    <td className="p-3 font-medium text-slate-800">
+                      {getStudentDisplayId(student)}
+                    </td>
+                    <td className="p-3 text-slate-700">
+                      {getStudentDisplayName(student)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
