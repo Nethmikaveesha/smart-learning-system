@@ -11,6 +11,35 @@ function teacherLabel(teacher) {
   return `${id} — ${name}`;
 }
 
+function teacherMatchesSubject(teacher, subject) {
+  if (!teacher || !subject) return false;
+
+  const subjectId = String(subject._id || "");
+  const subjectCode = String(subject.subjectCode || "")
+    .trim()
+    .toUpperCase();
+
+  // Prefer explicit User.assignedSubject id when the teachers API includes it.
+  const assignedSubjectId = String(
+    teacher.assignedSubject?._id || teacher.assignedSubject || ""
+  );
+  if (subjectId && assignedSubjectId && assignedSubjectId === subjectId) {
+    return true;
+  }
+
+  const codes = String(teacher.assignedSubjectCode || "")
+    .split(",")
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code && code !== "N/A");
+
+  return Boolean(subjectCode && codes.includes(subjectCode));
+}
+
+function currentAssigneeId(subject) {
+  if (!subject?.assignedTeacher) return "";
+  return String(subject.assignedTeacher._id || subject.assignedTeacher);
+}
+
 /**
  * Fixed A/L Commerce subjects board — no create form (codes are unique).
  * Admin only assigns / unassigns a teacher and toggles active status.
@@ -81,6 +110,30 @@ export default function CommerceSubjectsPanel({
     () => subjects.find((item) => String(item._id) === String(editingId)),
     [subjects, editingId]
   );
+
+  // Only teachers already linked to this subject (Add Teacher assignment).
+  const eligibleTeachers = useMemo(() => {
+    if (!editingSubject) return [];
+
+    const matched = teachers.filter((teacher) =>
+      teacherMatchesSubject(teacher, editingSubject)
+    );
+
+    const currentId = currentAssigneeId(editingSubject);
+    if (
+      currentId &&
+      !matched.some((teacher) => String(teacher._id) === currentId)
+    ) {
+      const current =
+        teachers.find((teacher) => String(teacher._id) === currentId) ||
+        (typeof editingSubject.assignedTeacher === "object"
+          ? editingSubject.assignedTeacher
+          : null);
+      if (current) matched.unshift(current);
+    }
+
+    return matched;
+  }, [editingSubject, teachers]);
 
   const openAssign = (subject) => {
     setEditingId(subject._id);
@@ -218,8 +271,9 @@ export default function CommerceSubjectsPanel({
               {editingSubject.subjectName}
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Select the teacher for this subject, or leave it unassigned.
-              You can also set the subject as active or inactive.
+              Only teachers linked to {editingSubject.subjectName} are listed
+              here. Link a teacher to this subject under Add Teacher if you do
+              not see them.
             </p>
           </div>
 
@@ -235,12 +289,19 @@ export default function CommerceSubjectsPanel({
                 className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
               >
                 <option value="">Not assigned</option>
-                {teachers.map((teacher) => (
+                {eligibleTeachers.map((teacher) => (
                   <option key={teacher._id} value={teacher._id}>
                     {teacherLabel(teacher)}
                   </option>
                 ))}
               </select>
+              {eligibleTeachers.length === 0 ? (
+                <p className="mt-1 text-sm text-amber-700">
+                  No teachers are linked to this subject yet. Open Add Teacher,
+                  set their Assigned Subject Code to{" "}
+                  {editingSubject.subjectCode}, then return here to assign.
+                </p>
+              ) : null}
             </label>
 
             <label className="typo-label text-slate-700">
