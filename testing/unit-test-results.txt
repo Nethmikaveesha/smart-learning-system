@@ -1,0 +1,18 @@
+EduTrack unit tests
+
+  PASS  UT-01 calculateGrade returns A for marks of 75 and above
+  PASS  UT-02 calculateGrade returns B for marks from 65 to 74
+  PASS  UT-03 calculateGrade returns C for marks from 55 to 64
+  PASS  UT-04 calculateGrade returns S at the default pass mark
+  PASS  UT-05 calculateGrade returns F below the pass mark
+  PASS  UT-06 calculateGrade respects a custom pass mark of 50
+  PASS  UT-07 isPassingMark, formatMarks and formatRank helpers
+  PASS  UT-08 registration validation accepts a complete valid record
+  PASS  UT-09 registration validation rejects invalid email and mismatched passwords
+  PASS  UT-10 frontend email and password rules match the backend policy
+  PASS  UT-11 grade-level helpers infer 12/13 from class names
+
+────────────────────────────
+Results: 11/11 passed
+────────────────────────────
+

@@ -1,0 +1,5 @@
+Python syntax: 8/8 files passed (py_compile)
+---
+Backend+test JS syntax: 93 files, 0 failures (node --check)
+Frontend .js syntax: 3 files, 0 failures (node --check)
+Frontend JSX: parsed by ESLint with 0 parse errors

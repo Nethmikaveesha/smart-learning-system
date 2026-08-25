@@ -1,0 +1,109 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/workspace/frontend/src/components/PublicLayout.jsx
+  43:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  41 |
+  42 |   useEffect(() => {
+> 43 |     setMobileOpen(false);
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |   }, [location.pathname]);
+  45 |
+  46 |   useEffect(() => {  react-hooks/set-state-in-effect
+
+/workspace/frontend/src/components/sidebars/AdminSidebar.jsx
+  3:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/frontend/src/components/sidebars/ParentSidebar.jsx
+  3:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/frontend/src/components/sidebars/StudentSidebar.jsx
+  3:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/frontend/src/components/sidebars/TeacherSidebar.jsx
+  3:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/frontend/src/context/AuthContext.jsx
+  35:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/workspace/frontend/src/pages/DashboardFeaturePage.jsx
+  1821:10  error  'TextField' is defined but never used  no-unused-vars
+
+/workspace/frontend/src/pages/Login.jsx
+  33:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  31 |     const saved = localStorage.getItem(REMEMBER_KEY);
+  32 |     if (saved) {
+> 33 |       setEmail(saved);
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |       setRememberEmail(true);
+  35 |     }
+  36 |   }, []);  react-hooks/set-state-in-effect
+
+/workspace/frontend/src/pages/RiskDashboard.jsx
+  33:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  31 |
+  32 |   useEffect(() => {
+> 33 |     fetchRiskData();
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  34 |   }, []);
+  35 |
+  36 |   const xapiSummary = useMemo(  react-hooks/set-state-in-effect
+
+/workspace/frontend/src/pages/TeacherEssayReview.jsx
+  51:16  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  49 |
+  50 |   useEffect(() => {
+> 51 |     if (token) loadSubmissions();
+     |                ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  52 |     // eslint-disable-next-line react-hooks/exhaustive-deps
+  53 |   }, [token]);
+  54 |  react-hooks/set-state-in-effect
+  57:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  55 |   useEffect(() => {
+  56 |     if (!selected) {
+> 57 |       setPartMarks({});
+     |       ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  58 |       setTeacherFeedback("");
+  59 |       return;
+  60 |     }                            react-hooks/set-state-in-effect
+
+✖ 11 problems (11 errors, 0 warnings)
+
+EXIT:1
