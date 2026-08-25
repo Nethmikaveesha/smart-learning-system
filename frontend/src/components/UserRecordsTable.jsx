@@ -245,6 +245,9 @@ function UserRecordsTable({
     setEditingRow(row);
     setFormValues({
       ...row,
+      // Edit selects are single-value; table may show joined labels.
+      assignedSubjectCode: displayOrEmpty(row.assignedSubjectCode),
+      assignedClassName: displayOrEmpty(row.assignedClassName),
       password: "",
       confirmPassword: "",
     });
