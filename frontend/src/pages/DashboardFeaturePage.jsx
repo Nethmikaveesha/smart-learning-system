@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import UserRecordsTable from "../components/UserRecordsTable";
 import CommerceSubjectsPanel from "../components/CommerceSubjectsPanel";
 import GeneratedReportsPanel from "../components/GeneratedReportsPanel";
+import DatabaseBackupPanel from "../components/DatabaseBackupPanel";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
 import { isSuperAdmin } from "../utils/adminRoles";
@@ -695,43 +696,8 @@ const featureConfigs = {
   "/admin/database-backup": {
     title: "Database Backup",
     description:
-      "Save a full copy of school records, or restore the system from an earlier backup if something goes wrong.",
-    endpoint: "/backups",
-    layout: "summary",
-    summaryFields: [
-      { label: "Available backups", path: "count" },
-      { label: "Latest backup", path: "latest.fileName" },
-      { label: "Created on", path: "latest.createdAt" },
-      { label: "Status", path: "note" },
-    ],
-    action: {
-      endpoint: "/backups",
-      method: "post",
-      label: "Create Backup",
-    },
-    extraForms: [
-      {
-        endpoint: "/backups/restore",
-        method: "post",
-        submitLabel: "Restore Selected Backup",
-        formTitle: "Restore from Backup",
-        formDescription:
-          "This will replace current school data with the selected backup. Student records, exams, attendance, and settings will change. Use only when you need to roll back.",
-        fields: [
-          {
-            name: "fileName",
-            label: "Backup file",
-            type: "async-select",
-            required: true,
-            optionsEndpoint: "/backups",
-            optionValue: "fileName",
-            optionsPath: "backups",
-            getOptionLabel: (item) =>
-              `${item.fileName} (${item.sizeKb || "?"} KB)`,
-          },
-        ],
-      },
-    ],
+      "Save a full copy of school records, or restore from an earlier backup if something goes wrong.",
+    databaseBackupPanel: true,
   },
   "/admin/contact-messages": {
     title: "Contact Messages",
@@ -1467,6 +1433,15 @@ function DashboardFeaturePage() {
         />
       )}
 
+      {config.databaseBackupPanel && (
+        <DatabaseBackupPanel
+          token={token}
+          refreshKey={refreshKey}
+          onSaved={handleSaved}
+          onError={handleFeedbackError}
+        />
+      )}
+
       {config.listEndpoint && (
         <UserRecordsTable
           title={config.listTitle || "Records"}
@@ -1512,7 +1487,8 @@ function DashboardFeaturePage() {
         config.registerForm ||
         config.action ||
         config.commerceSubjectsPanel ||
-        config.generatedReportsPanel ? null : (
+        config.generatedReportsPanel ||
+        config.databaseBackupPanel ? null : (
         <EmptyState />
       )}
         </>

@@ -18,7 +18,7 @@ export const createBackup = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Database backup created successfully (${result.fileName})`,
+      message: "Backup created successfully. School records are safely saved.",
       backup: {
         fileName: result.fileName,
         createdAt: result.createdAt,
@@ -79,7 +79,7 @@ export const restoreBackup = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Database restored from ${result.fileName}`,
+      message: "School data restored from the selected backup.",
       restore: result,
     });
   } catch (error) {
