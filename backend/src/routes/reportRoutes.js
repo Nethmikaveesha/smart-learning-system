@@ -3,6 +3,8 @@ import express from "express";
 import {
   generateStudentReport,
   testMonthlyReportGeneration,
+  listGeneratedMonthlyReports,
+  downloadGeneratedMonthlyReport,
 } from "../controllers/reportController.js";
 
 import {
@@ -20,11 +22,26 @@ router.get(
   generateStudentReport
 );
 
+// Admin: list + download generated monthly PDFs
+router.get(
+  "/monthly",
+  protect,
+  authorizeRoles("admin", "superadmin"),
+  listGeneratedMonthlyReports
+);
+
+router.get(
+  "/monthly/:fileName",
+  protect,
+  authorizeRoles("admin", "superadmin"),
+  downloadGeneratedMonthlyReport
+);
+
 // Admin test trigger for automatic monthly PDF generation
 router.post(
   "/monthly-generate-test",
   protect,
-  authorizeRoles("admin"),
+  authorizeRoles("admin", "superadmin"),
   testMonthlyReportGeneration
 );
 

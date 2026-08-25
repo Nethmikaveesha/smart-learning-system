@@ -4,6 +4,7 @@ import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import UserRecordsTable from "../components/UserRecordsTable";
 import CommerceSubjectsPanel from "../components/CommerceSubjectsPanel";
+import GeneratedReportsPanel from "../components/GeneratedReportsPanel";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
 import { isSuperAdmin } from "../utils/adminRoles";
@@ -739,12 +740,14 @@ const featureConfigs = {
   },
   "/admin/reports": {
     title: "Reports",
-    description: "Trigger monthly progress report generation.",
+    description:
+      "Generate monthly student progress PDFs, then download them from the list below.",
     action: {
       endpoint: "/reports/monthly-generate-test",
       method: "post",
       label: "Generate Monthly Reports",
     },
+    generatedReportsPanel: true,
   },
   "/admin/settings": {
     title: "Settings",
@@ -1363,6 +1366,11 @@ function DashboardFeaturePage() {
       } else if (config.action.responseType !== "blob") {
         setData(res.data);
       }
+
+      // Refresh generated-reports list after a successful generate action.
+      if (config.generatedReportsPanel) {
+        setRefreshKey((current) => current + 1);
+      }
     } catch (actionError) {
       const actionMessage =
         actionError.response?.data?.message ||
@@ -1451,6 +1459,14 @@ function DashboardFeaturePage() {
         </button>
       )}
 
+      {config.generatedReportsPanel && (
+        <GeneratedReportsPanel
+          token={token}
+          refreshKey={refreshKey}
+          onError={handleFeedbackError}
+        />
+      )}
+
       {config.listEndpoint && (
         <UserRecordsTable
           title={config.listTitle || "Records"}
@@ -1495,7 +1511,8 @@ function DashboardFeaturePage() {
       ) : config.form ||
         config.registerForm ||
         config.action ||
-        config.commerceSubjectsPanel ? null : (
+        config.commerceSubjectsPanel ||
+        config.generatedReportsPanel ? null : (
         <EmptyState />
       )}
         </>
