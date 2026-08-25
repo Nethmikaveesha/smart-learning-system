@@ -272,11 +272,24 @@ export const getTeacherDashboard = async (req, res) => {
         fullName: teacher?.fullName,
         email: teacher?.email,
       },
-      classes: scope.classLabels,
-      subjects: scope.subjectLabels,
+      // Dashboard cards show admin-assigned class/subject only (not twin expansions).
+      classes:
+        scope.adminAssignedClassLabels?.length > 0
+          ? scope.adminAssignedClassLabels
+          : scope.classLabels,
+      subjects:
+        scope.adminAssignedSubjectLabels?.length > 0
+          ? scope.adminAssignedSubjectLabels
+          : scope.subjectLabels,
       assignmentSummary: {
-        classCount: scope.classLabels.length,
-        subjectCount: scope.subjectLabels.length,
+        classCount:
+          (scope.adminAssignedClassLabels?.length || 0) > 0
+            ? scope.adminAssignedClassLabels.length
+            : scope.classLabels.length,
+        subjectCount:
+          (scope.adminAssignedSubjectLabels?.length || 0) > 0
+            ? scope.adminAssignedSubjectLabels.length
+            : scope.subjectLabels.length,
         hasAssignments:
           scope.classLabels.length > 0 || scope.subjectLabels.length > 0,
       },

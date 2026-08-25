@@ -268,6 +268,28 @@ export async function getTeacherScope(teacherId) {
   const subjectIds = taughtSubjectIds;
   const studentIds = students.map((student) => student._id);
 
+  // Display-only admin assignment (Add Teacher / Subjects). Do not expand
+  // year twins or student-inferred classes into this label list.
+  let adminAssignedClasses = [];
+  if (teacher?.assignedClass) {
+    const assignedClassDoc = await Class.findById(teacher.assignedClass).select(
+      "className academicYear gradeLevel"
+    );
+    if (assignedClassDoc) adminAssignedClasses = [assignedClassDoc];
+  } else {
+    adminAssignedClasses = await Class.find({ assignedTeacher: teacherId })
+      .select("className academicYear gradeLevel")
+      .sort({ gradeLevel: 1, className: 1, academicYear: 1 });
+  }
+
+  let adminAssignedSubjects = subjects;
+  if (teacher?.assignedSubject) {
+    const assignedSubjectDoc = await Subject.findById(
+      teacher.assignedSubject
+    ).select("subjectName subjectCode");
+    if (assignedSubjectDoc) adminAssignedSubjects = [assignedSubjectDoc];
+  }
+
   return {
     teacher,
     classes,
@@ -275,9 +297,13 @@ export async function getTeacherScope(teacherId) {
     classIds,
     classIdStrings: classIds.map((id) => id.toString()),
     classLabels: uniqueClassLabels(classes),
+    adminAssignedClassLabels: uniqueClassLabels(adminAssignedClasses),
     subjectIds,
     subjectIdStrings: subjectIds.map((id) => id.toString()),
     subjectLabels: subjects.map((item) => item.subjectName).filter(Boolean),
+    adminAssignedSubjectLabels: adminAssignedSubjects
+      .map((item) => item.subjectName || item.subjectCode)
+      .filter(Boolean),
     students,
     studentIds,
     studentIdStrings: studentIds.map((id) => id.toString()),
