@@ -2031,6 +2031,7 @@ function RegisterUserForm({
               value={values.assignedSubject}
               onChange={updateValue}
               placeholder="Select subject"
+              error={fieldErrors.assignedSubject}
               options={subjects.map((subject) => ({
                 value: subject.subjectCode,
                 label: `${subject.subjectCode} - ${subject.subjectName}`,
@@ -2042,6 +2043,7 @@ function RegisterUserForm({
               value={values.assignedClass}
               onChange={updateValue}
               placeholder="Select class"
+              error={fieldErrors.assignedClass}
               options={toClassNameSelectOptions(classes)}
             />
           </>
@@ -2778,6 +2780,7 @@ function OptionSelectField({
   onChange,
   options,
   placeholder = "Select option",
+  error,
 }) {
   return (
     <label className="typo-label text-slate-700">
@@ -2786,7 +2789,9 @@ function OptionSelectField({
         name={name}
         value={value}
         onChange={(event) => onChange(name, event.target.value)}
-        className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+        className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm ${
+          error ? "border-red-400" : "border-slate-300"
+        }`}
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (
@@ -2795,6 +2800,9 @@ function OptionSelectField({
           </option>
         ))}
       </select>
+      {error ? (
+        <p className="mt-1 text-sm font-medium text-red-600">{error}</p>
+      ) : null}
     </label>
   );
 }
