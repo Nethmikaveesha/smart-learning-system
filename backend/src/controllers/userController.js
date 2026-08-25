@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Subject from "../models/Subject.js";
-import Class from "../models/Class.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import {
   normalizeAssignmentReference,
@@ -14,6 +13,10 @@ import {
   isElevatedTargetRole,
   isSuperAdmin,
 } from "../utils/adminRoles.js";
+import {
+  buildTeachersWithAssignments,
+  syncTeacherClassSubjectAssignment,
+} from "../utils/teacherAssignments.js";
 
 async function assertCanManageUserAccount(actor, target) {
   const managementError = getAdminManagementError(actor, target);
@@ -60,38 +63,10 @@ export const getAllUsers = async (req, res) => {
 
 export const getTeachersWithAssignments = async (req, res) => {
   try {
-    const teachers = await User.find({ role: "teacher" }).select("-password");
-    const subjects = await Subject.find().select(
-      "subjectCode subjectName assignedTeacher"
-    );
-    const classes = await Class.find().select("className assignedTeacher");
-
-    const teachersWithAssignments = teachers.map((teacher) => {
-      const teacherId = String(teacher._id);
-      const assignedSubjects = subjects.filter(
-        (subject) => String(subject.assignedTeacher || "") === teacherId
-      );
-      // Admin list must show only the class Admin explicitly assigned
-      // (Class.assignedTeacher). Do not infer classes from subject/students.
-      const assignedClasses = classes.filter(
-        (classRecord) => String(classRecord.assignedTeacher || "") === teacherId
-      );
-
-      return {
-        ...teacher.toObject(),
-        assignedSubjectCode:
-          assignedSubjects
-            .map((subject) => subject.subjectCode || subject.subjectName)
-            .filter(Boolean)
-            .join(", ") || "N/A",
-        assignedClassName:
-          assignedClasses
-            .map((classRecord) => classRecord.className)
-            .filter(Boolean)
-            .join(", ") || "N/A",
-      };
-    });
-
+    // Class.assignedTeacher is singular — commerce co-teachers share a class.
+    // Also show classes linked on Subject.classes for that teacher's subject
+    // (set when Admin assigns class at create/edit). Do not infer from students.
+    const teachersWithAssignments = await buildTeachersWithAssignments();
     res.status(200).json(teachersWithAssignments);
   } catch (error) {
     res.status(500).json({
@@ -206,45 +181,52 @@ export const updateUser = async (req, res) => {
     }
 
     if (user.role === "teacher") {
-      if (req.body.assignedSubject !== undefined) {
-        const subjectRef = normalizeAssignmentReference(
-          req.body.assignedSubject
-        );
+      const subjectRef =
+        req.body.assignedSubject !== undefined
+          ? normalizeAssignmentReference(req.body.assignedSubject)
+          : null;
+      const classRef =
+        req.body.assignedClass !== undefined
+          ? normalizeAssignmentReference(req.body.assignedClass)
+          : null;
 
+      let subjectId = null;
+      if (subjectRef) {
         // Empty / "N/A" = leave current subject assignment unchanged
         // (so email-only edits do not wipe teaching scope).
-        if (subjectRef) {
-          await Subject.updateMany(
-            { assignedTeacher: user._id },
-            { $unset: { assignedTeacher: "" } }
-          );
+        await Subject.updateMany(
+          { assignedTeacher: user._id },
+          { $unset: { assignedTeacher: "" }, $set: { classes: [] } }
+        );
 
-          const subject = await resolveSubject(subjectRef);
-          if (subject) {
-            await Subject.findByIdAndUpdate(subject._id, {
-              assignedTeacher: user._id,
-            });
-          }
+        const subject = await resolveSubject(subjectRef);
+        if (subject) {
+          subjectId = subject._id;
+          await Subject.findByIdAndUpdate(subject._id, {
+            assignedTeacher: user._id,
+          });
         }
+      } else {
+        const currentSubject = await Subject.findOne({
+          assignedTeacher: user._id,
+        }).select("_id");
+        subjectId = currentSubject?._id || null;
       }
 
-      if (req.body.assignedClass !== undefined) {
-        const classRef = normalizeAssignmentReference(req.body.assignedClass);
-
-        // Empty / "N/A" = leave current class assignment unchanged.
-        if (classRef) {
-          await Class.updateMany(
-            { assignedTeacher: user._id },
-            { $unset: { assignedTeacher: "" } }
-          );
-
-          const classRecord = await resolveOrCreateClass(classRef);
-          if (classRecord) {
-            await Class.findByIdAndUpdate(classRecord._id, {
-              assignedTeacher: user._id,
-            });
-          }
+      if (classRef) {
+        const classRecord = await resolveOrCreateClass(classRef);
+        if (classRecord) {
+          await syncTeacherClassSubjectAssignment({
+            teacherId: user._id,
+            classId: classRecord._id,
+            subjectId,
+          });
         }
+      } else if (subjectId && req.body.assignedSubject !== undefined) {
+        // Subject changed without a class payload — keep subject link only.
+        await Subject.findByIdAndUpdate(subjectId, {
+          assignedTeacher: user._id,
+        });
       }
     }
 

@@ -21,6 +21,7 @@ import {
   PARENT_RELATIONSHIPS,
 } from "../utils/parentLinks.js";
 import { verifyPassword } from "../utils/passwordUtils.js";
+import { syncTeacherClassSubjectAssignment } from "../utils/teacherAssignments.js";
 
 const RESET_TOKEN_HOURS = 1;
 
@@ -188,6 +189,8 @@ export const registerUser = async (req, res) => {
     let profile = null;
 
     if (role === "teacher") {
+      let subjectId = null;
+
       if (assignedSubject) {
         const subject = await resolveSubject(assignedSubject);
 
@@ -199,19 +202,23 @@ export const registerUser = async (req, res) => {
           throw err;
         }
 
-        await Subject.findByIdAndUpdate(subject._id, {
-          assignedTeacher: user._id,
-        });
+        subjectId = subject._id;
         assignedSubjectId = subject._id;
       }
 
       if (assignedClass) {
         const classRecord = await resolveOrCreateClass(assignedClass);
+        assignedClassTeacherId = classRecord._id;
 
-        await Class.findByIdAndUpdate(classRecord._id, {
+        await syncTeacherClassSubjectAssignment({
+          teacherId: user._id,
+          classId: classRecord._id,
+          subjectId,
+        });
+      } else if (subjectId) {
+        await Subject.findByIdAndUpdate(subjectId, {
           assignedTeacher: user._id,
         });
-        assignedClassTeacherId = classRecord._id;
       }
     }
 
@@ -308,12 +315,22 @@ export const registerUser = async (req, res) => {
       if (assignedSubjectId) {
         await Subject.findByIdAndUpdate(assignedSubjectId, {
           $unset: { assignedTeacher: 1 },
+          $set: { classes: [] },
         });
       }
       if (assignedClassTeacherId && createdUserId) {
-        await Class.findByIdAndUpdate(assignedClassTeacherId, {
-          $unset: { assignedTeacher: 1 },
-        });
+        // Only clear class teacher if this registration set it to the new user.
+        const classDoc = await Class.findById(assignedClassTeacherId).select(
+          "assignedTeacher"
+        );
+        if (
+          classDoc &&
+          String(classDoc.assignedTeacher || "") === String(createdUserId)
+        ) {
+          await Class.findByIdAndUpdate(assignedClassTeacherId, {
+            $unset: { assignedTeacher: 1 },
+          });
+        }
       }
       if (createdUserId) {
         await Class.updateMany(
