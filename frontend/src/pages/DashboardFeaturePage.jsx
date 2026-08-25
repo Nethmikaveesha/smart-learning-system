@@ -1476,7 +1476,8 @@ function DashboardFeaturePage() {
           rows={rows}
           rowAction={config.rowAction}
           tableColumns={config.tableColumns}
-          currentUserId={user?.id}
+          currentUserId={user?.id || user?._id}
+          currentUserTeacherId={user?.teacherId || ""}
           token={token}
           emptyMessage={resolvedEmptyMessage}
           emptyIcon={config.emptyIcon}
@@ -2842,6 +2843,7 @@ function DataTable({
   rowAction,
   tableColumns,
   currentUserId,
+  currentUserTeacherId,
   token,
   emptyMessage,
   emptyIcon,

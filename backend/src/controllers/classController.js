@@ -18,6 +18,8 @@ function isTruthyQuery(value) {
 /**
  * Keep only real students on Class.students for API responses:
  * - exclude teacher/admin/parent roles
+ * - exclude users that have a teacherId (even if role was mis-set)
+ * - exclude StudentProfile codes that collide with a User.teacherId
  * - never include the class assignedTeacher
  * - attach StudentProfile.studentId when present
  *
@@ -34,18 +36,46 @@ async function attachStudentIdsToClasses(classes = []) {
 
   const uniqueUserIds = [...new Set(userIds.map((id) => String(id)))];
 
-  const profiles =
+  const [profiles, listedUsers, teacherRows] = await Promise.all([
     uniqueUserIds.length > 0
-      ? await StudentProfile.find({
-          user: { $in: uniqueUserIds },
-        }).select("user studentId")
-      : [];
+      ? StudentProfile.find({ user: { $in: uniqueUserIds } }).select(
+          "user studentId"
+        )
+      : Promise.resolve([]),
+    uniqueUserIds.length > 0
+      ? User.find({ _id: { $in: uniqueUserIds } }).select(
+          "role teacherId fullName email"
+        )
+      : Promise.resolve([]),
+    User.find({
+      role: "teacher",
+      teacherId: { $exists: true, $nin: [null, ""] },
+    }).select("teacherId"),
+  ]);
 
   const studentIdByUser = new Map(
     profiles.map((profile) => [
       String(profile.user),
-      profile.studentId || "",
+      String(profile.studentId || "").trim(),
     ])
+  );
+
+  const userMetaById = new Map(
+    listedUsers.map((row) => [
+      String(row._id),
+      {
+        role: String(row.role || "").toLowerCase(),
+        teacherId: String(row.teacherId || "").trim(),
+        fullName: row.fullName || "",
+        email: row.email || "",
+      },
+    ])
+  );
+
+  const teacherCodeSet = new Set(
+    teacherRows
+      .map((row) => String(row.teacherId || "").trim().toLowerCase())
+      .filter(Boolean)
   );
 
   const cleanupJobs = [];
@@ -70,28 +100,47 @@ async function attachStudentIdsToClasses(classes = []) {
       }
 
       const userKey = String(student._id || "");
-      const assignedTeacherMatch =
-        Boolean(assignedTeacherId) && userKey === assignedTeacherId;
-      const role = String(student.role || "").toLowerCase();
+      if (!userKey) {
+        invalidIds.push(student._id || student);
+        continue;
+      }
+
+      const meta = userMetaById.get(userKey) || {
+        role: String(student.role || "").toLowerCase(),
+        teacherId: String(student.teacherId || "").trim(),
+        fullName: student.fullName || "",
+        email: student.email || "",
+      };
+
+      const profileStudentId = studentIdByUser.get(userKey) || "";
+      const assignedTeacherMatch = userKey === assignedTeacherId;
       const isNonStudentRole = [
         "teacher",
         "admin",
         "superadmin",
         "parent",
-      ].includes(role);
-      const profileStudentId = studentIdByUser.get(userKey) || "";
+      ].includes(meta.role);
+      const hasTeacherCode = Boolean(meta.teacherId);
+      const studentIdIsTeacherCode = teacherCodeSet.has(
+        profileStudentId.toLowerCase()
+      );
 
-      // Drop teachers/staff even if a stale StudentProfile still exists.
-      if (assignedTeacherMatch || isNonStudentRole) {
-        if (userKey) invalidIds.push(student._id);
+      // Drop teachers/staff and any row whose ID collides with a teacher code.
+      if (
+        assignedTeacherMatch ||
+        isNonStudentRole ||
+        hasTeacherCode ||
+        studentIdIsTeacherCode
+      ) {
+        invalidIds.push(student._id);
         continue;
       }
 
       validStudents.push({
         _id: student._id,
-        fullName: student.fullName,
-        email: student.email,
-        role: student.role || "student",
+        fullName: meta.fullName || student.fullName,
+        email: meta.email || student.email,
+        role: "student",
         studentId: profileStudentId,
       });
     }
