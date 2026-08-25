@@ -3,6 +3,23 @@ import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
 import User from "../models/User.js";
 
+async function subjectAlreadyHasClassName(subjectId, className) {
+  const normalized = String(className || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return false;
+
+  const subject = await Subject.findById(subjectId)
+    .select("classes")
+    .populate("classes", "className");
+  return (subject?.classes || []).some(
+    (item) =>
+      String(item?.className || "")
+        .trim()
+        .toLowerCase() === normalized
+  );
+}
+
 /**
  * Persist admin teacher ↔ class ↔ subject links without clobbering co-teachers.
  *
@@ -67,11 +84,21 @@ export async function syncTeacherClassSubjectAssignment({
     }
 
     if (classDoc) {
-      // Accumulate classes so co-teachers do not erase each other's links.
-      await Subject.findByIdAndUpdate(subjectDoc._id, {
-        ...subjectUpdate,
-        $addToSet: { classes: classDoc._id },
-      });
+      const alreadyLinked = await subjectAlreadyHasClassName(
+        subjectDoc._id,
+        classDoc.className
+      );
+      if (alreadyLinked) {
+        if (Object.keys(subjectUpdate).length > 0) {
+          await Subject.findByIdAndUpdate(subjectDoc._id, subjectUpdate);
+        }
+      } else {
+        // Accumulate classes so co-teachers do not erase each other's links.
+        await Subject.findByIdAndUpdate(subjectDoc._id, {
+          ...subjectUpdate,
+          $addToSet: { classes: classDoc._id },
+        });
+      }
     } else if (Object.keys(subjectUpdate).length > 0) {
       await Subject.findByIdAndUpdate(subjectDoc._id, subjectUpdate);
     }
@@ -85,9 +112,16 @@ export async function syncTeacherClassSubjectAssignment({
     ];
     const unique = [...new Set(subjectIds.map((id) => String(id)))];
     await Promise.all(
-      unique.map((id) =>
-        Subject.findByIdAndUpdate(id, { $addToSet: { classes: classDoc._id } })
-      )
+      unique.map(async (id) => {
+        const alreadyLinked = await subjectAlreadyHasClassName(
+          id,
+          classDoc.className
+        );
+        if (alreadyLinked) return;
+        await Subject.findByIdAndUpdate(id, {
+          $addToSet: { classes: classDoc._id },
+        });
+      })
     );
   }
 
