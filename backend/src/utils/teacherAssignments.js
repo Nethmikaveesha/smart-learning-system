@@ -214,6 +214,11 @@ export async function buildTeachersWithAssignments() {
 
     return {
       ...plain,
+      assignedSubjectId: userSubject?._id
+        ? String(userSubject._id)
+        : legacySubjects[0]?._id
+          ? String(legacySubjects[0]._id)
+          : null,
       assignedSubjectCode: subjectCode,
       assignedClassName: className,
     };

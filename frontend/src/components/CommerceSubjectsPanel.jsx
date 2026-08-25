@@ -21,7 +21,10 @@ function teacherMatchesSubject(teacher, subject) {
 
   // Prefer explicit User.assignedSubject id when the teachers API includes it.
   const assignedSubjectId = String(
-    teacher.assignedSubject?._id || teacher.assignedSubject || ""
+    teacher.assignedSubjectId ||
+      teacher.assignedSubject?._id ||
+      teacher.assignedSubject ||
+      ""
   );
   if (subjectId && assignedSubjectId && assignedSubjectId === subjectId) {
     return true;
