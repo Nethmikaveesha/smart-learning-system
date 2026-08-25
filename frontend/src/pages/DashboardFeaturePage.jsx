@@ -164,6 +164,16 @@ const featureConfigs = {
   "/admin/users": {
     title: "View Users",
     endpoint: "/users",
+    // Teacher subject/class links belong on Add Teacher — do not surface
+    // raw User.assignedSubject / assignedClass ObjectIds here (they show as N/A).
+    tableColumns: [
+      "fullName",
+      "email",
+      "role",
+      "phoneNumber",
+      "isActive",
+      "createdAt",
+    ],
   },
   "/admin/users/edit-disable": {
     title: "Disable User",
@@ -176,16 +186,40 @@ const featureConfigs = {
     title: "Teachers",
     endpoint: "/users",
     filter: (row) => row.role === "teacher",
+    tableColumns: [
+      "fullName",
+      "email",
+      "teacherId",
+      "phoneNumber",
+      "isActive",
+      "createdAt",
+    ],
   },
   "/admin/users/students": {
     title: "Students",
     endpoint: "/users",
     filter: (row) => row.role === "student",
+    tableColumns: [
+      "fullName",
+      "email",
+      "phoneNumber",
+      "isActive",
+      "createdAt",
+    ],
   },
   "/admin/users/parents": {
     title: "Parents",
     endpoint: "/users",
     filter: (row) => row.role === "parent",
+    tableColumns: [
+      "fullName",
+      "email",
+      "parentId",
+      "relationship",
+      "phoneNumber",
+      "isActive",
+      "createdAt",
+    ],
   },
   "/admin/classes": {
     title: "Classes",
@@ -3254,9 +3288,15 @@ function getColumns(rows) {
     "updatedAt",
     "user",
     "assignedTeacher",
+    // Internal teacher assignment refs (ObjectIds) — not for generic tables.
+    // Readable labels live on Add Teacher via /users/teachers.
+    "assignedSubject",
+    "assignedClass",
     "parent",
     "class",
     "subjects",
+    "passwordResetToken",
+    "passwordResetExpires",
   ]);
 
   const keys = [...new Set(rows.flatMap((row) => Object.keys(row)))].filter(
