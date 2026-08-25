@@ -18,6 +18,9 @@ function teacherMatchesSubject(teacher, subject) {
   const subjectCode = String(subject.subjectCode || "")
     .trim()
     .toUpperCase();
+  const subjectName = String(subject.subjectName || "")
+    .trim()
+    .toLowerCase();
 
   // Prefer explicit User.assignedSubject id when the teachers API includes it.
   const assignedSubjectId = String(
@@ -35,7 +38,36 @@ function teacherMatchesSubject(teacher, subject) {
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code && code !== "N/A");
 
-  return Boolean(subjectCode && codes.includes(subjectCode));
+  if (subjectCode && codes.includes(subjectCode)) return true;
+
+  // Some legacy rows only stored the subject name in the display field.
+  if (subjectName && codes.map((c) => c.toLowerCase()).includes(subjectName)) {
+    return true;
+  }
+
+  return false;
+}
+
+function teacherHasNoSubject(teacher) {
+  const code = String(teacher?.assignedSubjectCode || "")
+    .trim()
+    .toUpperCase();
+  const subjectId = String(
+    teacher?.assignedSubjectId ||
+      teacher?.assignedSubject?._id ||
+      teacher?.assignedSubject ||
+      ""
+  ).trim();
+
+  return (!code || code === "N/A") && !subjectId;
+}
+
+/** Teachers who belong to this subject, or are still free to be assigned. */
+function isEligibleForSubject(teacher, subject) {
+  if (!teacher || !subject) return false;
+  if (teacherMatchesSubject(teacher, subject)) return true;
+  if (teacherHasNoSubject(teacher)) return true;
+  return false;
 }
 
 function currentAssigneeId(subject) {
@@ -114,13 +146,22 @@ export default function CommerceSubjectsPanel({
     [subjects, editingId]
   );
 
-  // Only teachers already linked to this subject (Add Teacher assignment).
+  // Teachers already linked to this subject, plus teachers with no subject yet.
+  // Teachers assigned to a different subject stay hidden.
   const eligibleTeachers = useMemo(() => {
     if (!editingSubject) return [];
 
     const matched = teachers.filter((teacher) =>
-      teacherMatchesSubject(teacher, editingSubject)
+      isEligibleForSubject(teacher, editingSubject)
     );
+
+    // Linked teachers first, then available (unassigned) teachers.
+    matched.sort((a, b) => {
+      const aLinked = teacherMatchesSubject(a, editingSubject) ? 0 : 1;
+      const bLinked = teacherMatchesSubject(b, editingSubject) ? 0 : 1;
+      if (aLinked !== bLinked) return aLinked - bLinked;
+      return String(a.fullName || "").localeCompare(String(b.fullName || ""));
+    });
 
     const currentId = currentAssigneeId(editingSubject);
     if (
@@ -274,9 +315,9 @@ export default function CommerceSubjectsPanel({
               {editingSubject.subjectName}
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Only teachers linked to {editingSubject.subjectName} are listed
-              here. Link a teacher to this subject under Add Teacher if you do
-              not see them.
+              Showing teachers for {editingSubject.subjectName}, including those
+              not yet assigned to a subject. Teachers already assigned to
+              another subject are not listed.
             </p>
           </div>
 
@@ -295,14 +336,16 @@ export default function CommerceSubjectsPanel({
                 {eligibleTeachers.map((teacher) => (
                   <option key={teacher._id} value={teacher._id}>
                     {teacherLabel(teacher)}
+                    {teacherMatchesSubject(teacher, editingSubject)
+                      ? ""
+                      : " (available)"}
                   </option>
                 ))}
               </select>
               {eligibleTeachers.length === 0 ? (
                 <p className="mt-1 text-sm text-amber-700">
-                  No teachers are linked to this subject yet. Open Add Teacher,
-                  set their Assigned Subject Code to{" "}
-                  {editingSubject.subjectCode}, then return here to assign.
+                  No eligible teachers found for {editingSubject.subjectCode}.
+                  Check Add Teacher records, then refresh this page.
                 </p>
               ) : null}
             </label>
