@@ -695,7 +695,7 @@ const featureConfigs = {
   "/admin/database-backup": {
     title: "Database Backup",
     description:
-      "Create a JSON snapshot of users, students, results, attendance, classes, exams, settings, and contact messages. Files are stored in backend/database-backups. Restore replaces current core collections from a selected file.",
+      "Save a full copy of school records, or restore the system from an earlier backup if something goes wrong.",
     endpoint: "/backups",
     layout: "summary",
     summaryFields: [
@@ -707,16 +707,16 @@ const featureConfigs = {
     action: {
       endpoint: "/backups",
       method: "post",
-      label: "Run Database Backup",
+      label: "Create Backup",
     },
     extraForms: [
       {
         endpoint: "/backups/restore",
         method: "post",
         submitLabel: "Restore Selected Backup",
-        formTitle: "Restore Database Backup",
+        formTitle: "Restore from Backup",
         formDescription:
-          "Warning: restore overwrites users, classes, subjects, students, exams, results, attendance, settings, and contact messages from the selected JSON file.",
+          "This will replace current school data with the selected backup. Student records, exams, attendance, and settings will change. Use only when you need to roll back.",
         fields: [
           {
             name: "fileName",
