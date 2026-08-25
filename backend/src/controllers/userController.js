@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Subject from "../models/Subject.js";
 import Class from "../models/Class.js";
+import StudentProfile from "../models/StudentProfile.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
 import {
   normalizeAssignmentReference,
@@ -14,6 +15,22 @@ import {
   isElevatedTargetRole,
   isSuperAdmin,
 } from "../utils/adminRoles.js";
+
+function uniqueClassLabels(classDocs = []) {
+  const seen = new Set();
+  const labels = [];
+
+  for (const classRecord of classDocs) {
+    const name = String(classRecord?.className || "").trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    labels.push(name);
+  }
+
+  return labels;
+}
 
 async function assertCanManageUserAccount(actor, target) {
   const managementError = getAdminManagementError(actor, target);
@@ -62,27 +79,75 @@ export const getTeachersWithAssignments = async (req, res) => {
   try {
     const teachers = await User.find({ role: "teacher" }).select("-password");
     const subjects = await Subject.find().select(
-      "subjectCode subjectName assignedTeacher"
+      "subjectCode subjectName assignedTeacher classes"
     );
-    const classes = await Class.find().select("className assignedTeacher");
+    const classes = await Class.find().select(
+      "className assignedTeacher academicYear gradeLevel"
+    );
+    const classById = new Map(
+      classes.map((classRecord) => [String(classRecord._id), classRecord])
+    );
+
+    // Students taking each subject — used when Class.assignedTeacher is empty
+    // but the teacher already teaches that subject in those classes.
+    const taughtSubjectIds = subjects
+      .filter((subject) => subject.assignedTeacher)
+      .map((subject) => subject._id);
+
+    const studentClassLinks =
+      taughtSubjectIds.length > 0
+        ? await StudentProfile.find({
+            subjects: { $in: taughtSubjectIds },
+            class: { $ne: null },
+          }).select("class subjects")
+        : [];
 
     const teachersWithAssignments = teachers.map((teacher) => {
-      const teacherId = teacher._id.toString();
+      const teacherId = String(teacher._id);
       const assignedSubjects = subjects.filter(
-        (subject) => subject.assignedTeacher?.toString() === teacherId
+        (subject) => String(subject.assignedTeacher || "") === teacherId
       );
-      const assignedClasses = classes.filter(
-        (classRecord) => classRecord.assignedTeacher?.toString() === teacherId
+      const assignedSubjectIdSet = new Set(
+        assignedSubjects.map((subject) => String(subject._id))
       );
+
+      const resolvedClasses = [];
+
+      // 1) Explicit class-teacher assignment
+      for (const classRecord of classes) {
+        if (String(classRecord.assignedTeacher || "") === teacherId) {
+          resolvedClasses.push(classRecord);
+        }
+      }
+
+      // 2) Classes linked on the teacher's assigned subject(s)
+      for (const subject of assignedSubjects) {
+        for (const classId of subject.classes || []) {
+          const classRecord = classById.get(String(classId));
+          if (classRecord) resolvedClasses.push(classRecord);
+        }
+      }
+
+      // 3) Classes of students who take the teacher's subject(s)
+      for (const profile of studentClassLinks) {
+        const takesSubject = (profile.subjects || []).some((subjectId) =>
+          assignedSubjectIdSet.has(String(subjectId))
+        );
+        if (!takesSubject) continue;
+        const classRecord = classById.get(String(profile.class));
+        if (classRecord) resolvedClasses.push(classRecord);
+      }
+
+      const classLabels = uniqueClassLabels(resolvedClasses);
 
       return {
         ...teacher.toObject(),
         assignedSubjectCode:
-          assignedSubjects.map((subject) => subject.subjectCode).join(", ") ||
-          "N/A",
-        assignedClassName:
-          assignedClasses.map((classRecord) => classRecord.className).join(", ") ||
-          "N/A",
+          assignedSubjects
+            .map((subject) => subject.subjectCode || subject.subjectName)
+            .filter(Boolean)
+            .join(", ") || "N/A",
+        assignedClassName: classLabels.join(", ") || "N/A",
       };
     });
 

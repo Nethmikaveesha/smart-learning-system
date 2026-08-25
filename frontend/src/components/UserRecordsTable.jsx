@@ -41,8 +41,10 @@ function flattenTeacherRows(teachers) {
     email: teacher.email || "N/A",
     phoneNumber: teacher.phoneNumber || "",
     teacherId: teacher.teacherId || "",
-    assignedSubjectCode: displayOrEmpty(teacher.assignedSubjectCode),
-    assignedClassName: displayOrEmpty(teacher.assignedClassName),
+    // Keep full comma-separated labels in the table; edit form still uses
+    // displayOrEmpty() to pick the first value for single-selects.
+    assignedSubjectCode: teacher.assignedSubjectCode || "N/A",
+    assignedClassName: teacher.assignedClassName || "N/A",
     status: teacher.isActive ? "Active" : "Inactive",
   }));
 }
