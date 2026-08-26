@@ -104,10 +104,22 @@ function StudentDashboard() {
       .slice(0, 4);
   }, [data]);
 
-  const subjectPerformance = useMemo(
-    () => getSubjectPerformance(data?.results || [], data?.student?.subjects || []),
-    [data]
-  );
+  const subjectPerformance = useMemo(() => {
+    if (Array.isArray(data?.subjectPerformance) && data.subjectPerformance.length > 0) {
+      return data.subjectPerformance
+        .filter((item) => item?.marks != null)
+        .slice(0, 3)
+        .map((item) => ({
+          subject: item.subject,
+          marks: Number(item.marks),
+        }));
+    }
+
+    return getSubjectPerformance(
+      data?.results || [],
+      data?.student?.subjects || []
+    );
+  }, [data]);
 
   const trendData = useMemo(
     () =>
