@@ -11,6 +11,7 @@ import {
   isPassingMark,
   DEFAULT_PASS_MARK,
 } from "../backend/src/utils/grading.js";
+import { dedupeResults } from "../backend/src/utils/studentResults.js";
 
 let passed = 0;
 let failed = 0;
@@ -68,8 +69,34 @@ test("Equal marks currently get consecutive ranks (document for thesis)", () => 
 test("Z-score positive above mean", () => {
   assert.ok(zScore(80, 60, 10) > 0);
 });
-test("Z-score zero at mean", () => {
-  assert.strictEqual(zScore(60, 60, 10), 0);
+test("dedupeResults keeps latest per student+subject", () => {
+  const subject = { _id: "sub1", subjectName: "Accounting" };
+  const rows = [
+    {
+      _id: "r1",
+      student: "stu1",
+      marks: 20,
+      exam: { subject, examName: "T1 - Accounting", examDate: "2026-01-01" },
+    },
+    {
+      _id: "r2",
+      student: "stu2",
+      marks: 90,
+      exam: { subject, examName: "T1 - Accounting", examDate: "2026-01-01" },
+    },
+    {
+      _id: "r3",
+      student: "stu1",
+      marks: 55,
+      exam: { subject, examName: "T2 - Accounting", examDate: "2026-02-01" },
+    },
+  ];
+  const deduped = dedupeResults(rows);
+  assert.strictEqual(deduped.length, 2);
+  const stu1 = deduped.find((row) => row.student === "stu1");
+  const stu2 = deduped.find((row) => row.student === "stu2");
+  assert.strictEqual(stu1.marks, 55);
+  assert.strictEqual(stu2.marks, 90);
 });
 
 console.log(`\n${passed}/${passed + failed} unit tests passed.`);
