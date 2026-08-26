@@ -4,6 +4,7 @@ import {
   ensureCommerceSubjectIds,
   getCommerceSubjectCatalog,
 } from "../utils/commerceSubjects.js";
+import { resolveTeacherSubjectIds } from "../utils/teacherScope.js";
 
 const FIXED_COMMERCE_CODES = new Set(["ACC101", "BS101", "ECO101"]);
 
@@ -178,30 +179,13 @@ export const getAllSubjects = async (req, res) => {
 
     // Teachers only see subjects assigned to them; admins see all.
     if (req.user?.role === "teacher") {
-      const teacher = await User.findById(req.user._id).select(
-        "assignedSubject"
-      );
-      const ownedIds = [];
-      if (teacher?.assignedSubject) {
-        ownedIds.push(teacher.assignedSubject);
-      }
-      const fromPointer = await Subject.find({
-        $or: [
-          { assignedTeacher: req.user._id },
-          { assignedTeachers: req.user._id },
-        ],
-      }).select("_id");
-      fromPointer.forEach((row) => ownedIds.push(row._id));
+      const ownedIds = await resolveTeacherSubjectIds(req.user._id);
 
-      const uniqueOwned = [
-        ...new Set(ownedIds.map((id) => String(id))),
-      ];
-
-      if (!uniqueOwned.length) {
+      if (!ownedIds.length) {
         return res.status(200).json([]);
       }
 
-      filter._id = { $in: uniqueOwned };
+      filter._id = { $in: ownedIds };
     } else if (
       req.user?.role === "admin" ||
       req.user?.role === "superadmin"

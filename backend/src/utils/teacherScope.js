@@ -449,6 +449,38 @@ export async function resolvePrimaryAssignedClassTwinIds(scope) {
   return uniqueObjectIds(classIdLists.flat());
 }
 
+/**
+ * Subject ids a teacher may teach — same rules for old and new accounts:
+ * - User.assignedSubject (Add Teacher source of truth)
+ * - Subject.assignedTeacher lead pointer
+ * - Subject.assignedTeachers co-teacher list
+ * - catalog twins (same subjectName / subjectCode)
+ */
+export async function resolveTeacherSubjectIds(teacherId) {
+  if (!teacherId) return [];
+
+  const teacher = await User.findById(teacherId).select("assignedSubject");
+  const seedIds = [];
+
+  if (teacher?.assignedSubject) {
+    seedIds.push(teacher.assignedSubject);
+  }
+
+  const fromPointers = await Subject.find({
+    $or: [
+      { assignedTeacher: teacherId },
+      { assignedTeachers: teacherId },
+    ],
+  }).select("_id");
+
+  fromPointers.forEach((row) => seedIds.push(row._id));
+
+  const uniqueSeed = uniqueObjectIds(seedIds);
+  if (!uniqueSeed.length) return [];
+
+  return resolveSubjectTwinIds(uniqueSeed);
+}
+
 export async function assertTeacherOwnsClass(teacherId, classId) {
   if (!classId) return false;
 
@@ -459,14 +491,6 @@ export async function assertTeacherOwnsClass(teacherId, classId) {
 export async function assertTeacherOwnsSubject(teacherId, subjectId) {
   if (!subjectId) return false;
 
-  const subject = await Subject.findById(subjectId).select("assignedTeacher");
-  if (subject && String(subject.assignedTeacher || "") === String(teacherId)) {
-    return true;
-  }
-
-  const teacher = await User.findById(teacherId).select("assignedSubject");
-  return (
-    teacher?.assignedSubject &&
-    String(teacher.assignedSubject) === String(subjectId)
-  );
+  const ownedIds = await resolveTeacherSubjectIds(teacherId);
+  return ownedIds.map((id) => String(id)).includes(String(subjectId));
 }

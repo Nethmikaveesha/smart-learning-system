@@ -330,18 +330,18 @@ export const getAllClasses = async (req, res) => {
       }
     }
 
-    // Teachers: My Classes uses assignedOnly (admin assignment only).
-    // Other callers keep expanded teaching scope (twins / subject links).
+    // Teachers: My Classes / Create Exam / Attendance use assignedOnly
+    // (admin primary class only). Other callers keep expanded teaching
+    // scope (twins / subject links).
     if (req.user?.role === "teacher") {
       if (isTruthyQuery(req.query.assignedOnly)) {
-        const teacher = await User.findById(req.user._id).select(
-          "assignedClass"
-        );
-        if (teacher?.assignedClass) {
-          filter._id = teacher.assignedClass;
-        } else {
-          filter.assignedTeacher = req.user._id;
+        // Same path for old lead teachers and newly added teachers:
+        // User.assignedClass, Class.assignedTeacher, subject-link repair.
+        const scope = await getTeacherScope(req.user._id);
+        if (!scope.primaryAssignedClassIds.length) {
+          return res.status(200).json([]);
         }
+        filter._id = { $in: scope.primaryAssignedClassIds };
       } else {
         const scope = await getTeacherScope(req.user._id);
         if (!scope.classIds.length) {

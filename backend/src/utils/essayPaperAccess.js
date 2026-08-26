@@ -1,13 +1,11 @@
-import Subject from "../models/Subject.js";
+import { resolveTeacherSubjectIds } from "./teacherScope.js";
 
 /**
  * Papers the teacher owns (created) plus legacy papers with no creator
  * on subjects assigned to them — so old data is not hidden.
  */
 export async function getOwnedPapersFilter(teacherId) {
-  const mySubjectIds = await Subject.find({
-    assignedTeacher: teacherId,
-  }).distinct("_id");
+  const mySubjectIds = await resolveTeacherSubjectIds(teacherId);
 
   return {
     $or: [
@@ -33,9 +31,7 @@ export function getSharedPapersFilter(teacherId) {
  * Intended for admin/superadmin department browsing only.
  */
 export async function getDepartmentPapersFilter(teacherId) {
-  const mySubjectIds = await Subject.find({
-    assignedTeacher: teacherId,
-  }).distinct("_id");
+  const mySubjectIds = await resolveTeacherSubjectIds(teacherId);
 
   if (!mySubjectIds.length) {
     return { _id: { $in: [] } };
@@ -69,3 +65,5 @@ export function isPaperSharedWith(paper, userId) {
   const shared = paper?.sharedWith || [];
   return shared.some((id) => String(id?._id || id) === String(userId));
 }
+
+export { resolveTeacherSubjectIds };

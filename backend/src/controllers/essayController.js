@@ -21,6 +21,7 @@ import {
   isAdminRole,
   isPaperCreator,
 } from "../utils/essayPaperAccess.js";
+import { resolveTeacherSubjectIds } from "../utils/teacherScope.js";
 
 const withTimeout = (promise, ms, fallback) =>
   Promise.race([
@@ -45,6 +46,20 @@ export const createEssayQuestion = async (req, res) => {
       return res.status(400).json({
         message: "subject and question are required",
       });
+    }
+
+    if (req.user?.role === "teacher") {
+      const ownedSubjectIds = await resolveTeacherSubjectIds(req.user._id);
+      const ownsSubject = ownedSubjectIds
+        .map((id) => String(id))
+        .includes(String(subject));
+
+      if (!ownsSubject) {
+        return res.status(403).json({
+          message:
+            "You can only create papers for the subject assigned to you",
+        });
+      }
     }
 
     const essayQuestion = await EssayQuestion.create({
