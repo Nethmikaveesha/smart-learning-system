@@ -1,15 +1,12 @@
 import StudentProfile from "../models/StudentProfile.js";
-import Result from "../models/Result.js";
 import Attendance from "../models/Attendance.js";
 import CommerceRisk from "../models/CommerceRisk.js";
 import {
   calculateOverallAverage,
-  dedupeResults,
   getSubjectName,
-  sortResultsByLatest,
 } from "../utils/studentResults.js";
-import { buildSubjectPerformance } from "../utils/subjectPerformance.js";
 import { linkedStudentsQuery } from "../utils/parentLinks.js";
+import { buildStudentAcademicSnapshot } from "../utils/studentAcademicSnapshot.js";
 
 async function getAttendanceSummary(studentId, attendancePercentage) {
   const records = await Attendance.find({ student: studentId });
@@ -123,18 +120,8 @@ export const getParentDashboard = async (req, res) => {
       });
     }
 
-    const rawResults = await Result.find({
-      student: studentProfile._id,
-    }).populate({
-      path: "exam",
-      select: "examName examDate",
-      populate: {
-        path: "subject",
-        select: "subjectName",
-      },
-    });
-
-    const results = sortResultsByLatest(dedupeResults(rawResults));
+    const academic = await buildStudentAcademicSnapshot(studentProfile);
+    const results = academic.results;
 
     const attendanceRecords = await Attendance.find({
       student: studentProfile._id,
@@ -201,11 +188,6 @@ export const getParentDashboard = async (req, res) => {
         };
       });
 
-    const subjectPerformance = buildSubjectPerformance(
-      studentProfile.subjects,
-      results
-    );
-
     const attendanceSummary = await getAttendanceSummary(
       studentProfile._id,
       studentProfile.attendancePercentage
@@ -241,12 +223,14 @@ export const getParentDashboard = async (req, res) => {
       })),
       selectedStudentId: studentProfile.studentId,
       student: studentProfile,
-      latestResult: results[0] || null,
+      latestResult: academic.latestResult,
       results,
+      performanceResults: academic.performanceResults,
       monthlyPerformance,
-      subjectPerformance,
+      subjectPerformance: academic.subjectPerformance,
       overallAverage,
       attendancePercentage: studentProfile.attendancePercentage,
+      currentZScore: academic.currentZScore,
       riskStatus,
       commerceRiskAssessed,
       latestCommerceRiskLevel,

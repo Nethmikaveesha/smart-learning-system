@@ -1,7 +1,7 @@
 /**
  * Keep the latest result per student + subject.
- * Without the student key, teacher/class aggregates incorrectly collapse
- * every learner into one row per subject (average/pass rate look wrong).
+ * Subject key prefers code/name so catalog twin ObjectIds do not split
+ * the same Commerce subject for one learner.
  */
 export function dedupeResults(results) {
   const byKey = new Map();
@@ -13,12 +13,7 @@ export function dedupeResults(results) {
       result.studentId?.toString() ||
       "self";
 
-    const subjectKey =
-      result.exam?.subject?._id?.toString() ||
-      result.exam?.subject?.toString() ||
-      result.exam?.examName ||
-      result._id.toString();
-
+    const subjectKey = resolveSubjectDedupeKey(result);
     const key = `${studentKey}::${subjectKey}`;
     const existing = byKey.get(key);
 
@@ -50,6 +45,33 @@ export function dedupeResults(results) {
   }
 
   return Array.from(byKey.values());
+}
+
+function resolveSubjectDedupeKey(result) {
+  const code = String(result.exam?.subject?.subjectCode || "")
+    .trim()
+    .toLowerCase();
+  if (code) return `code:${code}`;
+
+  const name = String(result.exam?.subject?.subjectName || "")
+    .trim()
+    .toLowerCase();
+  if (name) return `name:${name}`;
+
+  const fromExamName =
+    typeof result.exam?.examName === "string" &&
+    result.exam.examName.includes(" - ")
+      ? result.exam.examName.split(" - ").pop().trim().toLowerCase()
+      : "";
+  if (fromExamName) return `name:${fromExamName}`;
+
+  const id =
+    result.exam?.subject?._id?.toString() ||
+    result.exam?.subject?.toString() ||
+    "";
+  if (id) return `id:${id}`;
+
+  return result._id?.toString() || "unknown";
 }
 
 export function sortResultsByLatest(results) {

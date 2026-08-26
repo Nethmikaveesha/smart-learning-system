@@ -101,6 +101,33 @@ test("dedupeResults keeps latest per student+subject", () => {
   assert.strictEqual(stu1.marks, 55);
   assert.strictEqual(stu2.marks, 90);
 });
+test("dedupeResults merges subject catalog twins by code", () => {
+  const rows = [
+    {
+      _id: "r1",
+      student: "stu1",
+      marks: 40,
+      exam: {
+        subject: { _id: "idA", subjectCode: "ACC101", subjectName: "Accounting" },
+        examName: "T1 - Accounting",
+        examDate: "2026-01-01",
+      },
+    },
+    {
+      _id: "r2",
+      student: "stu1",
+      marks: 88,
+      exam: {
+        subject: { _id: "idB", subjectCode: "ACC101", subjectName: "Accounting" },
+        examName: "T2 - Accounting",
+        examDate: "2026-02-01",
+      },
+    },
+  ];
+  const deduped = dedupeResults(rows);
+  assert.strictEqual(deduped.length, 1);
+  assert.strictEqual(deduped[0].marks, 88);
+});
 
 console.log(`\n${passed}/${passed + failed} unit tests passed.`);
 if (failed) process.exitCode = 1;
