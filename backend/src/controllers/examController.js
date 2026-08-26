@@ -8,9 +8,11 @@ import {
 } from "../utils/teacherScope.js";
 
 async function resolveTeacherExamClassIds(scope) {
+  // Only the admin-assigned class (User.assignedClass / Class.assignedTeacher),
+  // not every class linked through the subject catalog.
   const seedClassIds =
-    scope.adminAssignedClassIds?.length > 0
-      ? scope.adminAssignedClassIds
+    scope.primaryAssignedClassIds?.length > 0
+      ? scope.primaryAssignedClassIds
       : [];
 
   if (!seedClassIds.length) return [];

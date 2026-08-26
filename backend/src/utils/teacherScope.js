@@ -357,19 +357,21 @@ export async function getTeacherScope(teacherId) {
   // Display-only admin assignment (Add Teacher / Subjects). Prefer User
   // fields, then legacy pointers, then subject-linked class names (no year
   // twin spam on the dashboard cards).
-  let adminAssignedClasses = [];
+  let primaryAssignedClasses = [];
   if (teacher?.assignedClass) {
     const assignedClassDoc = await Class.findById(teacher.assignedClass).select(
       "className academicYear gradeLevel"
     );
-    if (assignedClassDoc) adminAssignedClasses = [assignedClassDoc];
+    if (assignedClassDoc) primaryAssignedClasses = [assignedClassDoc];
   }
 
-  if (adminAssignedClasses.length === 0) {
-    adminAssignedClasses = await Class.find({ assignedTeacher: teacherId })
+  if (primaryAssignedClasses.length === 0) {
+    primaryAssignedClasses = await Class.find({ assignedTeacher: teacherId })
       .select("className academicYear gradeLevel")
       .sort({ gradeLevel: 1, className: 1, academicYear: 1 });
   }
+
+  let adminAssignedClasses = [...primaryAssignedClasses];
 
   if (adminAssignedClasses.length === 0 && subjectLinkedClassIds.length > 0) {
     const linkedClasses = await Class.find({
@@ -404,6 +406,9 @@ export async function getTeacherScope(teacherId) {
     classIds,
     classIdStrings: classIds.map((id) => id.toString()),
     classLabels: uniqueClassLabels(classes),
+    // Strict admin class link (User.assignedClass / Class.assignedTeacher).
+    // Used by Create Exam so subject-linked Grade 12+13 rows do not leak in.
+    primaryAssignedClassIds: primaryAssignedClasses.map((item) => item._id),
     adminAssignedClasses,
     adminAssignedClassIds: adminAssignedClasses.map((item) => item._id),
     adminAssignedClassIdStrings: adminAssignedClasses.map((item) =>
