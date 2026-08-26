@@ -641,7 +641,7 @@ const featureConfigs = {
           type: "async-select",
           required: true,
           placeholder: "Select class",
-          optionsEndpoint: "/classes",
+          optionsEndpoint: "/classes?assignedOnly=true",
           optionValue: "_id",
           getOptionLabel: formatClassOptionLabel,
         },

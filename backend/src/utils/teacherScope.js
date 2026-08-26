@@ -404,6 +404,11 @@ export async function getTeacherScope(teacherId) {
     classIds,
     classIdStrings: classIds.map((id) => id.toString()),
     classLabels: uniqueClassLabels(classes),
+    adminAssignedClasses,
+    adminAssignedClassIds: adminAssignedClasses.map((item) => item._id),
+    adminAssignedClassIdStrings: adminAssignedClasses.map((item) =>
+      String(item._id)
+    ),
     adminAssignedClassLabels: uniqueClassLabels(adminAssignedClasses),
     subjectIds,
     subjectIdStrings: subjectIds.map((id) => id.toString()),
