@@ -23,7 +23,14 @@ import {
   isAdminRole,
   isPaperCreator,
 } from "../utils/essayPaperAccess.js";
+import { sortEssayPapersAscending } from "../utils/essayPaperOrder.js";
 import { resolveTeacherSubjectIds } from "../utils/teacherScope.js";
+
+function resolvePaperMaxMarks(rawMaxMarks) {
+  const numeric = Number(rawMaxMarks);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 100;
+  return Math.min(1000, Math.round(numeric));
+}
 
 const withTimeout = (promise, ms, fallback) =>
   Promise.race([
@@ -66,8 +73,8 @@ export const createEssayQuestion = async (req, res) => {
 
     const essayQuestion = await EssayQuestion.create({
       subject,
-      question,
-      maxMarks,
+      question: String(question).trim(),
+      maxMarks: resolvePaperMaxMarks(maxMarks),
       gradeLevel: resolvedGradeLevel,
       createdBy: req.user?._id,
     });
@@ -493,14 +500,16 @@ export const getEssayQuestions = async (req, res) => {
       .populate("subject", "subjectName subjectCode")
       .populate("createdBy", "fullName email teacherId")
       .populate("sharedWith", "fullName email teacherId")
-      .sort({ gradeLevel: 1, createdAt: -1 });
+      .sort({ createdAt: 1 });
 
-    const enriched = questions.map((question) => {
-      const plain = question.toObject();
-      plain.canManage = canManagePaper(plain, req.user);
-      plain.isOwner = isPaperCreator(plain, req.user?._id);
-      return plain;
-    });
+    const enriched = sortEssayPapersAscending(
+      questions.map((question) => {
+        const plain = question.toObject();
+        plain.canManage = canManagePaper(plain, req.user);
+        plain.isOwner = isPaperCreator(plain, req.user?._id);
+        return plain;
+      })
+    );
 
     res.status(200).json(enriched);
   } catch (error) {
@@ -670,7 +679,9 @@ export const updateEssayQuestion = async (req, res) => {
       }
       paper.question = String(question).trim();
     }
-    if (maxMarks !== undefined) paper.maxMarks = Number(maxMarks);
+    if (maxMarks !== undefined) {
+      paper.maxMarks = resolvePaperMaxMarks(maxMarks);
+    }
 
     await paper.save();
 

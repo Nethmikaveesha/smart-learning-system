@@ -22,7 +22,9 @@ const essayQuestionSchema = new mongoose.Schema(
 
     maxMarks: {
       type: Number,
-      default: 10,
+      default: 100,
+      min: 1,
+      max: 1000,
     },
 
     // Teacher/admin who created the paper — used to scope "My Papers".

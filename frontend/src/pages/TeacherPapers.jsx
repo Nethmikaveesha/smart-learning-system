@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -6,6 +6,7 @@ import { isAdminRole } from "../utils/adminRoles";
 import TablePagination from "../components/TablePagination";
 import useClientTable from "../hooks/useClientTable";
 import { toastError, toastSuccess } from "../utils/toastBridge";
+import { sortEssayPapersAscending } from "../utils/essayPaperOrder";
 
 function truncateText(value, max = 72) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
@@ -52,7 +53,7 @@ function TeacherPapers() {
 
   const summaryRows = useMemo(
     () =>
-      (papers || []).map((paper) => ({
+      sortEssayPapersAscending(papers || []).map((paper) => ({
         id: paper._id,
         gradeLevel: paper.gradeLevel ? `Grade ${paper.gradeLevel}` : "—",
         subject:
@@ -64,6 +65,7 @@ function TeacherPapers() {
         maxMarks: paper.maxMarks ?? "—",
         createdBy: paper.createdBy?.fullName || "Unknown",
         createdAt: formatDate(paper.createdAt),
+        createdAtRaw: paper.createdAt,
         sharedCount: Array.isArray(paper.sharedWith)
           ? paper.sharedWith.length
           : 0,
@@ -301,8 +303,8 @@ function TeacherPapers() {
               <table className="min-w-full text-left text-sm">
                 <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-3 py-3">Grade</th>
                     <th className="px-3 py-3">Subject</th>
+                    <th className="px-3 py-3">Grade</th>
                     <th className="px-3 py-3">Question</th>
                     <th className="px-3 py-3">Max</th>
                     <th className="px-3 py-3">Created By</th>
@@ -311,76 +313,91 @@ function TeacherPapers() {
                   </tr>
                 </thead>
                 <tbody>
-                  {table.pageRows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="border-t border-slate-100 align-middle"
-                    >
-                      <td className="whitespace-nowrap px-3 py-3 text-slate-700">
-                        {row.gradeLevel}
-                      </td>
-                      <td className="px-3 py-3 font-medium text-slate-800">
-                        {row.subject}
-                      </td>
-                      <td
-                        className="max-w-md px-3 py-3 text-slate-700"
-                        title={row.question}
-                      >
-                        {row.questionShort}
-                      </td>
-                      <td className="px-3 py-3 tabular-nums text-slate-700">
-                        {row.maxMarks}
-                      </td>
-                      <td className="px-3 py-3 text-slate-700">
-                        {row.createdBy}
-                        {scope === "mine" && row.sharedCount > 0 ? (
-                          <span className="mt-1 block text-xs text-slate-500">
-                            Shared with {row.sharedCount}
-                          </span>
+                  {table.pageRows.map((row, index) => {
+                    const previousSubject =
+                      index > 0 ? table.pageRows[index - 1].subject : null;
+                    const showSubjectHeader = row.subject !== previousSubject;
+
+                    return (
+                      <Fragment key={row.id}>
+                        {showSubjectHeader ? (
+                          <tr className="border-t border-slate-200 bg-slate-50">
+                            <td
+                              colSpan={7}
+                              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700"
+                            >
+                              {row.subject}
+                            </td>
+                          </tr>
                         ) : null}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">
-                        {row.createdAt}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          {(scope === "shared" || !row.isOwner) && (
-                            <button
-                              type="button"
-                              disabled={busyId === row.id}
-                              onClick={() => copyPaper(row.id)}
-                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
-                            >
-                              Copy
-                            </button>
-                          )}
-                          {row.canManage && scope !== "shared" && (
-                            <button
-                              type="button"
-                              disabled={busyId === row.id}
-                              onClick={() => {
-                                setSharePaperId(row.id);
-                                setSelectedTeacherIds([]);
-                              }}
-                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
-                            >
-                              Share
-                            </button>
-                          )}
-                          {row.canManage && (
-                            <button
-                              type="button"
-                              disabled={busyId === row.id}
-                              onClick={() => deletePaper(row.id)}
-                              className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        <tr className="border-t border-slate-100 align-middle">
+                          <td className="px-3 py-3 font-medium text-slate-800">
+                            {row.subject}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-slate-700">
+                            {row.gradeLevel}
+                          </td>
+                          <td
+                            className="max-w-md px-3 py-3 text-slate-700"
+                            title={row.question}
+                          >
+                            {row.questionShort}
+                          </td>
+                          <td className="px-3 py-3 tabular-nums text-slate-700">
+                            {row.maxMarks}
+                          </td>
+                          <td className="px-3 py-3 text-slate-700">
+                            {row.createdBy}
+                            {scope === "mine" && row.sharedCount > 0 ? (
+                              <span className="mt-1 block text-xs text-slate-500">
+                                Shared with {row.sharedCount}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-3 text-slate-600">
+                            {row.createdAt}
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {(scope === "shared" || !row.isOwner) && (
+                                <button
+                                  type="button"
+                                  disabled={busyId === row.id}
+                                  onClick={() => copyPaper(row.id)}
+                                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                  Copy
+                                </button>
+                              )}
+                              {row.canManage && scope !== "shared" && (
+                                <button
+                                  type="button"
+                                  disabled={busyId === row.id}
+                                  onClick={() => {
+                                    setSharePaperId(row.id);
+                                    setSelectedTeacherIds([]);
+                                  }}
+                                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                  Share
+                                </button>
+                              )}
+                              {row.canManage && (
+                                <button
+                                  type="button"
+                                  disabled={busyId === row.id}
+                                  onClick={() => deletePaper(row.id)}
+                                  className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -25,6 +25,10 @@ import {
   getPasswordStrength,
   validateRegistrationForm,
 } from "../utils/registrationValidation";
+import {
+  getEssaySubjectLabel,
+  sortEssayPapersAscending,
+} from "../utils/essayPaperOrder";
 
 /** Match a student profile to the selected class id (supports duplicate class rows). */
 function studentMatchesSelectedClass(student, selectedClassId, classes = []) {
@@ -678,13 +682,15 @@ const featureConfigs = {
       "School-wide essay question papers created by teachers. Use this list to review what papers exist for each grade and subject.",
     endpoint: "/essays/questions?scope=department",
     tableColumns: [
+      "subject",
       "gradeLevel",
       "question",
-      "subject",
       "createdBy",
       "maxMarks",
       "createdAt",
     ],
+    orderEssayPapers: true,
+    groupBySubject: true,
     emptyMessage:
       "No question papers yet. Teachers add papers from Create Paper in the Teacher Workspace.",
   },
@@ -797,7 +803,9 @@ const featureConfigs = {
     description:
       "Create a new essay question paper for Grade 12 or Grade 13 students. Select grade and subject by name.",
     endpoint: "/essays/questions",
-    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
+    tableColumns: ["subject", "gradeLevel", "question", "maxMarks", "createdAt"],
+    orderEssayPapers: true,
+    groupBySubject: true,
     form: {
       endpoint: "/essays/questions",
       method: "post",
@@ -835,8 +843,11 @@ const featureConfigs = {
           name: "maxMarks",
           label: "Max Marks",
           type: "number",
-          defaultValue: 10,
-          placeholder: "10",
+          required: true,
+          defaultValue: 100,
+          min: 1,
+          max: 100,
+          placeholder: "100",
         },
       ],
     },
@@ -898,7 +909,9 @@ const featureConfigs = {
     // Dedicated TeacherPapers page handles this route in App.jsx.
     title: "My Papers",
     endpoint: "/essays/questions",
-    tableColumns: ["gradeLevel", "question", "subject", "maxMarks", "createdAt"],
+    tableColumns: ["subject", "gradeLevel", "question", "maxMarks", "createdAt"],
+    orderEssayPapers: true,
+    groupBySubject: true,
   },
   "/teacher/submissions": {
     // Dedicated TeacherSubmissions page handles this route in App.jsx.
@@ -1115,9 +1128,12 @@ const featureConfigs = {
   },
   "/student/exam-papers": {
     title: "Exam Papers",
-    description: "Available essay questions for practice and submission.",
+    description:
+      "Essay questions for practice and submission, grouped by Accounting, Business Studies, and Economics.",
     endpoint: "/essays/questions",
-    tableColumns: ["question", "maxMarks", "createdAt"],
+    tableColumns: ["subject", "gradeLevel", "question", "maxMarks", "createdAt"],
+    orderEssayPapers: true,
+    groupBySubject: true,
   },
   "/student/revision-timetable": {
     title: "Revision Timetable",
@@ -1280,6 +1296,10 @@ function DashboardFeaturePage() {
       normalized = normalized.filter(
         (row) => row.role !== "admin" && row.role !== "superadmin"
       );
+    }
+
+    if (config.orderEssayPapers) {
+      normalized = sortEssayPapersAscending(normalized);
     }
 
     return normalized;
@@ -1492,6 +1512,7 @@ function DashboardFeaturePage() {
           rows={rows}
           rowAction={config.rowAction}
           tableColumns={config.tableColumns}
+          groupBySubject={Boolean(config.groupBySubject)}
           currentUserId={user?.id || user?._id}
           currentUserTeacherId={user?.teacherId || ""}
           token={token}
@@ -2533,7 +2554,24 @@ function FeatureForm({ form, token, onSaved, onError }) {
             return;
           }
 
-          payload[field.name] = Number(value);
+          const numeric = Number(value);
+          if (!Number.isFinite(numeric)) {
+            throw new Error(
+              `${field.label || field.name} must be a valid number.`
+            );
+          }
+          if (field.min !== undefined && numeric < Number(field.min)) {
+            throw new Error(
+              `${field.label || field.name} must be at least ${field.min}.`
+            );
+          }
+          if (field.max !== undefined && numeric > Number(field.max)) {
+            throw new Error(
+              `${field.label || field.name} must be at most ${field.max}.`
+            );
+          }
+
+          payload[field.name] = numeric;
           return;
         }
 
@@ -2577,7 +2615,10 @@ function FeatureForm({ form, token, onSaved, onError }) {
       } else {
         setValues(getFeatureFormInitialValues(form.fields));
       }
-    } catch {
+    } catch (submitError) {
+      if (submitError?.message && !submitError?.response) {
+        onError(submitError.message);
+      }
       // API errors are toasted by the shared axios interceptor.
     } finally {
       setSaving(false);
@@ -2673,6 +2714,9 @@ function FeatureForm({ form, token, onSaved, onError }) {
                   type={field.type || "text"}
                   value={values[field.name]}
                   required={field.required}
+                  min={field.min}
+                  max={field.max}
+                  step={field.type === "number" ? field.step || "1" : undefined}
                   placeholder={field.placeholder}
                   onChange={(event) =>
                     updateFieldValue(field.name, event.target.value)
@@ -2858,6 +2902,7 @@ function DataTable({
   rows,
   rowAction,
   tableColumns,
+  groupBySubject = false,
   currentUserId,
   currentUserTeacherId,
   token,
@@ -2992,11 +3037,29 @@ function DataTable({
             </thead>
 
             <tbody>
-              {pageRows.map((row, index) => (
-                <tr
-                  key={row._id || row.id || index}
-                  className="border-t border-slate-200 bg-white"
-                >
+              {pageRows.map((row, index) => {
+                const subjectLabel = getEssaySubjectLabel(row);
+                const previousSubjectLabel =
+                  index > 0
+                    ? getEssaySubjectLabel(pageRows[index - 1])
+                    : null;
+                const showSubjectHeader =
+                  groupBySubject && subjectLabel !== previousSubjectLabel;
+                const colSpan = columns.length + (rowAction ? 1 : 0);
+
+                return (
+                  <Fragment key={row._id || row.id || index}>
+                    {showSubjectHeader ? (
+                      <tr className="border-t border-slate-200 bg-slate-50">
+                        <td
+                          colSpan={colSpan}
+                          className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700"
+                        >
+                          {subjectLabel}
+                        </td>
+                      </tr>
+                    ) : null}
+                    <tr className="border-t border-slate-200 bg-white">
                   {columns.map((column) => (
                     <td
                       key={column}
@@ -3073,8 +3136,10 @@ function DataTable({
                       )}
                     </td>
                   )}
-                </tr>
-              ))}
+                    </tr>
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -3521,6 +3586,20 @@ function formatCellValue(column, value) {
 
   if (column === "gradeLevel") {
     return value ? `Grade ${value}` : "N/A";
+  }
+
+  if (column === "subject") {
+    if (!value) return "N/A";
+    if (typeof value === "object") {
+      return value.subjectName || value.subjectCode || "N/A";
+    }
+    return String(value);
+  }
+
+  if (column === "maxMarks") {
+    if (value === null || value === undefined || value === "") return "N/A";
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? String(numeric) : "N/A";
   }
 
   if (column === "rank") {
