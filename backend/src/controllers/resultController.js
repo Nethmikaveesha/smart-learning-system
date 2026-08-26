@@ -8,7 +8,8 @@ import {
   getPassMark,
 } from "../utils/grading.js";
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
-import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds, resolvePrimaryAssignedClassTwinIds } from "../utils/teacherScope.js";
+import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds } from "../utils/teacherScope.js";
+import { resolveTeacherTeachingContext } from "../utils/teacherTeachingContext.js";
 import Exam from "../models/Exam.js";
 import { recalculateExamAnalytics, healExamAnalytics } from "../utils/examAnalytics.js";
 
@@ -239,33 +240,27 @@ export const getAllResults = async (req, res) => {
     const filter = {};
 
     if (req.user?.role === "teacher") {
-      const scope = await getTeacherScope(req.user._id);
+      const ctx = await resolveTeacherTeachingContext(req.user._id);
 
-      // Teachers with no students or no subject/class scope see nothing.
       if (
-        scope.studentIds.length === 0 ||
-        (scope.subjectIds.length === 0 && scope.classIds.length === 0)
+        ctx.studentIds.length === 0 ||
+        (ctx.subjectIds.length === 0 && ctx.classIds.length === 0)
       ) {
         return res.status(200).json([]);
       }
 
-      let allowedSubjectIds =
-        scope.subjectIds.length > 0
-          ? await resolveSubjectTwinIds(scope.subjectIds)
-          : [];
+      let allowedSubjectIds = [...ctx.subjectIds];
       const requestedSubjectId = req.query.subjectId
         ? String(req.query.subjectId)
         : "";
 
-      // Optional subject filter (Z-Scores page always sends one).
       if (requestedSubjectId) {
         const requestedTwins = await resolveSubjectTwinIds([requestedSubjectId]);
-        const allowedSet = new Set(allowedSubjectIds.map((id) => String(id)));
+        const allowedSet = new Set(ctx.subjectIdStrings);
         const requestedAllowed = requestedTwins.filter((id) =>
           allowedSet.has(String(id))
         );
-        // If teacher has subject scope, require the requested subject to be theirs.
-        if (scope.subjectIds.length > 0 && requestedAllowed.length === 0) {
+        if (ctx.subjectIds.length > 0 && requestedAllowed.length === 0) {
           return res.status(200).json([]);
         }
         allowedSubjectIds =
@@ -275,23 +270,23 @@ export const getAllResults = async (req, res) => {
       const examFilter = {};
       if (allowedSubjectIds.length > 0) {
         examFilter.subject = { $in: allowedSubjectIds };
-      } else if (scope.classIds.length > 0) {
-        examFilter.class = { $in: scope.classIds };
+      }
+      if (ctx.classIds.length > 0) {
+        examFilter.class = { $in: ctx.classIds };
       }
 
       let examIds = await Exam.find(examFilter).distinct("_id");
 
-      // Fallback when subject ObjectIds drifted but exams sit on teacher classes.
       if (
         examIds.length === 0 &&
-        scope.classIds.length > 0 &&
-        scope.subjectLabels.length > 0
+        ctx.classIds.length > 0 &&
+        ctx.subjectLabels.length > 0
       ) {
-        const classExams = await Exam.find({ class: { $in: scope.classIds } })
+        const classExams = await Exam.find({ class: { $in: ctx.classIds } })
           .populate("subject", "subjectName")
           .select("_id subject");
         const labelSet = new Set(
-          scope.subjectLabels.map((label) => String(label).trim().toLowerCase())
+          ctx.subjectLabels.map((label) => String(label).trim().toLowerCase())
         );
         examIds = classExams
           .filter((exam) =>
@@ -308,7 +303,7 @@ export const getAllResults = async (req, res) => {
         return res.status(200).json([]);
       }
 
-      filter.student = { $in: scope.studentIds };
+      filter.student = { $in: ctx.studentIds };
       filter.exam = { $in: examIds };
     } else if (req.query.subjectId) {
       // Admin (and other roles with access) can also narrow by subject.
@@ -498,10 +493,9 @@ export const getAnalyticsSummary = async (req, res) => {
     let resultFilter = {};
 
     if (req.user?.role === "teacher") {
-      const scope = await getTeacherScope(req.user._id);
-      const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+      const ctx = await resolveTeacherTeachingContext(req.user._id);
 
-      if (!allowedClassIds.length) {
+      if (!ctx.classIds.length || ctx.studentIds.length === 0) {
         return res.status(200).json({
           totalStudents: 0,
           averageMarks: 0,
@@ -512,30 +506,13 @@ export const getAnalyticsSummary = async (req, res) => {
         });
       }
 
-      const scopedStudents = await StudentProfile.find({
-        class: { $in: allowedClassIds },
-      }).select("_id");
-      const scopedStudentIds = scopedStudents.map((student) => student._id);
+      studentFilter = { _id: { $in: ctx.studentIds } };
+      resultFilter = { student: { $in: ctx.studentIds } };
 
-      if (scopedStudentIds.length === 0) {
-        return res.status(200).json({
-          totalStudents: 0,
-          averageMarks: 0,
-          passCount: 0,
-          failCount: 0,
-          highRiskStudents: 0,
-          averageAttendance: 0,
-        });
-      }
-
-      studentFilter = { _id: { $in: scopedStudentIds } };
-      resultFilter = { student: { $in: scopedStudentIds } };
-
-      if (scope.subjectIds.length > 0) {
-        const twinSubjectIds = await resolveSubjectTwinIds(scope.subjectIds);
+      if (ctx.subjectIds.length > 0) {
         const examIds = await Exam.find({
-          subject: { $in: twinSubjectIds },
-          class: { $in: allowedClassIds },
+          subject: { $in: ctx.subjectIds },
+          class: { $in: ctx.classIds },
         }).distinct("_id");
         resultFilter.exam = { $in: examIds };
       }

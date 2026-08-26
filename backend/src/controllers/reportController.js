@@ -8,13 +8,9 @@ import {
   runMonthlyReportGeneration,
 } from "../jobs/monthlyReportJob.js";
 import { linkedStudentsQuery } from "../utils/parentLinks.js";
-import {
-  getTeacherScope,
-  resolvePrimaryAssignedClassTwinIds,
-  resolveSubjectTwinIds,
-} from "../utils/teacherScope.js";
+import { resolveTeacherTeachingContext } from "../utils/teacherTeachingContext.js";
 import { getPassMark, isPassingMark } from "../utils/grading.js";
-import { getSubjectName } from "../utils/studentResults.js";
+import { getSubjectName, dedupeResults, sortResultsByLatest } from "../utils/studentResults.js";
 
 const SAFE_REPORT_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.pdf$/i;
 
@@ -137,10 +133,9 @@ export const generateStudentReport = async (req, res) => {
  */
 export const generateTeacherClassReport = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
-    const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
 
-    if (!allowedClassIds.length) {
+    if (!ctx.classIds.length) {
       return res.status(400).json({
         message:
           "No class is assigned to your account yet. Ask an admin to assign your class before downloading a report.",
@@ -148,7 +143,7 @@ export const generateTeacherClassReport = async (req, res) => {
     }
 
     const students = await StudentProfile.find({
-      class: { $in: allowedClassIds },
+      class: { $in: ctx.classIds },
     })
       .populate("user", "fullName email")
       .populate("class", "className academicYear gradeLevel")
@@ -157,23 +152,22 @@ export const generateTeacherClassReport = async (req, res) => {
     const studentIds = students.map((student) => student._id);
     const resultFilter = { student: { $in: studentIds } };
 
-    if (scope.subjectIds.length > 0) {
+    if (ctx.subjectIds.length > 0) {
       const Exam = (await import("../models/Exam.js")).default;
-      const twinSubjectIds = await resolveSubjectTwinIds(scope.subjectIds);
       const examIds = await Exam.find({
-        subject: { $in: twinSubjectIds },
-        class: { $in: allowedClassIds },
+        subject: { $in: ctx.subjectIds },
+        class: { $in: ctx.classIds },
       }).distinct("_id");
       resultFilter.exam = { $in: examIds };
     }
 
-    const results =
+    const rawResults =
       studentIds.length > 0
         ? await Result.find(resultFilter)
             .populate({
               path: "exam",
-              select: "examName examDate subject",
-              populate: { path: "subject", select: "subjectName" },
+              select: "examName examDate subject class",
+              populate: { path: "subject", select: "subjectName subjectCode" },
             })
             .populate({
               path: "student",
@@ -182,6 +176,9 @@ export const generateTeacherClassReport = async (req, res) => {
             })
             .sort({ createdAt: -1 })
         : [];
+
+    // Same latest-per-student+subject rule as the teacher dashboard cards.
+    const results = sortResultsByLatest(dedupeResults(rawResults));
 
     const passMark = await getPassMark();
     const totalResults = results.length;
@@ -215,14 +212,14 @@ export const generateTeacherClassReport = async (req, res) => {
         : 0;
 
     const classLabel =
-      scope.adminAssignedClassLabels?.[0] ||
+      ctx.assignedClassLabels?.[0] ||
       students[0]?.class?.className ||
       "Assigned class";
     const subjectLabel =
-      scope.adminAssignedSubjectLabels?.[0] ||
-      scope.subjectLabels?.[0] ||
+      ctx.assignedSubjectLabels?.[0] ||
+      ctx.subjectLabels?.[0] ||
       "Assigned subject";
-    const teacherName = scope.teacher?.fullName || req.user.fullName || "Teacher";
+    const teacherName = ctx.teacher?.fullName || req.user.fullName || "Teacher";
     const safeClass = String(classLabel)
       .replace(/[^\w.-]+/g, "-")
       .replace(/-+/g, "-")

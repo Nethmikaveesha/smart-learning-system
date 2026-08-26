@@ -1,9 +1,9 @@
-import StudentProfile from "../models/StudentProfile.js";
 import Exam from "../models/Exam.js";
 import Result from "../models/Result.js";
 import EssaySubmission from "../models/EssaySubmission.js";
 import Attendance from "../models/Attendance.js";
 import CommerceRisk from "../models/CommerceRisk.js";
+import StudentProfile from "../models/StudentProfile.js";
 import { isPassingMark, getPassMark } from "../utils/grading.js";
 import {
   dedupeResults,
@@ -11,33 +11,11 @@ import {
   sortResultsByLatest,
 } from "../utils/studentResults.js";
 import { buildTopicAnalytics } from "../utils/topicAnalytics.js";
+import { getTeacherSubmissionMongoFilter } from "../utils/essayPaperAccess.js";
 import {
-  getTeacherScope,
-  resolveClassTwinIds,
-  resolvePrimaryAssignedClassTwinIds,
-} from "../utils/teacherScope.js";
-
-function uniqueIdStrings(ids = []) {
-  return [...new Set(ids.map((id) => String(id)).filter(Boolean))];
-}
-
-/**
- * Prefer the admin-assigned class for every teacher. If an older account only
- * has subject-linked classes (no User.assignedClass yet), fall back to those
- * so previously added teachers keep a working dashboard.
- */
-async function resolveDashboardClassIds(scope) {
-  const primaryIds = await resolvePrimaryAssignedClassTwinIds(scope);
-  if (primaryIds.length > 0) return primaryIds;
-
-  const seed = scope.adminAssignedClassIds || [];
-  if (!seed.length) return [];
-
-  const twinLists = await Promise.all(
-    seed.map((classId) => resolveClassTwinIds(classId, { ignoreYear: true }))
-  );
-  return uniqueIdStrings(twinLists.flat());
-}
+  resolveTeacherTeachingContext,
+  resultMatchesTeachingContext,
+} from "../utils/teacherTeachingContext.js";
 
 function buildClassPerformance(results, subjects) {
   return subjects
@@ -53,8 +31,10 @@ function buildClassPerformance(results, subjects) {
       }
 
       const average =
-        subjectResults.reduce((sum, result) => sum + Number(result.marks || 0), 0) /
-        subjectResults.length;
+        subjectResults.reduce(
+          (sum, result) => sum + Number(result.marks || 0),
+          0
+        ) / subjectResults.length;
 
       return {
         subject: subject.subjectName,
@@ -126,37 +106,33 @@ async function countHighRiskStudents(studentIds = []) {
 
 export const getTeacherDashboard = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
-    const { subjects, teacher } = scope;
-
-    // Same rule for every teacher (old + newly added):
-    // prefer admin-assigned class; fall back to subject-linked classes for
-    // older accounts that were never written onto User.assignedClass.
-    const allowedClassIds = await resolveDashboardClassIds(scope);
-    const allowedClassIdStrings = uniqueIdStrings(allowedClassIds);
-
-    const students =
-      allowedClassIds.length > 0
-        ? await StudentProfile.find({ class: { $in: allowedClassIds } }).select(
-            "_id studentId riskStatus attendancePercentage class subjects parent"
-          )
-        : [];
-    const studentIds = students.map((student) => student._id);
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
+    const {
+      teacher,
+      subjects,
+      students,
+      studentIds,
+      classIds,
+      subjectIds,
+      assignedClassLabels,
+      assignedSubjectLabels,
+      hasAssignments,
+    } = ctx;
 
     const totalStudents = students.length;
 
     const examFilter = {};
-    if (allowedClassIds.length > 0) {
-      examFilter.class = { $in: allowedClassIds };
+    if (classIds.length > 0) {
+      examFilter.class = { $in: classIds };
     } else {
       examFilter._id = { $in: [] };
     }
-    if (scope.subjectIds.length > 0) {
-      examFilter.subject = { $in: scope.subjectIds };
+    if (subjectIds.length > 0) {
+      examFilter.subject = { $in: subjectIds };
     }
 
     const totalExams =
-      allowedClassIds.length === 0 ? 0 : await Exam.countDocuments(examFilter);
+      classIds.length === 0 ? 0 : await Exam.countDocuments(examFilter);
 
     const rawResults =
       studentIds.length === 0
@@ -168,30 +144,13 @@ export const getTeacherDashboard = async (req, res) => {
             select: "examName examDate subject class",
             populate: {
               path: "subject",
-              select: "subjectName",
+              select: "subjectName subjectCode",
             },
           });
 
-    // Keep marks that belong to this teacher's assigned subjects (+ class).
-    const scopedRawResults = rawResults.filter((result) => {
-      if (scope.subjectIdStrings.length === 0) return false;
-      const subjectId =
-        result.exam?.subject?._id?.toString() ||
-        result.exam?.subject?.toString();
-      const classId =
-        result.exam?.class?._id?.toString() ||
-        result.exam?.class?.toString();
-
-      const subjectOk = subjectId
-        ? scope.subjectIdStrings.includes(subjectId)
-        : scope.subjectLabels.includes(getSubjectName(result));
-      if (!subjectOk) return false;
-
-      if (classId && allowedClassIdStrings.length > 0) {
-        return allowedClassIdStrings.includes(String(classId));
-      }
-      return allowedClassIdStrings.length === 0;
-    });
+    const scopedRawResults = rawResults.filter((result) =>
+      resultMatchesTeachingContext(result, ctx)
+    );
 
     const results = sortResultsByLatest(dedupeResults(scopedRawResults));
     const totalPublishedResults = results.length;
@@ -210,13 +169,11 @@ export const getTeacherDashboard = async (req, res) => {
     const passCount = results.filter((item) =>
       isPassingMark(item.marks, passMark)
     ).length;
-    // null = no published results yet; 0 = published results but none passed.
     const passRate =
       totalPublishedResults > 0
         ? Number(((passCount / totalPublishedResults) * 100).toFixed(2))
         : null;
 
-    // Profile.riskStatus defaults to Low — only CommerceRisk assessments count.
     const highRiskStudents = await countHighRiskStudents(studentIds);
 
     const attendanceValues = students
@@ -233,25 +190,13 @@ export const getTeacherDashboard = async (req, res) => {
           )
         : 0;
 
-    const scopedSubmissions =
-      scope.subjectIdStrings.length === 0
-        ? []
-        : (
-            await EssaySubmission.find()
-              .populate({
-                path: "question",
-                select: "subject createdBy",
-                populate: { path: "subject", select: "_id subjectName" },
-              })
-              .lean()
-          ).filter((submission) => {
-            const subjectId =
-              submission.question?.subject?._id?.toString() ||
-              submission.question?.subject?.toString();
-            return subjectId && scope.subjectIdStrings.includes(subjectId);
-          });
-
-    const teacherSubmissions = scopedSubmissions;
+    // Same ownership rules as Student Submissions / Essay Review.
+    const submissionFilter = await getTeacherSubmissionMongoFilter(
+      req.user._id
+    );
+    const teacherSubmissions = await EssaySubmission.find(submissionFilter)
+      .select("status finalMarks marks nlpEvaluation")
+      .lean();
 
     const pendingSubmissions = teacherSubmissions.filter(
       (submission) => submission.status === "Pending"
@@ -284,7 +229,7 @@ export const getTeacherDashboard = async (req, res) => {
     const incompleteAttendanceWeek =
       students.length > 0 && recentAttendanceCount < students.length;
 
-    const topicAnalytics = await buildTopicAnalytics(scope.subjectIds);
+    const topicAnalytics = await buildTopicAnalytics(subjectIds);
     const classPerformance = buildClassPerformance(results, subjects);
 
     const alerts = buildAlerts({
@@ -295,7 +240,7 @@ export const getTeacherDashboard = async (req, res) => {
       passMark,
     });
 
-    if (allowedClassIds.length === 0 && scope.subjectIds.length === 0) {
+    if (!hasAssignments) {
       alerts.unshift(
         "No class or subject has been assigned to you yet. Ask an admin to assign your teaching load."
       );
@@ -324,55 +269,24 @@ export const getTeacherDashboard = async (req, res) => {
             .populate({
               path: "exam",
               select: "examName examDate subject class",
-              populate: { path: "subject", select: "subjectName" },
+              populate: { path: "subject", select: "subjectName subjectCode" },
             })
             .sort({ createdAt: -1 })
-            .limit(20);
+            .limit(40);
 
-    const scopedRecentResults = recentResults.filter((result) => {
-      if (scope.subjectIdStrings.length === 0) return false;
-      const subjectId =
-        result.exam?.subject?._id?.toString() ||
-        result.exam?.subject?.toString();
-      const classId =
-        result.exam?.class?._id?.toString() ||
-        result.exam?.class?.toString();
-
-      const subjectOk = subjectId
-        ? scope.subjectIdStrings.includes(subjectId)
-        : scope.subjectLabels.includes(getSubjectName(result));
-      if (!subjectOk) return false;
-
-      if (classId && allowedClassIdStrings.length > 0) {
-        return allowedClassIdStrings.includes(String(classId));
-      }
-      return true;
-    });
+    const scopedRecentResults = recentResults.filter((result) =>
+      resultMatchesTeachingContext(result, ctx)
+    );
 
     const previewResults = sortResultsByLatest(
       dedupeResults(scopedRecentResults)
     ).slice(0, 5);
-
-    const assignedClassLabels =
-      scope.adminAssignedClassLabels?.length > 0
-        ? scope.adminAssignedClassLabels
-        : [];
-    const assignedSubjectLabels =
-      scope.adminAssignedSubjectLabels?.length > 0
-        ? scope.adminAssignedSubjectLabels
-        : scope.subjectLabels;
-
-    const hasAssignments =
-      allowedClassIds.length > 0 ||
-      assignedSubjectLabels.length > 0 ||
-      scope.subjectIds.length > 0;
 
     res.status(200).json({
       teacher: {
         fullName: teacher?.fullName,
         email: teacher?.email,
       },
-      // Same labels for every teacher: admin assignment first.
       classes: assignedClassLabels,
       subjects: assignedSubjectLabels,
       assignmentSummary: {
@@ -405,13 +319,13 @@ export const getTeacherDashboard = async (req, res) => {
 
 export const getTeacherTopicErrorAnalytics = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
     const subjectId = req.query.subjectId || null;
-    const analytics = await buildTopicAnalytics(scope.subjectIds, subjectId);
+    const analytics = await buildTopicAnalytics(ctx.subjectIds, subjectId);
 
     res.status(200).json({
       success: true,
-      subjects: scope.subjects,
+      subjects: ctx.subjects,
       selectedSubjectId: subjectId,
       ...analytics,
     });
@@ -425,20 +339,58 @@ export const getTeacherTopicErrorAnalytics = async (req, res) => {
 };
 
 /**
- * Score trends across exams for the teacher's classes/subjects.
- * Supports optional subject + student filters for an interactive chart.
+ * Score trends across exams for the teacher's assigned class/subjects.
  */
 export const getTeacherScoreTrends = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
     const { subjectId, studentId } = req.query;
 
+    if (!ctx.classIds.length || !ctx.subjectIds.length) {
+      return res.status(200).json({
+        success: true,
+        subjects: ctx.subjects,
+        classes: [],
+        students: [],
+        selectedSubjectId: subjectId || "",
+        selectedStudentId: studentId || "",
+        examCount: 0,
+        resultCount: 0,
+        passMark: await getPassMark(),
+        classTrend: [],
+        chartPoints: [],
+        latestAverage: null,
+        overallAverage: null,
+      });
+    }
+
     const examFilter = {
-      class: { $in: scope.classIds },
-      subject: { $in: scope.subjectIds },
+      class: { $in: ctx.classIds },
+      subject: { $in: ctx.subjectIds },
     };
 
     if (subjectId) {
+      // Keep filter inside the teacher's assigned subject twins.
+      const allowed = new Set(ctx.subjectIdStrings);
+      if (!allowed.has(String(subjectId))) {
+        return res.status(200).json({
+          success: true,
+          subjects: ctx.subjects,
+          classes: ctx.scope.classes.filter((row) =>
+            ctx.classIdStrings.includes(String(row._id))
+          ),
+          students: [],
+          selectedSubjectId: subjectId || "",
+          selectedStudentId: studentId || "",
+          examCount: 0,
+          resultCount: 0,
+          passMark: await getPassMark(),
+          classTrend: [],
+          chartPoints: [],
+          latestAverage: null,
+          overallAverage: null,
+        });
+      }
       examFilter.subject = subjectId;
     }
 
@@ -451,7 +403,7 @@ export const getTeacherScoreTrends = async (req, res) => {
 
     const resultFilter = {
       exam: { $in: examIds },
-      student: { $in: scope.studentIds },
+      student: { $in: ctx.studentIds },
     };
 
     if (studentId) {
@@ -480,8 +432,10 @@ export const getTeacherScoreTrends = async (req, res) => {
         examResults.length > 0
           ? Number(
               (
-                examResults.reduce((sum, item) => sum + Number(item.marks || 0), 0) /
-                examResults.length
+                examResults.reduce(
+                  (sum, item) => sum + Number(item.marks || 0),
+                  0
+                ) / examResults.length
               ).toFixed(2)
             )
           : null;
@@ -516,7 +470,7 @@ export const getTeacherScoreTrends = async (req, res) => {
       }));
 
     const studentsWithNames = await StudentProfile.find({
-      _id: { $in: scope.studentIds },
+      _id: { $in: ctx.studentIds },
     })
       .populate("user", "fullName")
       .select("studentId user")
@@ -524,8 +478,10 @@ export const getTeacherScoreTrends = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      subjects: scope.subjects,
-      classes: scope.classes,
+      subjects: ctx.subjects,
+      classes: ctx.scope.classes.filter((row) =>
+        ctx.classIdStrings.includes(String(row._id))
+      ),
       students: studentsWithNames.map((student) => ({
         _id: student._id,
         studentId: student.studentId,
