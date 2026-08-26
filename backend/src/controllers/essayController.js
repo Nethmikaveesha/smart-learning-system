@@ -15,9 +15,11 @@ import {
 import StudentProfile from "../models/StudentProfile.js";
 import {
   canManagePaper,
+  getOwnedOrSharedPapersFilter,
   getOwnedPapersFilter,
   getSharedPapersFilter,
   getTeacherPaperFilter,
+  getTeacherSubmissionMongoFilter,
   isAdminRole,
   isPaperCreator,
 } from "../utils/essayPaperAccess.js";
@@ -103,7 +105,8 @@ export const createMarkingScheme = async (req, res) => {
     }
 
     if (req.user?.role === "teacher") {
-      const paperFilter = await getTeacherPaperFilter(req.user._id);
+      // Shared papers are view/copy only — schemes are created on owned copies.
+      const paperFilter = await getOwnedPapersFilter(req.user._id);
       const owned = await EssayQuestion.findOne({
         _id: question,
         ...paperFilter,
@@ -145,7 +148,8 @@ export const getMarkingSchemes = async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (req.user?.role === "teacher") {
-      const paperFilter = await getTeacherPaperFilter(req.user._id);
+      // View schemes for owned papers and papers explicitly shared with them.
+      const paperFilter = await getOwnedOrSharedPapersFilter(req.user._id);
       const myQuestionIds = new Set(
         (
           await EssayQuestion.find(paperFilter).select("_id")
@@ -351,16 +355,17 @@ export const approveEssaySubmission = async (req, res) => {
     }
 
     if (req.user?.role === "teacher") {
-      const paperFilter = await getTeacherPaperFilter(req.user._id);
-      const questionId = submission.question?._id || submission.question;
-      const owned = await EssayQuestion.findOne({
-        _id: questionId,
-        ...paperFilter,
+      // Paper share alone is not enough — class/subject duty or paper ownership.
+      const reviewFilter = await getTeacherSubmissionMongoFilter(req.user._id);
+      const allowed = await EssaySubmission.findOne({
+        _id: submissionId,
+        ...reviewFilter,
       }).select("_id");
 
-      if (!owned) {
+      if (!allowed) {
         return res.status(403).json({
-          message: "You can only review submissions for your own papers",
+          message:
+            "You can only review submissions for your papers or your assigned class and subject",
         });
       }
     }
@@ -422,7 +427,12 @@ export const approveEssaySubmission = async (req, res) => {
 
 export const getAllEssaySubmissions = async (req, res) => {
   try {
-    let submissions = await EssaySubmission.find()
+    const filter =
+      req.user?.role === "teacher"
+        ? await getTeacherSubmissionMongoFilter(req.user._id)
+        : {};
+
+    const submissions = await EssaySubmission.find(filter)
       .populate({
         path: "student",
         populate: {
@@ -432,22 +442,6 @@ export const getAllEssaySubmissions = async (req, res) => {
       })
       .populate("question", "question maxMarks gradeLevel createdBy subject")
       .sort({ createdAt: -1 });
-
-    if (req.user?.role === "teacher") {
-      const paperFilter = await getTeacherPaperFilter(req.user._id);
-      const myQuestionIds = new Set(
-        (
-          await EssayQuestion.find(paperFilter).select("_id")
-        ).map((item) => item._id.toString())
-      );
-
-      submissions = submissions.filter((submission) => {
-        const questionId =
-          submission.question?._id?.toString() ||
-          submission.question?.toString();
-        return questionId && myQuestionIds.has(questionId);
-      });
-    }
 
     res.status(200).json(submissions);
   } catch (error) {
