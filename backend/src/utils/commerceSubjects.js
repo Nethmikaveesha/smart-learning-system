@@ -31,5 +31,43 @@ export async function ensureCommerceSubjectIds() {
     ids.push(subject._id);
   }
 
+  // Keep co-teacher membership in sync with User.assignedSubject and the
+  // singular board lead pointer (safe, additive only).
+  try {
+    const User = (await import("../models/User.js")).default;
+    const linkedTeachers = await User.find({
+      role: "teacher",
+      assignedSubject: { $in: ids },
+    }).select("_id assignedSubject");
+
+    await Promise.all(
+      linkedTeachers.map((teacher) =>
+        Subject.updateOne(
+          { _id: teacher.assignedSubject },
+          { $addToSet: { assignedTeachers: teacher._id } }
+        )
+      )
+    );
+
+    const leadSubjects = await Subject.find({
+      _id: { $in: ids },
+      assignedTeacher: { $ne: null },
+    }).select("_id assignedTeacher");
+
+    await Promise.all(
+      leadSubjects.map((subject) =>
+        Subject.updateOne(
+          { _id: subject._id },
+          { $addToSet: { assignedTeachers: subject.assignedTeacher } }
+        )
+      )
+    );
+  } catch (syncError) {
+    console.warn(
+      "ensureCommerceSubjectIds co-teacher sync skipped:",
+      syncError.message
+    );
+  }
+
   return ids;
 }
