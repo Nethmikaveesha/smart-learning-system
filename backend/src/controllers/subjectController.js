@@ -117,24 +117,25 @@ export const updateSubject = async (req, res) => {
       // Empty string / null = unassign ("Not assigned" in UI). Use null so
       // Mongoose clears the ObjectId instead of leaving the previous value.
       const nextTeacher = assignedTeacher || null;
-      const previousTeacher = existing.assignedTeacher
-        ? String(existing.assignedTeacher)
-        : null;
 
       existing.assignedTeacher = nextTeacher;
 
-      // Keep User.assignedSubject in sync for Add Teacher list display.
-      if (previousTeacher && previousTeacher !== String(nextTeacher || "")) {
-        await User.updateOne(
-          { _id: previousTeacher, assignedSubject: existing._id },
-          { $unset: { assignedSubject: 1 } }
-        );
-      }
-
+      // Subject.assignedTeacher is a singular "board lead" pointer.
+      // Do NOT clear other teachers' User.assignedSubject — that wiped
+      // previously added teachers' dashboards when a subject was reassigned.
+      // Only fill User.assignedSubject for the newly selected teacher when
+      // they do not already have an admin assignment of their own.
       if (nextTeacher) {
-        await User.findByIdAndUpdate(nextTeacher, {
-          assignedSubject: existing._id,
-        });
+        await User.updateOne(
+          {
+            _id: nextTeacher,
+            $or: [
+              { assignedSubject: { $exists: false } },
+              { assignedSubject: null },
+            ],
+          },
+          { $set: { assignedSubject: existing._id } }
+        );
       }
     }
 
@@ -165,7 +166,27 @@ export const getAllSubjects = async (req, res) => {
 
     // Teachers only see subjects assigned to them; admins see all.
     if (req.user?.role === "teacher") {
-      filter.assignedTeacher = req.user._id;
+      const teacher = await User.findById(req.user._id).select(
+        "assignedSubject"
+      );
+      const ownedIds = [];
+      if (teacher?.assignedSubject) {
+        ownedIds.push(teacher.assignedSubject);
+      }
+      const fromPointer = await Subject.find({
+        assignedTeacher: req.user._id,
+      }).select("_id");
+      fromPointer.forEach((row) => ownedIds.push(row._id));
+
+      const uniqueOwned = [
+        ...new Set(ownedIds.map((id) => String(id))),
+      ];
+
+      if (!uniqueOwned.length) {
+        return res.status(200).json([]);
+      }
+
+      filter._id = { $in: uniqueOwned };
     } else if (
       req.user?.role === "admin" ||
       req.user?.role === "superadmin"

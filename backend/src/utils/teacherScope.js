@@ -160,9 +160,41 @@ export function uniqueClassLabels(classes = []) {
  * taken by students in those classes).
  */
 export async function getTeacherScope(teacherId) {
-  const teacher = await User.findById(teacherId).select(
+  let teacher = await User.findById(teacherId).select(
     "fullName email assignedSubject assignedClass"
   );
+
+  // Repair older teacher accounts that still own legacy singular pointers
+  // but never received User.assignedSubject / User.assignedClass.
+  if (teacher) {
+    const repair = {};
+
+    if (!teacher.assignedSubject) {
+      const legacySubject = await Subject.findOne({
+        assignedTeacher: teacherId,
+      })
+        .select("_id")
+        .sort({ subjectName: 1 });
+      if (legacySubject) {
+        repair.assignedSubject = legacySubject._id;
+        teacher.assignedSubject = legacySubject._id;
+      }
+    }
+
+    if (!teacher.assignedClass) {
+      const legacyClass = await Class.findOne({ assignedTeacher: teacherId })
+        .select("_id")
+        .sort({ gradeLevel: 1, className: 1 });
+      if (legacyClass) {
+        repair.assignedClass = legacyClass._id;
+        teacher.assignedClass = legacyClass._id;
+      }
+    }
+
+    if (Object.keys(repair).length > 0) {
+      await User.updateOne({ _id: teacherId }, { $set: repair });
+    }
+  }
 
   // 1) Admin-assigned subjects: legacy Subject.assignedTeacher + User.assignedSubject
   const subjectsFromPointer = await Subject.find({ assignedTeacher: teacherId })
@@ -190,6 +222,21 @@ export async function getTeacherScope(teacherId) {
   const subjectLinkedClassIds = uniqueObjectIds(
     subjects.flatMap((subject) => subject.classes || [])
   );
+
+  // If User still has no class but their subject links classes, persist the
+  // first linked class so My Classes / dashboard cards stay stable.
+  if (teacher && !teacher.assignedClass && subjectLinkedClassIds.length > 0) {
+    const linkedClass = await Class.findById(subjectLinkedClassIds[0]).select(
+      "_id"
+    );
+    if (linkedClass) {
+      teacher.assignedClass = linkedClass._id;
+      await User.updateOne(
+        { _id: teacherId },
+        { $set: { assignedClass: linkedClass._id } }
+      );
+    }
+  }
 
   // Classes where enrolled students take this teacher's subjects
   // (covers subjects that were never linked to Class.classes[]).
@@ -268,18 +315,39 @@ export async function getTeacherScope(teacherId) {
   const subjectIds = taughtSubjectIds;
   const studentIds = students.map((student) => student._id);
 
-  // Display-only admin assignment (Add Teacher / Subjects). Do not expand
-  // year twins or student-inferred classes into this label list.
+  // Display-only admin assignment (Add Teacher / Subjects). Prefer User
+  // fields, then legacy pointers, then subject-linked class names (no year
+  // twin spam on the dashboard cards).
   let adminAssignedClasses = [];
   if (teacher?.assignedClass) {
     const assignedClassDoc = await Class.findById(teacher.assignedClass).select(
       "className academicYear gradeLevel"
     );
     if (assignedClassDoc) adminAssignedClasses = [assignedClassDoc];
-  } else {
+  }
+
+  if (adminAssignedClasses.length === 0) {
     adminAssignedClasses = await Class.find({ assignedTeacher: teacherId })
       .select("className academicYear gradeLevel")
       .sort({ gradeLevel: 1, className: 1, academicYear: 1 });
+  }
+
+  if (adminAssignedClasses.length === 0 && subjectLinkedClassIds.length > 0) {
+    const linkedClasses = await Class.find({
+      _id: { $in: subjectLinkedClassIds },
+    })
+      .select("className academicYear gradeLevel")
+      .sort({ gradeLevel: 1, className: 1, academicYear: 1 });
+
+    const seenNames = new Set();
+    adminAssignedClasses = linkedClasses.filter((item) => {
+      const key = String(item.className || "")
+        .trim()
+        .toLowerCase();
+      if (!key || seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    });
   }
 
   let adminAssignedSubjects = subjects;
