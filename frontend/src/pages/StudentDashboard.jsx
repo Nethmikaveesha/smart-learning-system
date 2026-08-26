@@ -557,12 +557,16 @@ function formatSummaryValue(value, type = "text") {
 
   if (type === "percent") {
     const numericValue = Number(value);
-    return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
+    return Number.isFinite(numericValue) && numericValue > 0
+      ? `${formatMarks(numericValue)}%`
+      : "--";
   }
 
   if (type === "number") {
     const numericValue = Number(value);
-    return numericValue !== 0 ? formatMarks(numericValue) : "--";
+    // Z-score of 0 is valid (exactly at the class mean) — do not hide it.
+    if (!Number.isFinite(numericValue)) return "--";
+    return formatMarks(numericValue);
   }
 
   return value || "--";
