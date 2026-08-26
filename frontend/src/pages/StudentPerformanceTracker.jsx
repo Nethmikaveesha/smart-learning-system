@@ -143,8 +143,8 @@ function StudentPerformanceTracker() {
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 Blue line = marks (0–100). Green line = Z-score (right axis).
-                Z-score needs at least 2 students in the same exam; otherwise it
-                shows as unavailable.
+                Z-score compares you with classmates on the same subject exam
+                group (including nearby/twin exam records).
               </p>
             </div>
 
