@@ -1,21 +1,11 @@
 import { resolveTeacherSubjectIds } from "./teacherScope.js";
 
 /**
- * Papers the teacher owns (created) plus legacy papers with no creator
- * on subjects assigned to them — so old data is not hidden.
+ * Papers this teacher created. "My Papers" must stay creator-only —
+ * orphan/legacy subject papers must not appear for newly assigned teachers.
  */
 export async function getOwnedPapersFilter(teacherId) {
-  const mySubjectIds = await resolveTeacherSubjectIds(teacherId);
-
-  return {
-    $or: [
-      { createdBy: teacherId },
-      {
-        subject: { $in: mySubjectIds },
-        $or: [{ createdBy: { $exists: false } }, { createdBy: null }],
-      },
-    ],
-  };
+  return { createdBy: teacherId };
 }
 
 /** Papers another teacher explicitly shared with this teacher. */
@@ -40,9 +30,20 @@ export async function getDepartmentPapersFilter(teacherId) {
   return { subject: { $in: mySubjectIds } };
 }
 
-/** Default teacher list access used by submissions / marking schemes. */
+/**
+ * Papers a teacher may mark / attach schemes for: own creations + shared.
+ * Does not include orphan subject papers.
+ */
 export async function getTeacherPaperFilter(teacherId) {
-  return getOwnedPapersFilter(teacherId);
+  return {
+    $or: [
+      { createdBy: teacherId },
+      {
+        sharedWith: teacherId,
+        createdBy: { $ne: teacherId },
+      },
+    ],
+  };
 }
 
 export function isAdminRole(role) {
