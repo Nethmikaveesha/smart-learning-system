@@ -29,7 +29,11 @@ function StudentPerformanceTracker() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const rows = Array.isArray(res.data?.results) ? res.data.results : [];
+        const rows = Array.isArray(res.data?.performanceResults)
+          ? res.data.performanceResults
+          : Array.isArray(res.data?.results)
+            ? res.data.results
+            : [];
         // Oldest → newest for time-series
         const ordered = [...rows].sort((left, right) => {
           const leftDate = new Date(
@@ -64,16 +68,17 @@ function StudentPerformanceTracker() {
           `Exam ${index + 1}`;
         const rawZ = result.zScore;
         const hasZScore =
-          rawZ !== null && rawZ !== undefined && rawZ !== "";
+          rawZ !== null && rawZ !== undefined && rawZ !== "" && !Number.isNaN(Number(rawZ));
+        const zNumber = hasZScore ? Number(rawZ) : null;
         return {
           name:
             examName.length > 16 ? `${examName.slice(0, 14)}…` : examName,
           examName,
           marks: Number(result.marks ?? 0),
-          zScore: hasZScore ? Number(rawZ) : null,
-          zScoreLabel: hasZScore ? Number(rawZ) : "--",
+          zScore: zNumber,
+          zScoreLabel: hasZScore ? zNumber.toFixed(2) : "--",
           grade: result.grade || "--",
-          rank: result.rank ?? "--",
+          rank: result.rank > 0 ? result.rank : "--",
           subject:
             result.exam?.subject?.subjectName ||
             result.subject ||

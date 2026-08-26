@@ -55,6 +55,29 @@ export const getStudentDashboard = async (req, res) => {
     });
 
     const results = sortResultsByLatest(dedupeResults(rawResults));
+    const performanceResults = sortResultsByLatest(rawResults);
+    const latestWithZ = performanceResults.find(
+      (result) => result.zScore !== null && result.zScore !== undefined
+    );
+    const resolvedCurrentZScore =
+      latestWithZ?.zScore ??
+      results.find(
+        (result) => result.zScore !== null && result.zScore !== undefined
+      )?.zScore ??
+      null;
+
+    // Keep profile card in sync with healed result analytics.
+    if (
+      String(studentProfile.currentZScore ?? "") !==
+      String(resolvedCurrentZScore ?? "")
+    ) {
+      studentProfile.currentZScore = resolvedCurrentZScore;
+      await StudentProfile.updateOne(
+        { _id: studentProfile._id },
+        { $set: { currentZScore: resolvedCurrentZScore } }
+      );
+    }
+
     let subjectPerformance = buildSubjectPerformance(
       studentProfile.subjects,
       results
@@ -124,9 +147,10 @@ export const getStudentDashboard = async (req, res) => {
       student: studentProfile,
       latestResult: results[0] || null,
       results,
+      performanceResults,
       subjectPerformance,
       attendancePercentage: studentProfile.attendancePercentage,
-      currentZScore: studentProfile.currentZScore,
+      currentZScore: resolvedCurrentZScore,
       riskStatus,
       commerceRiskAssessed,
       latestCommerceRiskLevel,
