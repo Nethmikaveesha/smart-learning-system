@@ -69,6 +69,9 @@ test("Equal marks currently get consecutive ranks (document for thesis)", () => 
 test("Z-score positive above mean", () => {
   assert.ok(zScore(80, 60, 10) > 0);
 });
+test("Z-score zero at mean", () => {
+  assert.strictEqual(zScore(60, 60, 10), 0);
+});
 test("dedupeResults keeps latest per student+subject", () => {
   const subject = { _id: "sub1", subjectName: "Accounting" };
   const rows = [
