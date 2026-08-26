@@ -13,8 +13,31 @@ import {
 import { buildTopicAnalytics } from "../utils/topicAnalytics.js";
 import {
   getTeacherScope,
+  resolveClassTwinIds,
   resolvePrimaryAssignedClassTwinIds,
 } from "../utils/teacherScope.js";
+
+function uniqueIdStrings(ids = []) {
+  return [...new Set(ids.map((id) => String(id)).filter(Boolean))];
+}
+
+/**
+ * Prefer the admin-assigned class for every teacher. If an older account only
+ * has subject-linked classes (no User.assignedClass yet), fall back to those
+ * so previously added teachers keep a working dashboard.
+ */
+async function resolveDashboardClassIds(scope) {
+  const primaryIds = await resolvePrimaryAssignedClassTwinIds(scope);
+  if (primaryIds.length > 0) return primaryIds;
+
+  const seed = scope.adminAssignedClassIds || [];
+  if (!seed.length) return [];
+
+  const twinLists = await Promise.all(
+    seed.map((classId) => resolveClassTwinIds(classId, { ignoreYear: true }))
+  );
+  return uniqueIdStrings(twinLists.flat());
+}
 
 function buildClassPerformance(results, subjects) {
   return subjects
@@ -107,10 +130,10 @@ export const getTeacherDashboard = async (req, res) => {
     const { subjects, teacher } = scope;
 
     // Same rule for every teacher (old + newly added):
-    // dashboard stats use the admin-assigned class (+ year twins) and
-    // assigned subject(s). No separate legacy-only path.
-    const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
-    const allowedClassIdStrings = allowedClassIds.map((id) => String(id));
+    // prefer admin-assigned class; fall back to subject-linked classes for
+    // older accounts that were never written onto User.assignedClass.
+    const allowedClassIds = await resolveDashboardClassIds(scope);
+    const allowedClassIdStrings = uniqueIdStrings(allowedClassIds);
 
     const students =
       allowedClassIds.length > 0
