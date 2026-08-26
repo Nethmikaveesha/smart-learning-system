@@ -1092,8 +1092,17 @@ const featureConfigs = {
   },
   "/teacher/reports": {
     title: "Reports",
+    description:
+      "Summary for your admin-assigned class. Download a PDF report of the same teaching load.",
     endpoint: "/results/analytics-summary",
     layout: "cards",
+    action: {
+      endpoint: "/reports/teacher-class-report",
+      method: "get",
+      label: "Download Class Report PDF",
+      responseType: "blob",
+      downloadName: "teacher-class-report.pdf",
+    },
   },
   "/student/subjects": {
     title: "My Subjects",
@@ -1253,6 +1262,7 @@ function DashboardFeaturePage() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const config = getFeatureConfig(pathname, user);
@@ -1306,7 +1316,7 @@ function DashboardFeaturePage() {
 
   const runAction = async () => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       setError("");
 
       const res = await api.request({
@@ -1318,13 +1328,19 @@ function DashboardFeaturePage() {
       });
 
       if (config.action.responseType === "blob") {
+        const contentType = String(res.headers?.["content-type"] || "");
+        if (contentType.includes("application/json")) {
+          const text = await res.data.text();
+          const parsed = JSON.parse(text);
+          throw new Error(parsed.message || "Download failed");
+        }
         downloadBlob(res.data, config.action.downloadName);
         toastSuccess("Download started successfully.");
       } else if (!res.data?.message) {
         toastSuccess("Action completed successfully.");
       }
 
-      if (config.endpoint) {
+      if (config.endpoint && config.action.responseType !== "blob") {
         const refresh = await api.get(config.endpoint, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -1347,7 +1363,7 @@ function DashboardFeaturePage() {
         toastError(actionMessage);
       }
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -1418,10 +1434,10 @@ function DashboardFeaturePage() {
         <button
           type="button"
           onClick={runAction}
-          disabled={loading}
+          disabled={loading || actionLoading}
           className="mb-6 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {loading ? "Working..." : config.action.label}
+          {actionLoading ? "Preparing download..." : config.action.label}
         </button>
       )}
 

@@ -8,7 +8,7 @@ import {
   getPassMark,
 } from "../utils/grading.js";
 import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
-import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds } from "../utils/teacherScope.js";
+import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds, resolvePrimaryAssignedClassTwinIds } from "../utils/teacherScope.js";
 import Exam from "../models/Exam.js";
 import { recalculateExamAnalytics, healExamAnalytics } from "../utils/examAnalytics.js";
 
@@ -499,7 +499,9 @@ export const getAnalyticsSummary = async (req, res) => {
 
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
-      if (scope.studentIds.length === 0) {
+      const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+
+      if (!allowedClassIds.length) {
         return res.status(200).json({
           totalStudents: 0,
           averageMarks: 0,
@@ -509,8 +511,34 @@ export const getAnalyticsSummary = async (req, res) => {
           averageAttendance: 0,
         });
       }
-      studentFilter = { _id: { $in: scope.studentIds } };
-      resultFilter = { student: { $in: scope.studentIds } };
+
+      const scopedStudents = await StudentProfile.find({
+        class: { $in: allowedClassIds },
+      }).select("_id");
+      const scopedStudentIds = scopedStudents.map((student) => student._id);
+
+      if (scopedStudentIds.length === 0) {
+        return res.status(200).json({
+          totalStudents: 0,
+          averageMarks: 0,
+          passCount: 0,
+          failCount: 0,
+          highRiskStudents: 0,
+          averageAttendance: 0,
+        });
+      }
+
+      studentFilter = { _id: { $in: scopedStudentIds } };
+      resultFilter = { student: { $in: scopedStudentIds } };
+
+      if (scope.subjectIds.length > 0) {
+        const twinSubjectIds = await resolveSubjectTwinIds(scope.subjectIds);
+        const examIds = await Exam.find({
+          subject: { $in: twinSubjectIds },
+          class: { $in: allowedClassIds },
+        }).distinct("_id");
+        resultFilter.exam = { $in: examIds };
+      }
     }
 
     const totalStudents = await StudentProfile.countDocuments(studentFilter);

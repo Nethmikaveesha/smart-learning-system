@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   generateStudentReport,
+  generateTeacherClassReport,
   testMonthlyReportGeneration,
   listGeneratedMonthlyReports,
   downloadGeneratedMonthlyReport,
@@ -20,6 +21,14 @@ router.get(
   protect,
   authorizeRoles("parent"),
   generateStudentReport
+);
+
+// Teacher class PDF download (admin-assigned class only)
+router.get(
+  "/teacher-class-report",
+  protect,
+  authorizeRoles("teacher"),
+  generateTeacherClassReport
 );
 
 // Admin: list + download generated monthly PDFs
