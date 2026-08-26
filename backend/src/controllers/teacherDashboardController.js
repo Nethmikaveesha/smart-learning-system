@@ -11,7 +11,10 @@ import {
   sortResultsByLatest,
 } from "../utils/studentResults.js";
 import { buildTopicAnalytics } from "../utils/topicAnalytics.js";
-import { getTeacherScope } from "../utils/teacherScope.js";
+import {
+  getTeacherScope,
+  resolvePrimaryAssignedClassTwinIds,
+} from "../utils/teacherScope.js";
 
 function buildClassPerformance(results, subjects) {
   return subjects
@@ -101,14 +104,27 @@ async function countHighRiskStudents(studentIds = []) {
 export const getTeacherDashboard = async (req, res) => {
   try {
     const scope = await getTeacherScope(req.user._id);
-    const { students, studentIds, subjects, teacher } = scope;
+    const { subjects, teacher } = scope;
+
+    // Same rule for every teacher (old + newly added):
+    // dashboard stats use the admin-assigned class (+ year twins) and
+    // assigned subject(s). No separate legacy-only path.
+    const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+    const allowedClassIdStrings = allowedClassIds.map((id) => String(id));
+
+    const students =
+      allowedClassIds.length > 0
+        ? await StudentProfile.find({ class: { $in: allowedClassIds } }).select(
+            "_id studentId riskStatus attendancePercentage class subjects parent"
+          )
+        : [];
+    const studentIds = students.map((student) => student._id);
 
     const totalStudents = students.length;
 
-    // Exams only in admin-assigned classes + subjects.
     const examFilter = {};
-    if (scope.classIds.length > 0) {
-      examFilter.class = { $in: scope.classIds };
+    if (allowedClassIds.length > 0) {
+      examFilter.class = { $in: allowedClassIds };
     } else {
       examFilter._id = { $in: [] };
     }
@@ -117,9 +133,7 @@ export const getTeacherDashboard = async (req, res) => {
     }
 
     const totalExams =
-      scope.classIds.length === 0
-        ? 0
-        : await Exam.countDocuments(examFilter);
+      allowedClassIds.length === 0 ? 0 : await Exam.countDocuments(examFilter);
 
     const rawResults =
       studentIds.length === 0
@@ -135,7 +149,7 @@ export const getTeacherDashboard = async (req, res) => {
             },
           });
 
-    // Keep marks that belong to this teacher's assigned subjects (+ class when set).
+    // Keep marks that belong to this teacher's assigned subjects (+ class).
     const scopedRawResults = rawResults.filter((result) => {
       if (scope.subjectIdStrings.length === 0) return false;
       const subjectId =
@@ -150,10 +164,10 @@ export const getTeacherDashboard = async (req, res) => {
         : scope.subjectLabels.includes(getSubjectName(result));
       if (!subjectOk) return false;
 
-      if (classId && scope.classIdStrings.length > 0) {
-        return scope.classIdStrings.includes(classId);
+      if (classId && allowedClassIdStrings.length > 0) {
+        return allowedClassIdStrings.includes(String(classId));
       }
-      return true;
+      return allowedClassIdStrings.length === 0;
     });
 
     const results = sortResultsByLatest(dedupeResults(scopedRawResults));
@@ -258,7 +272,7 @@ export const getTeacherDashboard = async (req, res) => {
       passMark,
     });
 
-    if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
+    if (allowedClassIds.length === 0 && scope.subjectIds.length === 0) {
       alerts.unshift(
         "No class or subject has been assigned to you yet. Ask an admin to assign your teaching load."
       );
@@ -286,7 +300,7 @@ export const getTeacherDashboard = async (req, res) => {
             })
             .populate({
               path: "exam",
-              select: "examName examDate subject",
+              select: "examName examDate subject class",
               populate: { path: "subject", select: "subjectName" },
             })
             .sort({ createdAt: -1 })
@@ -297,39 +311,51 @@ export const getTeacherDashboard = async (req, res) => {
       const subjectId =
         result.exam?.subject?._id?.toString() ||
         result.exam?.subject?.toString();
-      if (subjectId) return scope.subjectIdStrings.includes(subjectId);
-      return scope.subjectLabels.includes(getSubjectName(result));
+      const classId =
+        result.exam?.class?._id?.toString() ||
+        result.exam?.class?.toString();
+
+      const subjectOk = subjectId
+        ? scope.subjectIdStrings.includes(subjectId)
+        : scope.subjectLabels.includes(getSubjectName(result));
+      if (!subjectOk) return false;
+
+      if (classId && allowedClassIdStrings.length > 0) {
+        return allowedClassIdStrings.includes(String(classId));
+      }
+      return true;
     });
 
     const previewResults = sortResultsByLatest(
       dedupeResults(scopedRecentResults)
     ).slice(0, 5);
 
+    const assignedClassLabels =
+      scope.adminAssignedClassLabels?.length > 0
+        ? scope.adminAssignedClassLabels
+        : [];
+    const assignedSubjectLabels =
+      scope.adminAssignedSubjectLabels?.length > 0
+        ? scope.adminAssignedSubjectLabels
+        : scope.subjectLabels;
+
+    const hasAssignments =
+      allowedClassIds.length > 0 ||
+      assignedSubjectLabels.length > 0 ||
+      scope.subjectIds.length > 0;
+
     res.status(200).json({
       teacher: {
         fullName: teacher?.fullName,
         email: teacher?.email,
       },
-      // Dashboard cards show admin-assigned class/subject only (not twin expansions).
-      classes:
-        scope.adminAssignedClassLabels?.length > 0
-          ? scope.adminAssignedClassLabels
-          : scope.classLabels,
-      subjects:
-        scope.adminAssignedSubjectLabels?.length > 0
-          ? scope.adminAssignedSubjectLabels
-          : scope.subjectLabels,
+      // Same labels for every teacher: admin assignment first.
+      classes: assignedClassLabels,
+      subjects: assignedSubjectLabels,
       assignmentSummary: {
-        classCount:
-          (scope.adminAssignedClassLabels?.length || 0) > 0
-            ? scope.adminAssignedClassLabels.length
-            : scope.classLabels.length,
-        subjectCount:
-          (scope.adminAssignedSubjectLabels?.length || 0) > 0
-            ? scope.adminAssignedSubjectLabels.length
-            : scope.subjectLabels.length,
-        hasAssignments:
-          scope.classLabels.length > 0 || scope.subjectLabels.length > 0,
+        classCount: assignedClassLabels.length,
+        subjectCount: assignedSubjectLabels.length,
+        hasAssignments,
       },
       totalStudents,
       totalExams,
