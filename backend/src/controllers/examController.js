@@ -3,28 +3,9 @@ import { createAuditLog } from "../utils/createAuditLog.js";
 import {
   assertTeacherOwnsSubject,
   getTeacherScope,
-  resolveClassTwinIds,
+  resolvePrimaryAssignedClassTwinIds,
   resolveSubjectTwinIds,
 } from "../utils/teacherScope.js";
-
-async function resolveTeacherExamClassIds(scope) {
-  // Only the admin-assigned class (User.assignedClass / Class.assignedTeacher),
-  // not every class linked through the subject catalog.
-  const seedClassIds =
-    scope.primaryAssignedClassIds?.length > 0
-      ? scope.primaryAssignedClassIds
-      : [];
-
-  if (!seedClassIds.length) return [];
-
-  const classIdLists = await Promise.all(
-    seedClassIds.map((classId) =>
-      resolveClassTwinIds(classId, { ignoreYear: true })
-    )
-  );
-
-  return [...new Set(classIdLists.flat().map((id) => String(id)))];
-}
 
 export const createExam = async (req, res) => {
   try {
@@ -44,8 +25,10 @@ export const createExam = async (req, res) => {
 
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
-      const allowedClassIds = await resolveTeacherExamClassIds(scope);
-      const ownsClass = allowedClassIds.includes(String(classId));
+      const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+      const ownsClass = allowedClassIds
+        .map((id) => String(id))
+        .includes(String(classId));
       const ownsSubject = await assertTeacherOwnsSubject(
         req.user._id,
         subjectId
@@ -96,7 +79,7 @@ export const getAllExams = async (req, res) => {
     }
 
     const scope = await getTeacherScope(req.user._id);
-    const allowedClassIds = await resolveTeacherExamClassIds(scope);
+    const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
 
     // No admin-assigned class → empty list (do not leak other classes).
     if (!allowedClassIds.length) {
