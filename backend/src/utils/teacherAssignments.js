@@ -73,14 +73,15 @@ export async function syncTeacherClassSubjectAssignment({
       { $unset: { assignedTeacher: "" } }
     );
 
-    const subjectUpdate = {};
+    const addToSet = { assignedTeachers: tid };
+    const update = { $addToSet: addToSet };
 
     // Only claim Subject.assignedTeacher when free or already ours.
     if (
       !subjectDoc.assignedTeacher ||
       String(subjectDoc.assignedTeacher) === String(tid)
     ) {
-      subjectUpdate.assignedTeacher = tid;
+      update.$set = { assignedTeacher: tid };
     }
 
     if (classDoc) {
@@ -88,20 +89,12 @@ export async function syncTeacherClassSubjectAssignment({
         subjectDoc._id,
         classDoc.className
       );
-      if (alreadyLinked) {
-        if (Object.keys(subjectUpdate).length > 0) {
-          await Subject.findByIdAndUpdate(subjectDoc._id, subjectUpdate);
-        }
-      } else {
-        // Accumulate classes so co-teachers do not erase each other's links.
-        await Subject.findByIdAndUpdate(subjectDoc._id, {
-          ...subjectUpdate,
-          $addToSet: { classes: classDoc._id },
-        });
+      if (!alreadyLinked) {
+        addToSet.classes = classDoc._id;
       }
-    } else if (Object.keys(subjectUpdate).length > 0) {
-      await Subject.findByIdAndUpdate(subjectDoc._id, subjectUpdate);
     }
+
+    await Subject.findByIdAndUpdate(subjectDoc._id, update);
   } else if (classDoc) {
     // Class-only: attach onto subjects this teacher already owns (legacy).
     const owned = await Subject.find({ assignedTeacher: tid }).select("_id");

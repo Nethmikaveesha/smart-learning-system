@@ -2,6 +2,7 @@ import Class from "../models/Class.js";
 import Subject from "../models/Subject.js";
 import StudentProfile from "../models/StudentProfile.js";
 import Attendance from "../models/Attendance.js";
+import EssayQuestion from "../models/EssayQuestion.js";
 import User from "../models/User.js";
 
 function escapeRegex(value) {
@@ -171,13 +172,30 @@ export async function getTeacherScope(teacherId) {
 
     if (!teacher.assignedSubject) {
       const legacySubject = await Subject.findOne({
-        assignedTeacher: teacherId,
+        $or: [
+          { assignedTeacher: teacherId },
+          { assignedTeachers: teacherId },
+        ],
       })
         .select("_id")
         .sort({ subjectName: 1 });
       if (legacySubject) {
         repair.assignedSubject = legacySubject._id;
         teacher.assignedSubject = legacySubject._id;
+      }
+    }
+
+    // Papers this teacher created still prove their teaching subject.
+    if (!teacher.assignedSubject) {
+      const paperSubjectId = await EssayQuestion.findOne({
+        createdBy: teacherId,
+        subject: { $ne: null },
+      })
+        .sort({ createdAt: -1 })
+        .select("subject");
+      if (paperSubjectId?.subject) {
+        repair.assignedSubject = paperSubjectId.subject;
+        teacher.assignedSubject = paperSubjectId.subject;
       }
     }
 
@@ -196,17 +214,38 @@ export async function getTeacherScope(teacherId) {
     }
   }
 
-  // 1) Admin-assigned subjects: legacy Subject.assignedTeacher + User.assignedSubject
-  const subjectsFromPointer = await Subject.find({ assignedTeacher: teacherId })
-    .select("subjectName subjectCode classes")
+  // 1) Admin-assigned subjects: lead pointer, co-teacher list, User link,
+  //    and subject twins so catalog reseeds do not blank the dashboard.
+  const subjectsFromPointer = await Subject.find({
+    $or: [
+      { assignedTeacher: teacherId },
+      { assignedTeachers: teacherId },
+    ],
+  })
+    .select("subjectName subjectCode classes assignedTeacher assignedTeachers")
     .sort({ subjectName: 1 });
 
   let subjectsFromUser = [];
   if (teacher?.assignedSubject) {
-    const userSubject = await Subject.findById(teacher.assignedSubject).select(
-      "subjectName subjectCode classes"
+    const twinSubjectIds = await resolveSubjectTwinIds([
+      teacher.assignedSubject,
+    ]);
+    subjectsFromUser = await Subject.find({
+      _id: { $in: twinSubjectIds },
+    }).select("subjectName subjectCode classes assignedTeacher assignedTeachers");
+  }
+
+  // Keep co-teacher membership durable even for older rows that only had
+  // the singular assignedTeacher field populated.
+  const membershipIds = uniqueObjectIds([
+    ...subjectsFromPointer.map((item) => item._id),
+    ...subjectsFromUser.map((item) => item._id),
+  ]);
+  if (membershipIds.length > 0) {
+    await Subject.updateMany(
+      { _id: { $in: membershipIds } },
+      { $addToSet: { assignedTeachers: teacherId } }
     );
-    if (userSubject) subjectsFromUser = [userSubject];
   }
 
   const subjectById = new Map();

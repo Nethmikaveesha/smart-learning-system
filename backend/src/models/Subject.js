@@ -18,6 +18,16 @@ const subjectSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    // Co-teachers who teach this subject (Add Teacher / Subjects board).
+    // Singular assignedTeacher is only the board "lead" display pointer and
+    // must not erase other teachers' access when reassigned.
+    assignedTeachers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     classes: [
       {
         type: mongoose.Schema.Types.ObjectId,

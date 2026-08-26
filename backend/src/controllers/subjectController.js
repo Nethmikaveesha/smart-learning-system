@@ -114,17 +114,29 @@ export const updateSubject = async (req, res) => {
     }
 
     if (assignedTeacher !== undefined) {
-      // Empty string / null = unassign ("Not assigned" in UI). Use null so
-      // Mongoose clears the ObjectId instead of leaving the previous value.
+      // Empty string / null = unassign lead ("Not assigned" in UI).
       const nextTeacher = assignedTeacher || null;
+      const previousTeacher = existing.assignedTeacher
+        ? String(existing.assignedTeacher)
+        : null;
+
+      // Keep every teacher who has taught this subject in assignedTeachers so
+      // previously added teachers do not lose dashboard / My Subjects scope
+      // when the board lead is changed.
+      const teachersToKeep = [];
+      if (previousTeacher) teachersToKeep.push(previousTeacher);
+      if (nextTeacher) teachersToKeep.push(String(nextTeacher));
+      if (teachersToKeep.length > 0) {
+        await Subject.updateOne(
+          { _id: existing._id },
+          { $addToSet: { assignedTeachers: { $each: teachersToKeep } } }
+        );
+      }
 
       existing.assignedTeacher = nextTeacher;
 
-      // Subject.assignedTeacher is a singular "board lead" pointer.
-      // Do NOT clear other teachers' User.assignedSubject — that wiped
-      // previously added teachers' dashboards when a subject was reassigned.
-      // Only fill User.assignedSubject for the newly selected teacher when
-      // they do not already have an admin assignment of their own.
+      // Fill User.assignedSubject for the newly selected lead when empty.
+      // Never clear other teachers' User.assignedSubject.
       if (nextTeacher) {
         await User.updateOne(
           {
@@ -174,7 +186,10 @@ export const getAllSubjects = async (req, res) => {
         ownedIds.push(teacher.assignedSubject);
       }
       const fromPointer = await Subject.find({
-        assignedTeacher: req.user._id,
+        $or: [
+          { assignedTeacher: req.user._id },
+          { assignedTeachers: req.user._id },
+        ],
       }).select("_id");
       fromPointer.forEach((row) => ownedIds.push(row._id));
 

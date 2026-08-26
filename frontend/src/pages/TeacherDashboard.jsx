@@ -87,8 +87,12 @@ function TeacherDashboard() {
         <>
           {!hasAssignments ? (
             <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-              No class or subject has been assigned to your account yet. Ask an
-              admin to assign your teaching load so dashboard stats can appear.
+              No class or subject is linked to this teacher account yet. Ask an
+              admin to open <span className="font-semibold">Add Teacher</span>,
+              edit this account, and set both <span className="font-semibold">Assigned
+              Subject</span> and <span className="font-semibold">Assigned Class</span>.
+              After that, reload this dashboard — stats will appear for that teaching
+              load only.
             </div>
           ) : null}
           <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
