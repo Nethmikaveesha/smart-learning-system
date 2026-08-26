@@ -1,9 +1,16 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import AdminSidebar, { adminMobileLinks } from "./sidebars/AdminSidebar";
-import TeacherSidebar, { teacherMobileLinks } from "./sidebars/TeacherSidebar";
-import StudentSidebar, { studentMobileLinks } from "./sidebars/StudentSidebar";
-import ParentSidebar, { parentMobileLinks } from "./sidebars/ParentSidebar";
+import AdminSidebar from "./sidebars/AdminSidebar";
+import TeacherSidebar from "./sidebars/TeacherSidebar";
+import StudentSidebar from "./sidebars/StudentSidebar";
+import ParentSidebar from "./sidebars/ParentSidebar";
+import {
+  getAdminMobileLinks,
+  teacherMobileLinks,
+  studentMobileLinks,
+  parentMobileLinks,
+} from "./sidebars/mobileNavLinks";
+import { getWorkspaceRole } from "../utils/adminRoles";
 
 const dashboardPaths = {
   admin: "/admin",
@@ -19,14 +26,8 @@ const sidebarByRole = {
   parent: ParentSidebar,
 };
 
-const mobileLinksByRole = {
-  admin: adminMobileLinks,
-  teacher: teacherMobileLinks,
-  student: studentMobileLinks,
-  parent: parentMobileLinks,
-};
-
 const roleLabels = {
+  superadmin: "Super Administrator",
   admin: "Administrator",
   teacher: "Teacher",
   student: "Student",
@@ -35,9 +36,17 @@ const roleLabels = {
 
 function DashboardLayout() {
   const { user, logout } = useAuth();
-  const role = user?.role || "student";
-  const Sidebar = sidebarByRole[role] || StudentSidebar;
-  const mobileLinks = mobileLinksByRole[role] || studentMobileLinks;
+  const authRole = user?.role || "student";
+  const workspaceRole = getWorkspaceRole(authRole);
+  const Sidebar = sidebarByRole[workspaceRole] || StudentSidebar;
+  const mobileLinks =
+    workspaceRole === "admin"
+      ? getAdminMobileLinks(authRole)
+      : workspaceRole === "teacher"
+        ? teacherMobileLinks
+        : workspaceRole === "parent"
+          ? parentMobileLinks
+          : studentMobileLinks;
 
   const displayName = user?.fullName || user?.email || "Profile";
   const initials = displayName
@@ -53,7 +62,7 @@ function DashboardLayout() {
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="flex min-h-16 items-center justify-between px-4 lg:px-6">
           <NavLink
-            to={dashboardPaths[role] || "/student"}
+            to={dashboardPaths[workspaceRole] || "/student"}
             className="flex items-center gap-3"
           >
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-700 typo-ui text-white shadow-sm">
@@ -62,14 +71,14 @@ function DashboardLayout() {
             <span>
               <span className="block typo-card text-slate-950">EduTrack</span>
               <span className="hidden typo-eyebrow text-slate-500 sm:block">
-                {roleLabels[role]} Workspace
+                {roleLabels[authRole] || roleLabels[workspaceRole]} Workspace
               </span>
             </span>
           </NavLink>
 
           <div className="flex items-center gap-2">
             <NavLink
-              to={`/${role}/notifications`}
+              to={`/${workspaceRole}/notifications`}
               className={({ isActive }) =>
                 `rounded-lg border px-3 py-2 typo-ui transition ${
                   isActive
@@ -82,7 +91,7 @@ function DashboardLayout() {
             </NavLink>
 
             <NavLink
-              to={`/${role}/profile`}
+              to={`/${workspaceRole}/profile`}
               className="hidden items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 typo-ui text-slate-700 transition hover:bg-slate-200 sm:flex"
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-slate-900 typo-caption font-bold text-white">
@@ -128,7 +137,9 @@ function DashboardLayout() {
         {/* Desktop sidebar */}
         <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-72 shrink-0 overflow-y-auto border-r border-slate-200 bg-white lg:block">
           <div className="border-b border-slate-100 p-4">
-            <p className="typo-eyebrow text-slate-400">{role} Menu</p>
+            <p className="typo-eyebrow text-slate-400">
+              {workspaceRole} Menu
+            </p>
             <p className="mt-1 typo-ui text-slate-700">Manage your workspace</p>
           </div>
 

@@ -1,16 +1,11 @@
 import SidebarSection from "./SidebarSection";
-
-export const adminMobileLinks = [
-  { label: "Dashboard", to: "/admin", end: true },
-  { label: "Users", to: "/admin/users", end: true },
-  { label: "Add Admin", to: "/admin/users/add", end: true },
-  { label: "Classes", to: "/admin/classes" },
-  { label: "Exams", to: "/admin/exams" },
-  { label: "Analytics", to: "/admin/system-analytics" },
-  { label: "Reports", to: "/admin/reports" },
-];
+import { useAuth } from "../../context/AuthContext";
+import { isSuperAdmin } from "../../utils/adminRoles";
 
 function AdminSidebar() {
+  const { user } = useAuth();
+  const canManageAdmins = isSuperAdmin(user);
+
   return (
     <nav className="space-y-2">
       <SidebarSection
@@ -23,7 +18,9 @@ function AdminSidebar() {
       <SidebarSection
         title="User Management"
         items={[
-          { label: "Add New Admin", to: "/admin/users/add", end: true },
+          ...(canManageAdmins
+            ? [{ label: "Add New Admin", to: "/admin/users/add", end: true }]
+            : []),
           { label: "Add Teacher", to: "/admin/users/add-teacher" },
           { label: "Add Student", to: "/admin/users/add-student" },
           { label: "Add Parent", to: "/admin/users/add-parent" },

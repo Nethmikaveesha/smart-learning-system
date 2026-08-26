@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
+import TablePagination from "./TablePagination";
+import useClientTable from "../hooks/useClientTable";
+import {
+  findClassById,
+  findClassIdForValues,
+  toClassIdSelectOptions,
+  toClassNameSelectOptions,
+} from "../utils/classOptions";
 
 // Student profile records come with nested user/class data.
 // This converts them into clean table rows.
@@ -18,22 +26,44 @@ function flattenStudentRows(profiles) {
 }
 
 // Teacher records are user records with teacher-specific fields.
+function displayOrEmpty(value) {
+  const text = String(value || "").trim();
+  if (!text || text.toLowerCase() === "n/a") return "";
+  // Edit form is single-select; keep the first label if several were joined.
+  return text.split(",")[0].trim();
+}
+
 function flattenTeacherRows(teachers) {
-  return teachers.map((teacher) => ({
+  const rows = (Array.isArray(teachers) ? teachers : []).map((teacher) => ({
     recordId: teacher._id,
     userId: teacher._id,
     fullName: teacher.fullName || "N/A",
     email: teacher.email || "N/A",
     phoneNumber: teacher.phoneNumber || "",
     teacherId: teacher.teacherId || "",
+    // Keep full comma-separated labels in the table; edit form still uses
+    // displayOrEmpty() to pick the first value for single-selects.
     assignedSubjectCode: teacher.assignedSubjectCode || "N/A",
     assignedClassName: teacher.assignedClassName || "N/A",
     status: teacher.isActive ? "Active" : "Inactive",
+    createdAt: teacher.createdAt || null,
   }));
+
+  // Oldest first so the most recently added teacher appears at the end.
+  return rows.sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (aTime !== bTime) return aTime - bTime;
+    return String(a.teacherId || "").localeCompare(
+      String(b.teacherId || ""),
+      undefined,
+      { numeric: true, sensitivity: "base" }
+    );
+  });
 }
 
 // General users include admins and parents.
-function flattenUserRows(users) {
+function flattenUserRows(users, linkedStudentByParentId = {}) {
   return users.map((user) => ({
     recordId: user._id,
     userId: user._id,
@@ -44,8 +74,37 @@ function flattenUserRows(users) {
     teacherId: user.teacherId || "",
     parentId: user.parentId || "",
     relationship: user.relationship || "",
+    linkedStudent: linkedStudentByParentId[String(user._id)] || "N/A",
     status: user.isActive ? "Active" : "Inactive",
   }));
+}
+
+function buildLinkedStudentMap(profiles = []) {
+  const map = {};
+
+  profiles.forEach((profile) => {
+    const label = [
+      profile.studentId || "No ID",
+      profile.user?.fullName || "Student",
+    ].join(" — ");
+
+    const parentIds = [
+      profile.parent?._id || profile.parent,
+      ...(Array.isArray(profile.parents) ? profile.parents : []),
+    ]
+      .map((id) => String(id?._id || id || ""))
+      .filter(Boolean);
+
+    parentIds.forEach((parentId) => {
+      if (!map[parentId]) {
+        map[parentId] = label;
+      } else if (!map[parentId].includes(label)) {
+        map[parentId] = `${map[parentId]}; ${label}`;
+      }
+    });
+  });
+
+  return map;
 }
 
 function UserRecordsTable({
@@ -105,6 +164,17 @@ function UserRecordsTable({
       return ["fullName", "email", "phoneNumber", "status"];
     }
 
+    if (listType === "parent") {
+      return [
+        "fullName",
+        "email",
+        "parentId",
+        "linkedStudent",
+        "relationship",
+        "status",
+      ];
+    }
+
     if (listFilter) {
       return ["fullName", "email", "parentId", "relationship", "status"];
     }
@@ -155,12 +225,22 @@ function UserRecordsTable({
           headers: { Authorization: `Bearer ${token}` },
         });
 
+        let linkedStudentByParentId = {};
+        if (listType === "parent") {
+          const profilesRes = await api.get("/student-profiles", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          linkedStudentByParentId = buildLinkedStudentMap(
+            Array.isArray(profilesRes.data) ? profilesRes.data : []
+          );
+        }
+
         const rawRows =
           listType === "student"
             ? flattenStudentRows(res.data)
             : listType === "teacher"
             ? flattenTeacherRows(res.data)
-            : flattenUserRows(res.data);
+            : flattenUserRows(res.data, linkedStudentByParentId);
 
         setRows(listFilter ? rawRows.filter(listFilter) : rawRows);
       } catch (fetchError) {
@@ -176,7 +256,14 @@ function UserRecordsTable({
 
   const openEdit = (row) => {
     setEditingRow(row);
-    setFormValues({ ...row });
+    setFormValues({
+      ...row,
+      // Edit selects are single-value; table may show joined labels.
+      assignedSubjectCode: displayOrEmpty(row.assignedSubjectCode),
+      assignedClassName: displayOrEmpty(row.assignedClassName),
+      password: "",
+      confirmPassword: "",
+    });
   };
 
   const closeEdit = () => {
@@ -187,6 +274,40 @@ function UserRecordsTable({
   const saveEdit = async () => {
     try {
       onError("");
+
+      const password = formValues.password || "";
+      const confirmPassword = formValues.confirmPassword || "";
+      const changingPassword = Boolean(password || confirmPassword);
+
+      if (changingPassword) {
+        if (!password || !confirmPassword) {
+          onError(
+            "Enter both new password and confirm password, or leave both blank"
+          );
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          onError("Password and confirm password do not match");
+          return;
+        }
+
+        if (
+          password.length < 8 ||
+          !/[A-Z]/.test(password) ||
+          !/[a-z]/.test(password) ||
+          !/[0-9]/.test(password)
+        ) {
+          onError(
+            "Password must be at least 8 characters with uppercase, lowercase, and a number"
+          );
+          return;
+        }
+      }
+
+      const passwordPayload = changingPassword
+        ? { password, confirmPassword }
+        : {};
 
       if (listType === "student") {
         await api.put(
@@ -199,24 +320,29 @@ function UserRecordsTable({
             className: formValues.className,
             academicYear: formValues.academicYear,
             status: formValues.status,
+            ...passwordPayload,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else if (listType === "admin" || listType === "teacher") {
+        const teacherAssignments =
+          listType === "teacher"
+            ? {
+                teacherId: formValues.teacherId,
+                assignedSubject: displayOrEmpty(formValues.assignedSubjectCode),
+                assignedClass: displayOrEmpty(formValues.assignedClassName),
+              }
+            : {};
+
         await api.put(
           `/users/${editingRow.userId}`,
           {
             fullName: formValues.fullName,
             email: formValues.email,
             phoneNumber: formValues.phoneNumber,
-            ...(listType === "teacher"
-              ? {
-                  teacherId: formValues.teacherId,
-                  assignedSubject: formValues.assignedSubjectCode,
-                  assignedClass: formValues.assignedClassName,
-                }
-              : {}),
+            ...teacherAssignments,
             status: formValues.status,
+            ...passwordPayload,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -230,15 +356,21 @@ function UserRecordsTable({
             parentId: formValues.parentId,
             relationship: formValues.relationship,
             status: formValues.status,
+            ...passwordPayload,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
 
-      onSaved("Record updated successfully.");
+      onSaved();
       closeEdit();
     } catch (saveError) {
-      onError(saveError.response?.data?.message || "Failed to update record");
+      // Mutating API errors are toasted by axios; keep form-level validation toasts here.
+      if (!saveError.response) {
+        onError(saveError.message || "Failed to update record");
+      } else {
+        onError("");
+      }
     }
   };
 
@@ -262,9 +394,9 @@ function UserRecordsTable({
         });
       }
 
-      onSaved("Record deleted successfully.");
-    } catch (deleteError) {
-      onError(deleteError.response?.data?.message || "Failed to delete record");
+      onSaved();
+    } catch {
+      // API errors are toasted by the shared axios interceptor.
     }
   };
 
@@ -279,8 +411,55 @@ function UserRecordsTable({
   }
 
   return (
+    <UserRecordsTableBody
+      title={title}
+      rows={rows}
+      columns={columns}
+      openEdit={openEdit}
+      deleteRow={deleteRow}
+      editingRow={editingRow}
+      listType={listType}
+      formValues={formValues}
+      setFormValues={setFormValues}
+      subjects={subjects}
+      classes={classes}
+      academicYearOptions={academicYearOptions}
+      closeEdit={closeEdit}
+      saveEdit={saveEdit}
+    />
+  );
+}
+
+function UserRecordsTableBody({
+  title,
+  rows,
+  columns,
+  openEdit,
+  deleteRow,
+  editingRow,
+  listType,
+  formValues,
+  setFormValues,
+  subjects,
+  classes,
+  academicYearOptions,
+  closeEdit,
+  saveEdit,
+}) {
+  const {
+    searchQuery,
+    setSearchQuery,
+    currentPage,
+    setCurrentPage,
+    pageRows,
+    totalItems,
+    totalPages,
+    pageSize,
+  } = useClientTable(rows, { columns });
+
+  return (
     <section className="mt-8">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="typo-eyebrow text-blue-700">
             Records
@@ -290,73 +469,99 @@ function UserRecordsTable({
           </h2>
         </div>
 
-        <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-          {rows.length} record{rows.length === 1 ? "" : "s"}
-        </span>
+        <div className="flex w-full flex-col gap-2 sm:max-w-md sm:items-end">
+          <label className="block w-full">
+            <span className="sr-only">Search records</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search this table..."
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none ring-blue-600/30 transition placeholder:text-slate-400 focus:border-blue-500 focus:ring"
+            />
+          </label>
+          <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+            {totalItems} record{totalItems === 1 ? "" : "s"}
+          </span>
+        </div>
       </div>
 
       {rows.length === 0 ? (
         <EmptyRecords />
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-700">
-                <tr>
-                  {columns.map((column) => (
-                    <th key={column} className="whitespace-nowrap p-3 font-semibold">
-                      {formatLabel(column)}
-                    </th>
-                  ))}
-                  <th className="whitespace-nowrap p-3 font-semibold">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.recordId}
-                    className="border-t border-slate-200 bg-white transition hover:bg-slate-50"
-                  >
+          {totalItems === 0 ? (
+            <div className="px-4 py-10 text-center text-sm font-medium text-slate-500">
+              No records match your search.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-100 text-slate-700">
+                  <tr>
                     {columns.map((column) => (
-                      <td
-                        key={column}
-                        className="whitespace-nowrap p-3 text-slate-700"
-                      >
-                        {column === "status" ? (
-                          <StatusBadge status={row[column]} />
-                        ) : column === "role" ? (
-                          <RoleBadge role={row[column]} />
-                        ) : (
-                          row[column] || "N/A"
-                        )}
-                      </td>
+                      <th key={column} className="whitespace-nowrap p-3 font-semibold">
+                        {formatLabel(column)}
+                      </th>
                     ))}
-
-                    <td className="whitespace-nowrap p-3">
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(row)}
-                          className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => deleteRow(row)}
-                          className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                    <th className="whitespace-nowrap p-3 font-semibold">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+
+                <tbody>
+                  {pageRows.map((row) => (
+                    <tr
+                      key={row.recordId}
+                      className="border-t border-slate-200 bg-white transition hover:bg-slate-50"
+                    >
+                      {columns.map((column) => (
+                        <td
+                          key={column}
+                          className="whitespace-nowrap p-3 text-slate-700"
+                        >
+                          {column === "status" ? (
+                            <StatusBadge status={row[column]} />
+                          ) : column === "role" ? (
+                            <RoleBadge role={row[column]} />
+                          ) : (
+                            row[column] || "N/A"
+                          )}
+                        </td>
+                      ))}
+
+                      <td className="whitespace-nowrap p-3">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(row)}
+                            className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-800"
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteRow(row)}
+                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
@@ -428,22 +633,22 @@ function EditRecordModal({
               />
               <EditSelectField
                 label="Class Name"
-                value={formValues.className}
+                value={findClassIdForValues(
+                  classes,
+                  formValues.className,
+                  formValues.academicYear
+                )}
                 placeholder="Select class"
-                options={classes.map((classItem) => ({
-                  value: classItem.className,
-                  label: classItem.className,
-                }))}
+                options={toClassIdSelectOptions(classes)}
                 onChange={(value) => {
-                  const selectedClass = classes.find(
-                    (classItem) => classItem.className === value
-                  );
+                  const selectedClass = findClassById(classes, value);
+                  if (!selectedClass) return;
 
                   setFormValues((current) => ({
                     ...current,
-                    className: value,
+                    className: selectedClass.className,
                     academicYear:
-                      selectedClass?.academicYear || current.academicYear,
+                      selectedClass.academicYear || current.academicYear,
                   }));
                 }}
               />
@@ -481,10 +686,7 @@ function EditRecordModal({
                 label="Assigned Class Name"
                 value={formValues.assignedClassName}
                 placeholder="Select class"
-                options={classes.map((classItem) => ({
-                  value: classItem.className,
-                  label: classItem.className,
-                }))}
+                options={toClassNameSelectOptions(classes)}
                 onChange={(value) => updateField("assignedClassName", value)}
               />
             </>
@@ -499,11 +701,22 @@ function EditRecordModal({
                   value={formValues.parentId}
                   onChange={(value) => updateField("parentId", value)}
                 />
-                <EditField
+                <EditSelectField
                   label="Relationship"
                   value={formValues.relationship}
+                  placeholder="Select relationship"
+                  options={[
+                    { value: "Mother", label: "Mother" },
+                    { value: "Father", label: "Father" },
+                    { value: "Guardian", label: "Guardian" },
+                  ]}
                   onChange={(value) => updateField("relationship", value)}
                 />
+                {formValues.linkedStudent && (
+                  <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    Linked Student: {formValues.linkedStudent}
+                  </div>
+                )}
               </>
             )}
 
@@ -516,6 +729,32 @@ function EditRecordModal({
             ]}
             onChange={(value) => updateField("status", value)}
           />
+        </div>
+
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">Change password</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Leave both fields blank to keep the current password. New password
+            needs 8+ characters with uppercase, lowercase, and a number.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <EditField
+              label="New Password"
+              type="password"
+              value={formValues.password}
+              onChange={(value) => updateField("password", value)}
+              placeholder="Optional"
+              autoComplete="new-password"
+            />
+            <EditField
+              label="Confirm New Password"
+              type="password"
+              value={formValues.confirmPassword}
+              onChange={(value) => updateField("confirmPassword", value)}
+              placeholder="Optional"
+              autoComplete="new-password"
+            />
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
@@ -560,13 +799,22 @@ function EditSelectField({ label, value, onChange, options, placeholder }) {
   );
 }
 
-function EditField({ label, value, onChange }) {
+function EditField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder = "",
+  autoComplete,
+}) {
   return (
     <label className="typo-label text-slate-700">
       {label}
       <input
-        type="text"
+        type={type}
         value={value || ""}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm"
       />
@@ -591,9 +839,16 @@ function StatusBadge({ status }) {
 }
 
 function RoleBadge({ role }) {
+  const label =
+    role === "superadmin"
+      ? "Super Admin"
+      : role
+        ? role.charAt(0).toUpperCase() + role.slice(1)
+        : "N/A";
+
   return (
-    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700">
-      {role || "N/A"}
+    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+      {label}
     </span>
   );
 }
@@ -610,6 +865,9 @@ function EmptyRecords() {
 }
 
 function formatLabel(label) {
+  if (label === "linkedStudent") return "Linked Student";
+  if (label === "parentId") return "Parent ID";
+
   return label
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (letter) => letter.toUpperCase());

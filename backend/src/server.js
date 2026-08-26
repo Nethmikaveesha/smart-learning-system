@@ -1,14 +1,18 @@
-
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
+
 dotenv.config();
+
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import {
   protect,
   authorizeRoles,
 } from "./middleware/authMiddleware.js";
+import { notFoundHandler, errorHandler } from "./middleware/errorMiddleware.js";
 import userRoutes from "./routes/userRoutes.js";
 import classRoutes from "./routes/classRoutes.js";
 import subjectRoutes from "./routes/subjectRoutes.js";
@@ -21,8 +25,6 @@ import studentDashboardRoutes from "./routes/studentDashboardRoutes.js";
 import teacherDashboardRoutes from "./routes/teacherDashboardRoutes.js";
 import essayRoutes from "./routes/essayRoutes.js";
 import studyPlannerRoutes from "./routes/studyPlannerRoutes.js";
-dotenv.config();
-connectDB();
 import reportRoutes from "./routes/reportRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import auditLogRoutes from "./routes/auditLogRoutes.js";
@@ -45,25 +47,62 @@ import {
   startDatabaseBackupScheduler,
 } from "./jobs/databaseBackupJob.js";
 
-
-
+connectDB();
 startMonthlyReportScheduler();
 startDatabaseBackupScheduler();
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
+const allowedOrigins = (process.env.CORS_ORIGINS || defaultOrigins.join(","))
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(helmet());
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser tools (curl / Postman) with no Origin header.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: "Too many login attempts. Please try again in 15 minutes.",
+  },
+});
+
+app.use("/api/auth/login", loginLimiter);
 app.use("/api/auth", authRoutes);
+
+const contactLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: "Too many contact messages. Please try again later.",
+  },
+});
+app.use("/api/contact", contactLimiter);
 
 app.get("/", (req, res) => {
   res.send("Smart Learning System API Running");
-});
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
 });
 
 app.get("/api/profile", protect, (req, res) => {
@@ -90,6 +129,7 @@ app.get(
     res.json({ message: "Teacher route access granted" });
   }
 );
+
 app.use("/api/users", userRoutes);
 app.use("/api/classes", classRoutes);
 app.use("/api/subjects", subjectRoutes);
@@ -118,3 +158,11 @@ app.use("/api/admin-dashboard", adminDashboardRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/contact", contactRoutes);
 
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 5001;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

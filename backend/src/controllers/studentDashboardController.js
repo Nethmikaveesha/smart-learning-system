@@ -1,10 +1,7 @@
 import StudentProfile from "../models/StudentProfile.js";
-import Result from "../models/Result.js";
 import Attendance from "../models/Attendance.js";
-import {
-  dedupeResults,
-  sortResultsByLatest,
-} from "../utils/studentResults.js";
+import CommerceRisk from "../models/CommerceRisk.js";
+import { buildStudentAcademicSnapshot } from "../utils/studentAcademicSnapshot.js";
 
 export const getStudentDashboard = async (req, res) => {
   try {
@@ -23,30 +20,44 @@ export const getStudentDashboard = async (req, res) => {
       });
     }
 
-    const rawResults = await Result.find({
-      student: studentProfile._id,
-    }).populate({
-      path: "exam",
-      select: "examName examDate",
-      populate: {
-        path: "subject",
-        select: "subjectName",
-      },
-    });
-
-    const results = sortResultsByLatest(dedupeResults(rawResults));
+    const academic = await buildStudentAcademicSnapshot(studentProfile);
 
     const attendanceRecords = await Attendance.find({
       student: studentProfile._id,
     }).sort({ date: -1 });
 
+    // Profile riskStatus defaults to "Low" and is NOT a Commerce model result.
+    // Only a saved CommerceRisk run counts as an assessed risk on the dashboard.
+    const latestCommerceRisk = await CommerceRisk.findOne({
+      studentProfile: studentProfile._id,
+    })
+      .sort({ createdAt: -1 })
+      .select("riskLevel createdAt")
+      .lean();
+
+    const latestCommerceRiskLevel = latestCommerceRisk?.riskLevel
+      ? String(latestCommerceRisk.riskLevel)
+      : null;
+    const commerceRiskAssessed = Boolean(latestCommerceRiskLevel);
+    const shortRisk = latestCommerceRiskLevel
+      ? latestCommerceRiskLevel.replace(/ Risk$/i, "")
+      : null;
+    const riskStatus =
+      commerceRiskAssessed && ["High", "Medium", "Low"].includes(shortRisk)
+        ? shortRisk
+        : null;
+
     res.status(200).json({
       student: studentProfile,
-      latestResult: results[0] || null,
-      results,
+      latestResult: academic.latestResult,
+      results: academic.results,
+      performanceResults: academic.performanceResults,
+      subjectPerformance: academic.subjectPerformance,
       attendancePercentage: studentProfile.attendancePercentage,
-      currentZScore: studentProfile.currentZScore,
-      riskStatus: studentProfile.riskStatus,
+      currentZScore: academic.currentZScore,
+      riskStatus,
+      commerceRiskAssessed,
+      latestCommerceRiskLevel,
       attendanceRecords,
     });
   } catch (error) {

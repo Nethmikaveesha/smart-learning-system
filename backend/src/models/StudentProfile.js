@@ -29,6 +29,14 @@ const studentProfileSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    // Supports multiple guardians linked to one student.
+    parents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     subjects: [
       {
         type: mongoose.Schema.Types.ObjectId,

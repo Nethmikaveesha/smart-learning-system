@@ -1,5 +1,6 @@
 import Result from "../models/Result.js";
 import StudentProfile from "../models/StudentProfile.js";
+import CommerceRisk from "../models/CommerceRisk.js";
 
 export const getStudentBadges = async (req, res) => {
   try {
@@ -49,10 +50,21 @@ export const getStudentBadges = async (req, res) => {
       });
     }
 
-    if (student.riskStatus === "Low") {
+    // Only after a real Commerce risk model run — not the profile default "Low".
+    const latestCommerceRisk = await CommerceRisk.findOne({
+      studentProfile: student._id,
+    }).sort({ createdAt: -1 });
+
+    const assessedLowRisk =
+      latestCommerceRisk &&
+      String(latestCommerceRisk.riskLevel || "")
+        .toLowerCase()
+        .includes("low");
+
+    if (assessedLowRisk) {
       badges.push({
         title: "Safe Progress",
-        description: "Currently maintaining low academic risk.",
+        description: "Commerce risk assessment confirmed low academic risk.",
         icon: "✅",
       });
     }

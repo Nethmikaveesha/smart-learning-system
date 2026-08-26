@@ -18,6 +18,20 @@ export const protect = async (req, res, next) => {
 
       req.user = await User.findById(decoded.id).select("-password");
 
+      // Deleted / missing user
+      if (!req.user) {
+        return res.status(401).json({
+          message: "Not authorized. User account was not found.",
+        });
+      }
+
+      // Inactive / disabled accounts cannot use protected APIs
+      if (!req.user.isActive) {
+        return res.status(403).json({
+          message: "This account is inactive. Please contact your school admin.",
+        });
+      }
+
       next();
     } else {
       return res.status(401).json({
@@ -33,9 +47,16 @@ export const protect = async (req, res, next) => {
 
 export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const userRole = req.user?.role;
+
+    // Super Admin inherits every route that allows normal Admin.
+    const allowed =
+      roles.includes(userRole) ||
+      (userRole === "superadmin" && roles.includes("admin"));
+
+    if (!allowed) {
       return res.status(403).json({
-        message: `Access denied. ${req.user.role} is not allowed.`,
+        message: `Access denied. ${userRole} is not allowed.`,
       });
     }
 

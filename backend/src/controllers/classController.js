@@ -1,8 +1,187 @@
 import Class from "../models/Class.js";
+import StudentProfile from "../models/StudentProfile.js";
+import User from "../models/User.js";
 import {
   inferGradeLevel,
   normalizeGradeLevel,
 } from "../utils/gradeLevel.js";
+import { getCommerceClassCatalog } from "../utils/commerceClasses.js";
+import { getTeacherScope } from "../utils/teacherScope.js";
+
+function isTruthyQuery(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+/**
+ * Keep only real students on Class.students for API responses:
+ * - exclude teacher/admin/parent roles
+ * - exclude users that have a teacherId (even if role was mis-set)
+ * - exclude StudentProfile codes that collide with a User.teacherId
+ * - never include the class assignedTeacher
+ * - attach StudentProfile.studentId when present
+ *
+ * Also soft-cleans non-student ids that were wrongly $addToSet'd.
+ */
+async function attachStudentIdsToClasses(classes = []) {
+  const userIds = [];
+  for (const classItem of classes) {
+    for (const student of classItem.students || []) {
+      const id = student?._id || student;
+      if (id) userIds.push(id);
+    }
+  }
+
+  const uniqueUserIds = [...new Set(userIds.map((id) => String(id)))];
+
+  const [profiles, listedUsers, teacherRows] = await Promise.all([
+    uniqueUserIds.length > 0
+      ? StudentProfile.find({ user: { $in: uniqueUserIds } }).select(
+          "user studentId"
+        )
+      : Promise.resolve([]),
+    uniqueUserIds.length > 0
+      ? User.find({ _id: { $in: uniqueUserIds } }).select(
+          "role teacherId fullName email"
+        )
+      : Promise.resolve([]),
+    User.find({
+      role: "teacher",
+      teacherId: { $exists: true, $nin: [null, ""] },
+    }).select("teacherId"),
+  ]);
+
+  const studentIdByUser = new Map(
+    profiles.map((profile) => [
+      String(profile.user),
+      String(profile.studentId || "").trim(),
+    ])
+  );
+
+  const userMetaById = new Map(
+    listedUsers.map((row) => [
+      String(row._id),
+      {
+        role: String(row.role || "").toLowerCase(),
+        teacherId: String(row.teacherId || "").trim(),
+        fullName: row.fullName || "",
+        email: row.email || "",
+      },
+    ])
+  );
+
+  const teacherCodeSet = new Set(
+    teacherRows
+      .map((row) => String(row.teacherId || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const cleanupJobs = [];
+
+  const result = classes.map((classItem) => {
+    const plain =
+      typeof classItem.toObject === "function"
+        ? classItem.toObject()
+        : { ...classItem };
+
+    const assignedTeacherId = String(
+      plain.assignedTeacher?._id || plain.assignedTeacher || ""
+    );
+
+    const validStudents = [];
+    const invalidIds = [];
+
+    for (const student of plain.students || []) {
+      if (!student || typeof student !== "object") {
+        if (student) invalidIds.push(student);
+        continue;
+      }
+
+      const userKey = String(student._id || "");
+      if (!userKey) {
+        invalidIds.push(student._id || student);
+        continue;
+      }
+
+      const meta = userMetaById.get(userKey) || {
+        role: String(student.role || "").toLowerCase(),
+        teacherId: String(student.teacherId || "").trim(),
+        fullName: student.fullName || "",
+        email: student.email || "",
+      };
+
+      const profileStudentId = studentIdByUser.get(userKey) || "";
+      const assignedTeacherMatch = userKey === assignedTeacherId;
+      const isNonStudentRole = [
+        "teacher",
+        "admin",
+        "superadmin",
+        "parent",
+      ].includes(meta.role);
+      const hasTeacherCode = Boolean(meta.teacherId);
+      const studentIdIsTeacherCode = teacherCodeSet.has(
+        profileStudentId.toLowerCase()
+      );
+
+      // Drop teachers/staff and any row whose ID collides with a teacher code.
+      if (
+        assignedTeacherMatch ||
+        isNonStudentRole ||
+        hasTeacherCode ||
+        studentIdIsTeacherCode
+      ) {
+        invalidIds.push(student._id);
+        continue;
+      }
+
+      validStudents.push({
+        _id: student._id,
+        fullName: meta.fullName || student.fullName,
+        email: meta.email || student.email,
+        role: "student",
+        studentId: profileStudentId,
+      });
+    }
+
+    plain.students = validStudents;
+
+    if (invalidIds.length > 0 && plain._id) {
+      cleanupJobs.push(
+        Class.updateOne(
+          { _id: plain._id },
+          { $pull: { students: { $in: invalidIds } } }
+        ).catch((cleanupError) => {
+          console.warn(
+            "Class.students cleanup skipped:",
+            cleanupError.message
+          );
+        })
+      );
+    }
+
+    return plain;
+  });
+
+  if (cleanupJobs.length > 0) {
+    await Promise.all(cleanupJobs);
+  }
+
+  return result;
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export const getClassCatalog = async (_req, res) => {
+  try {
+    res.status(200).json(getCommerceClassCatalog());
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 export const createClass = async (req, res) => {
   try {
@@ -22,10 +201,27 @@ export const createClass = async (req, res) => {
       });
     }
 
+    const normalizedName = String(className).trim();
+    const normalizedYear = String(academicYear).trim();
+
+    const duplicate = await Class.findOne({
+      className: { $regex: `^${escapeRegex(normalizedName)}$`, $options: "i" },
+      academicYear: normalizedYear,
+      stream: req.body.stream || "Commerce",
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        message: `Class "${normalizedName}" already exists for academic year ${normalizedYear}`,
+      });
+    }
+
     const newClass = await Class.create({
-      className: String(className).trim(),
-      academicYear: String(academicYear).trim(),
+      className: normalizedName,
+      academicYear: normalizedYear,
       gradeLevel: resolvedGradeLevel,
+      stream: req.body.stream || "Commerce",
+      medium: req.body.medium || "English",
       assignedTeacher: assignedTeacher || undefined,
     });
 
@@ -38,9 +234,82 @@ export const createClass = async (req, res) => {
   }
 };
 
+export const updateClass = async (req, res) => {
+  try {
+    const existing = await Class.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    const {
+      className,
+      academicYear,
+      assignedTeacher,
+      gradeLevel,
+      stream,
+      medium,
+    } = req.body;
+
+    const nextClassName =
+      className !== undefined ? String(className).trim() : existing.className;
+
+    const resolvedGradeLevel =
+      gradeLevel !== undefined || className !== undefined
+        ? normalizeGradeLevel(gradeLevel ?? existing.gradeLevel, nextClassName)
+        : existing.gradeLevel;
+
+    if (![12, 13].includes(resolvedGradeLevel)) {
+      return res.status(400).json({
+        message: "gradeLevel is required and must be 12 or 13",
+      });
+    }
+
+    existing.className = nextClassName;
+    if (academicYear !== undefined) {
+      existing.academicYear = String(academicYear).trim();
+    }
+    existing.gradeLevel = resolvedGradeLevel;
+    if (stream !== undefined) existing.stream = stream || "Commerce";
+    if (medium !== undefined) existing.medium = medium || "English";
+    if (assignedTeacher !== undefined) {
+      // Empty string / null = unassign ("Not assigned" in UI). Use null so
+      // Mongoose clears the ObjectId instead of leaving the previous value.
+      existing.assignedTeacher = assignedTeacher || null;
+    }
+
+    const duplicate = await Class.findOne({
+      _id: { $ne: existing._id },
+      className: {
+        $regex: `^${escapeRegex(existing.className)}$`,
+        $options: "i",
+      },
+      academicYear: existing.academicYear,
+      stream: existing.stream || "Commerce",
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        message: `Class "${existing.className}" already exists for academic year ${existing.academicYear}`,
+      });
+    }
+
+    await existing.save();
+
+    const populated = await Class.findById(existing._id)
+      .populate("assignedTeacher", "fullName email role teacherId")
+      .populate("students", "fullName email role");
+
+    res.status(200).json({
+      message: "Class updated successfully",
+      class: populated,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getAllClasses = async (req, res) => {
   try {
-    // Heal older class records that were created before gradeLevel existed.
     const classesWithoutGrade = await Class.find({
       $or: [{ gradeLevel: { $exists: false } }, { gradeLevel: null }],
     });
@@ -61,12 +330,42 @@ export const getAllClasses = async (req, res) => {
       }
     }
 
+    // Teachers: My Classes / Create Exam / Attendance use assignedOnly
+    // (admin primary class only). Other callers keep expanded teaching
+    // scope (twins / subject links).
+    if (req.user?.role === "teacher") {
+      if (isTruthyQuery(req.query.assignedOnly)) {
+        // Same path for old lead teachers and newly added teachers:
+        // User.assignedClass, Class.assignedTeacher, subject-link repair.
+        const scope = await getTeacherScope(req.user._id);
+        if (!scope.primaryAssignedClassIds.length) {
+          return res.status(200).json([]);
+        }
+        filter._id = { $in: scope.primaryAssignedClassIds };
+      } else {
+        const scope = await getTeacherScope(req.user._id);
+        if (!scope.classIds.length) {
+          return res.status(200).json([]);
+        }
+        filter._id = { $in: scope.classIds };
+      }
+    }
+
     const classes = await Class.find(filter)
-      .populate("assignedTeacher", "fullName email role")
+      .populate("assignedTeacher", "fullName email role teacherId")
       .populate("students", "fullName email role")
       .sort({ gradeLevel: 1, className: 1 });
 
-    res.status(200).json(classes);
+    try {
+      const classesWithStudentIds = await attachStudentIdsToClasses(classes);
+      return res.status(200).json(classesWithStudentIds);
+    } catch (enrichError) {
+      console.warn(
+        "attachStudentIdsToClasses failed:",
+        enrichError.message
+      );
+      return res.status(200).json(classes);
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

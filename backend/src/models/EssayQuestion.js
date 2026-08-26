@@ -22,8 +22,24 @@ const essayQuestionSchema = new mongoose.Schema(
 
     maxMarks: {
       type: Number,
-      default: 10,
+      default: 100,
+      min: 1,
+      max: 1000,
     },
+
+    // Teacher/admin who created the paper — used to scope "My Papers".
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    // Teachers this paper is shared with (view/copy only; not edit/delete).
+    sharedWith: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );

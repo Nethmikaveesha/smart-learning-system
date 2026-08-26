@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import AuthShell from "../components/AuthShell";
 
 const roleRoutes = {
+  superadmin: "/admin",
   admin: "/admin",
   teacher: "/teacher",
   student: "/student",
@@ -16,25 +17,25 @@ const REMEMBER_KEY = "edutrack_remember_email";
 const inputClass =
   "mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100";
 
+function getRememberedEmail() {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 function Login() {
-  const [email, setEmail] = useState("");
+  const remembered = getRememberedEmail();
+  const [email, setEmail] = useState(remembered);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberEmail, setRememberEmail] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(Boolean(remembered));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const { login } = useAuth();
-
-  useEffect(() => {
-    const saved = localStorage.getItem(REMEMBER_KEY);
-    if (saved) {
-      setEmail(saved);
-      setRememberEmail(true);
-    }
-  }, []);
-
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -48,10 +49,14 @@ function Login() {
       setError("");
 
       const normalizedEmail = email.trim().toLowerCase();
-      const res = await api.post("/auth/login", {
-        email: normalizedEmail,
-        password,
-      });
+      const res = await api.post(
+        "/auth/login",
+        {
+          email: normalizedEmail,
+          password,
+        },
+        { skipToast: true }
+      );
 
       if (rememberEmail) {
         localStorage.setItem(REMEMBER_KEY, normalizedEmail);
@@ -62,6 +67,13 @@ function Login() {
       login(res.data.user, res.data.token);
       navigate(roleRoutes[res.data.user.role] || "/");
     } catch (err) {
+      if (!err.response) {
+        setError(
+          "Cannot reach the server. Make sure the backend is running, then try again."
+        );
+        return;
+      }
+
       setError(
         err.response?.data?.message ||
           "The email or password you entered is incorrect."

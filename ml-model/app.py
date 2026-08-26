@@ -226,4 +226,8 @@ def predict_risk():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    import os
+
+    # debug=True only for local development; never enable in shared/deployed runs.
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.run(host="127.0.0.1", port=5000, debug=debug)

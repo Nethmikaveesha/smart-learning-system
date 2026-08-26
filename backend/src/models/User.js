@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["admin", "teacher", "student", "parent"],
+      enum: ["superadmin", "admin", "teacher", "student", "parent"],
       default: "student",
     },
 
@@ -43,6 +43,21 @@ const userSchema = new mongoose.Schema(
       trim: true,
       sparse: true,
       unique: true,
+    },
+
+    // Admin-assigned teaching links (source of truth for Add Teacher list).
+    // Subject.assignedTeacher / Class.assignedTeacher are singular and get
+    // overwritten when another teacher shares the same subject/class.
+    assignedSubject: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subject",
+      default: null,
+    },
+
+    assignedClass: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Class",
+      default: null,
     },
 
     parentId: {

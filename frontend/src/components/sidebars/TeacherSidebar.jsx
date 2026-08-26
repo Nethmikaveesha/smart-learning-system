@@ -1,15 +1,5 @@
 import SidebarSection from "./SidebarSection";
 
-export const teacherMobileLinks = [
-  { label: "Dashboard", to: "/teacher", end: true },
-  { label: "Classes", to: "/teacher/classes" },
-  { label: "Papers", to: "/teacher/papers" },
-  { label: "Create Exam", to: "/teacher/exams" },
-  { label: "Submissions", to: "/teacher/submissions" },
-  { label: "Analytics", to: "/teacher/topic-error-analysis" },
-  { label: "Reports", to: "/teacher/reports" },
-];
-
 function TeacherSidebar() {
   return (
     <nav className="space-y-2">
@@ -26,7 +16,6 @@ function TeacherSidebar() {
         items={[
           { label: "Create Paper", to: "/teacher/create-paper" },
           { label: "My Papers", to: "/teacher/papers" },
-          { label: "Question Bank", to: "/teacher/question-bank" },
           { label: "Marking Schemes", to: "/teacher/marking-schemes" },
         ]}
       />

@@ -29,7 +29,11 @@ function StudentPerformanceTracker() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const rows = Array.isArray(res.data?.results) ? res.data.results : [];
+        const rows = Array.isArray(res.data?.performanceResults)
+          ? res.data.performanceResults
+          : Array.isArray(res.data?.results)
+            ? res.data.results
+            : [];
         // Oldest → newest for time-series
         const ordered = [...rows].sort((left, right) => {
           const leftDate = new Date(
@@ -62,14 +66,19 @@ function StudentPerformanceTracker() {
           result.exam?.examName ||
           result.examName ||
           `Exam ${index + 1}`;
+        const rawZ = result.zScore;
+        const hasZScore =
+          rawZ !== null && rawZ !== undefined && rawZ !== "" && !Number.isNaN(Number(rawZ));
+        const zNumber = hasZScore ? Number(rawZ) : null;
         return {
           name:
             examName.length > 16 ? `${examName.slice(0, 14)}…` : examName,
           examName,
           marks: Number(result.marks ?? 0),
-          zScore: Number(result.zScore ?? 0),
+          zScore: zNumber,
+          zScoreLabel: hasZScore ? zNumber.toFixed(2) : "--",
           grade: result.grade || "--",
-          rank: result.rank ?? "--",
+          rank: result.rank > 0 ? result.rank : "--",
           subject:
             result.exam?.subject?.subjectName ||
             result.subject ||
@@ -90,6 +99,7 @@ function StudentPerformanceTracker() {
       : null;
 
   const latest = chartData[chartData.length - 1];
+  const latestZScoreLabel = latest?.zScoreLabel ?? "--";
 
   return (
     <div className="p-6">
@@ -122,7 +132,7 @@ function StudentPerformanceTracker() {
             />
             <MetricCard
               label="Latest Z-Score"
-              value={latest ? latest.zScore : "--"}
+              value={latestZScoreLabel}
             />
           </section>
 
@@ -133,6 +143,8 @@ function StudentPerformanceTracker() {
               </h2>
               <p className="mt-1 text-sm text-slate-600">
                 Blue line = marks (0–100). Green line = Z-score (right axis).
+                Z-score compares you with classmates on the same subject exam
+                group (including nearby/twin exam records).
               </p>
             </div>
 
@@ -224,7 +236,7 @@ function StudentPerformanceTracker() {
                         <td className="p-3">{row.grade}</td>
                         <td className="p-3">{row.rank}</td>
                         <td className="p-3 font-semibold text-emerald-700">
-                          {row.zScore}
+                          {row.zScoreLabel}
                         </td>
                       </tr>
                     ))}

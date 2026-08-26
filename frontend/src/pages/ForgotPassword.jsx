@@ -25,9 +25,13 @@ function ForgotPassword() {
       setError("");
       setResult(null);
 
-      const res = await api.post("/auth/forgot-password", {
-        email: email.trim().toLowerCase(),
-      });
+      const res = await api.post(
+        "/auth/forgot-password",
+        {
+          email: email.trim().toLowerCase(),
+        },
+        { skipToast: true }
+      );
 
       setResult(res.data);
     } catch (err) {

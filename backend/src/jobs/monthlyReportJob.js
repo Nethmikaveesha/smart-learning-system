@@ -6,7 +6,7 @@ import PDFDocument from "pdfkit";
 import StudentProfile from "../models/StudentProfile.js";
 import Result from "../models/Result.js";
 
-const reportsDirectory = path.join(
+export const reportsDirectory = path.join(
   process.cwd(),
   "generated-reports"
 );

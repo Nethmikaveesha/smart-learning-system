@@ -59,6 +59,11 @@ export const getAdaptiveLearningPlan = async (req, res) => {
 
         const flashcards = await Flashcard.find({
           subject: subject?._id,
+          $or: [
+            { createdBy: req.user._id },
+            { createdBy: { $exists: false } },
+            { createdBy: null },
+          ],
         }).limit(8);
 
         recommendations.push({

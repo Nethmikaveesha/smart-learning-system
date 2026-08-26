@@ -1,8 +1,52 @@
+import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Subject from "../models/Subject.js";
-import Class from "../models/Class.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
-import { resolveClass, resolveOrCreateClass, resolveSubject } from "../utils/resolveReference.js";
+import {
+  normalizeAssignmentReference,
+  resolveOrCreateClass,
+  resolveSubject,
+} from "../utils/resolveReference.js";
+import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
+import {
+  getAdminManagementError,
+  isElevatedTargetRole,
+  isSuperAdmin,
+} from "../utils/adminRoles.js";
+import {
+  buildTeachersWithAssignments,
+  syncTeacherClassSubjectAssignment,
+} from "../utils/teacherAssignments.js";
+
+async function assertCanManageUserAccount(actor, target) {
+  const managementError = getAdminManagementError(actor, target);
+  if (managementError) {
+    return { ok: false, status: 403, message: managementError };
+  }
+
+  return { ok: true };
+}
+
+async function assertNotLastSuperAdmin(target, nextRole, nextActive) {
+  if (target.role !== "superadmin") return null;
+
+  const demoting = nextRole !== undefined && nextRole !== "superadmin";
+  const disabling =
+    nextActive !== undefined && nextActive === false && target.isActive;
+
+  if (!demoting && !disabling) return null;
+
+  const activeSuperAdmins = await User.countDocuments({
+    role: "superadmin",
+    isActive: true,
+  });
+
+  if (activeSuperAdmins <= 1) {
+    return "Cannot demote or disable the last Super Admin account";
+  }
+
+  return null;
+}
 
 // Get all users
 export const getAllUsers = async (req, res) => {
@@ -19,32 +63,10 @@ export const getAllUsers = async (req, res) => {
 
 export const getTeachersWithAssignments = async (req, res) => {
   try {
-    const teachers = await User.find({ role: "teacher" }).select("-password");
-    const subjects = await Subject.find().select(
-      "subjectCode subjectName assignedTeacher"
-    );
-    const classes = await Class.find().select("className assignedTeacher");
-
-    const teachersWithAssignments = teachers.map((teacher) => {
-      const teacherId = teacher._id.toString();
-      const assignedSubjects = subjects.filter(
-        (subject) => subject.assignedTeacher?.toString() === teacherId
-      );
-      const assignedClasses = classes.filter(
-        (classRecord) => classRecord.assignedTeacher?.toString() === teacherId
-      );
-
-      return {
-        ...teacher.toObject(),
-        assignedSubjectCode:
-          assignedSubjects.map((subject) => subject.subjectCode).join(", ") ||
-          "N/A",
-        assignedClassName:
-          assignedClasses.map((classRecord) => classRecord.className).join(", ") ||
-          "N/A",
-      };
-    });
-
+    // Class.assignedTeacher is singular — commerce co-teachers share a class.
+    // Also show classes linked on Subject.classes for that teacher's subject
+    // (set when Admin assigns class at create/edit). Do not infer from students.
+    const teachersWithAssignments = await buildTeachersWithAssignments();
     res.status(200).json(teachersWithAssignments);
   } catch (error) {
     res.status(500).json({
@@ -74,6 +96,18 @@ export const getUserById = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const access = await assertCanManageUserAccount(req.user, target);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
     const allowedUpdates = [
       "fullName",
       "email",
@@ -97,6 +131,44 @@ export const updateUser = async (req, res) => {
       updates.isActive = req.body.status === "Active";
     }
 
+    if (updates.role !== undefined) {
+      if (updates.role === "superadmin" && !isSuperAdmin(req.user)) {
+        return res.status(403).json({
+          message: "Only a Super Admin can assign the Super Admin role",
+        });
+      }
+
+      if (isElevatedTargetRole(updates.role) && !isSuperAdmin(req.user)) {
+        return res.status(403).json({
+          message: "Only a Super Admin can assign administrator roles",
+        });
+      }
+    }
+
+    const lastSuperError = await assertNotLastSuperAdmin(
+      target,
+      updates.role,
+      updates.isActive
+    );
+    if (lastSuperError) {
+      return res.status(400).json({ message: lastSuperError });
+    }
+
+    const passwordError = validateOptionalPasswordChange({
+      password: req.body.password,
+      confirmPassword: req.body.confirmPassword,
+    });
+
+    if (passwordError) {
+      return res.status(400).json({
+        message: passwordError,
+      });
+    }
+
+    if (req.body.password) {
+      updates.password = await bcrypt.hash(req.body.password, 10);
+    }
+
     const user = await User.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true,
@@ -109,34 +181,52 @@ export const updateUser = async (req, res) => {
     }
 
     if (user.role === "teacher") {
-      if (req.body.assignedSubject !== undefined) {
-        await Subject.updateMany(
-          { assignedTeacher: user._id },
-          { $unset: { assignedTeacher: "" } }
-        );
+      const subjectRef =
+        req.body.assignedSubject !== undefined
+          ? normalizeAssignmentReference(req.body.assignedSubject)
+          : null;
+      const classRef =
+        req.body.assignedClass !== undefined
+          ? normalizeAssignmentReference(req.body.assignedClass)
+          : null;
 
-        if (req.body.assignedSubject) {
-          const subject = await resolveSubject(req.body.assignedSubject);
-          if (subject) {
-            await Subject.findByIdAndUpdate(subject._id, {
-              assignedTeacher: user._id,
-            });
-          }
+      let subjectId = null;
+      let classId = null;
+
+      if (subjectRef) {
+        const subject = await resolveSubject(subjectRef);
+        if (subject) {
+          subjectId = subject._id;
+        }
+      } else {
+        // Keep existing user link when form leaves subject blank / N/A.
+        const current = await User.findById(user._id).select("assignedSubject");
+        subjectId = current?.assignedSubject || null;
+        if (!subjectId) {
+          const legacy = await Subject.findOne({
+            assignedTeacher: user._id,
+          }).select("_id");
+          subjectId = legacy?._id || null;
         }
       }
 
-      if (req.body.assignedClass !== undefined) {
-        await Class.updateMany(
-          { assignedTeacher: user._id },
-          { $unset: { assignedTeacher: "" } }
-        );
-
-        if (req.body.assignedClass) {
-          const classRecord = await resolveOrCreateClass(req.body.assignedClass);
-          await Class.findByIdAndUpdate(classRecord._id, {
-            assignedTeacher: user._id,
-          });
+      if (classRef) {
+        const classRecord = await resolveOrCreateClass(classRef);
+        if (classRecord) {
+          classId = classRecord._id;
         }
+      } else {
+        const current = await User.findById(user._id).select("assignedClass");
+        classId = current?.assignedClass || null;
+      }
+
+      // Persist admin picks on the user + non-stealing Subject/Class links.
+      if (subjectRef || classRef) {
+        await syncTeacherClassSubjectAssignment({
+          teacherId: user._id,
+          classId,
+          subjectId,
+        });
       }
     }
 
@@ -144,11 +234,15 @@ export const updateUser = async (req, res) => {
       userId: req.user?._id,
       action: "UPDATE",
       module: "User Management",
-      description: `Updated user: ${user.fullName}`,
+      description: req.body.password
+        ? `Updated user and password: ${user.fullName}`
+        : `Updated user: ${user.fullName}`,
     });
 
     res.status(200).json({
-      message: "User updated successfully",
+      message: req.body.password
+        ? "User and password updated successfully"
+        : "User updated successfully",
       user,
     });
   } catch (error) {
@@ -166,17 +260,32 @@ export const disableUser = async (req, res) => {
       });
     }
 
+    const target = await User.findById(req.params.id);
+    if (!target) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const access = await assertCanManageUserAccount(req.user, target);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const lastSuperError = await assertNotLastSuperAdmin(
+      target,
+      undefined,
+      false
+    );
+    if (lastSuperError) {
+      return res.status(400).json({ message: lastSuperError });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { isActive: false },
       { new: true }
     ).select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
-    }
 
     await createAuditLog({
       userId: req.user?._id,
@@ -205,6 +314,23 @@ export const deleteUser = async (req, res) => {
       return res.status(404).json({
         message: "User not found",
       });
+    }
+
+    const access = await assertCanManageUserAccount(req.user, user);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    if (user.role === "superadmin") {
+      const activeSuperAdmins = await User.countDocuments({
+        role: "superadmin",
+        isActive: true,
+      });
+      if (activeSuperAdmins <= 1) {
+        return res.status(400).json({
+          message: "Cannot delete the last Super Admin account",
+        });
+      }
     }
 
     const deletedUserName = user.fullName;

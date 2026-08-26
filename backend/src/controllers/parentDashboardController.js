@@ -1,12 +1,12 @@
 import StudentProfile from "../models/StudentProfile.js";
-import Result from "../models/Result.js";
 import Attendance from "../models/Attendance.js";
+import CommerceRisk from "../models/CommerceRisk.js";
 import {
   calculateOverallAverage,
-  dedupeResults,
   getSubjectName,
-  sortResultsByLatest,
 } from "../utils/studentResults.js";
+import { linkedStudentsQuery } from "../utils/parentLinks.js";
+import { buildStudentAcademicSnapshot } from "../utils/studentAcademicSnapshot.js";
 
 async function getAttendanceSummary(studentId, attendancePercentage) {
   const records = await Attendance.find({ student: studentId });
@@ -25,7 +25,7 @@ async function getAttendanceSummary(studentId, attendancePercentage) {
   };
 }
 
-function buildAlerts({ results, attendancePercentage, riskStatus }) {
+function buildAlerts({ results, attendancePercentage, riskStatus, commerceRiskAssessed }) {
   const alerts = [];
 
   const weakSubjects = results.filter((result) => Number(result.marks) < 50);
@@ -46,7 +46,10 @@ function buildAlerts({ results, attendancePercentage, riskStatus }) {
     alerts.push("New term test results have been published.");
   }
 
-  if (riskStatus === "High" || riskStatus === "Medium") {
+  if (
+    commerceRiskAssessed &&
+    (riskStatus === "High" || riskStatus === "Medium")
+  ) {
     alerts.push(`Risk status is currently ${riskStatus}.`);
   }
 
@@ -74,7 +77,7 @@ function buildRecommendedAction(results) {
 }
 
 async function getLinkedStudents(parentId) {
-  return StudentProfile.find({ parent: parentId })
+  return StudentProfile.find(linkedStudentsQuery(parentId))
     .populate("user", "fullName email")
     .populate("class", "className")
     .populate("subjects", "subjectName subjectCode")
@@ -82,7 +85,7 @@ async function getLinkedStudents(parentId) {
 }
 
 async function resolveStudentProfile(parentId, studentId) {
-  const query = { parent: parentId };
+  const query = linkedStudentsQuery(parentId);
 
   if (studentId) {
     query.studentId = studentId;
@@ -117,22 +120,34 @@ export const getParentDashboard = async (req, res) => {
       });
     }
 
-    const rawResults = await Result.find({
-      student: studentProfile._id,
-    }).populate({
-      path: "exam",
-      select: "examName examDate",
-      populate: {
-        path: "subject",
-        select: "subjectName",
-      },
-    });
-
-    const results = sortResultsByLatest(dedupeResults(rawResults));
+    const academic = await buildStudentAcademicSnapshot(studentProfile);
+    const results = academic.results;
 
     const attendanceRecords = await Attendance.find({
       student: studentProfile._id,
-    }).sort({ date: -1 });
+    })
+      .populate({
+        path: "student",
+        select: "studentId",
+        populate: {
+          path: "user",
+          select: "fullName",
+        },
+      })
+      .populate("class", "className")
+      .sort({ date: -1 });
+
+    // Parent-facing rows: never expose MongoDB ObjectIds in the UI.
+    const attendanceRows = attendanceRecords.map((record) => ({
+      date: record.date,
+      status: record.status,
+      student:
+        record.student?.user?.fullName ||
+        studentProfile.user?.fullName ||
+        "Student",
+      studentCode: record.student?.studentId || studentProfile.studentId || "",
+      className: record.class?.className || studentProfile.class?.className || "",
+    }));
 
     const monthlyMap = {};
 
@@ -173,27 +188,32 @@ export const getParentDashboard = async (req, res) => {
         };
       });
 
-    const subjectPerformance = studentProfile.subjects
-      .map((subject) => {
-        const subjectResult = results.find(
-          (result) =>
-            result.exam?.subject?._id?.toString() === subject._id.toString() ||
-            result.exam?.subject?.toString() === subject._id.toString()
-        );
-
-        return {
-          subject: subject.subjectName,
-          marks: subjectResult ? subjectResult.marks : null,
-        };
-      })
-      .filter((item) => item.marks !== null);
-
     const attendanceSummary = await getAttendanceSummary(
       studentProfile._id,
       studentProfile.attendancePercentage
     );
 
     const overallAverage = calculateOverallAverage(results);
+
+    // Profile riskStatus defaults to "Low" — only CommerceRisk counts as assessed.
+    const latestCommerceRisk = await CommerceRisk.findOne({
+      studentProfile: studentProfile._id,
+    })
+      .sort({ createdAt: -1 })
+      .select("riskLevel createdAt")
+      .lean();
+
+    const latestCommerceRiskLevel = latestCommerceRisk?.riskLevel
+      ? String(latestCommerceRisk.riskLevel)
+      : null;
+    const commerceRiskAssessed = Boolean(latestCommerceRiskLevel);
+    const shortRisk = latestCommerceRiskLevel
+      ? latestCommerceRiskLevel.replace(/ Risk$/i, "")
+      : null;
+    const riskStatus =
+      commerceRiskAssessed && ["High", "Medium", "Low"].includes(shortRisk)
+        ? shortRisk
+        : null;
 
     res.status(200).json({
       linkedChildren: linkedChildren.map((child) => ({
@@ -203,19 +223,24 @@ export const getParentDashboard = async (req, res) => {
       })),
       selectedStudentId: studentProfile.studentId,
       student: studentProfile,
-      latestResult: results[0] || null,
+      latestResult: academic.latestResult,
       results,
+      performanceResults: academic.performanceResults,
       monthlyPerformance,
-      subjectPerformance,
+      subjectPerformance: academic.subjectPerformance,
       overallAverage,
       attendancePercentage: studentProfile.attendancePercentage,
-      riskStatus: studentProfile.riskStatus,
-      attendanceRecords,
+      currentZScore: academic.currentZScore,
+      riskStatus,
+      commerceRiskAssessed,
+      latestCommerceRiskLevel,
+      attendanceRecords: attendanceRows,
       attendanceSummary,
       alerts: buildAlerts({
         results,
         attendancePercentage: studentProfile.attendancePercentage,
-        riskStatus: studentProfile.riskStatus,
+        riskStatus,
+        commerceRiskAssessed,
       }),
       recommendedAction: buildRecommendedAction(results),
     });

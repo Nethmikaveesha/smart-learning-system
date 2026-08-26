@@ -1,6 +1,7 @@
 import EssayQuestion from "../models/EssayQuestion.js";
 import MarkingScheme from "../models/MarkingScheme.js";
 import EssaySubmission from "../models/EssaySubmission.js";
+import User from "../models/User.js";
 import {
   evaluateEssayWithGemini,
   analyzeEssayTopicsWithGemini,
@@ -11,12 +12,33 @@ import {
   applyTeacherPartMarks,
   buildMarkBreakdown,
 } from "../utils/essayMarkBreakdown.js";
+import StudentProfile from "../models/StudentProfile.js";
+import {
+  canManagePaper,
+  getOwnedOrSharedPapersFilter,
+  getOwnedPapersFilter,
+  getSharedPapersFilter,
+  getTeacherPaperFilter,
+  getTeacherSubmissionMongoFilter,
+  isAdminRole,
+  isPaperCreator,
+} from "../utils/essayPaperAccess.js";
+import { sortEssayPapersAscending } from "../utils/essayPaperOrder.js";
+import { resolveTeacherSubjectIds } from "../utils/teacherScope.js";
+
+function resolvePaperMaxMarks(rawMaxMarks) {
+  const numeric = Number(rawMaxMarks);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 100;
+  return Math.min(1000, Math.round(numeric));
+}
 
 const withTimeout = (promise, ms, fallback) =>
   Promise.race([
     promise,
     new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
   ]);
+
+export { getTeacherPaperFilter };
 
 export const createEssayQuestion = async (req, res) => {
   try {
@@ -35,11 +57,26 @@ export const createEssayQuestion = async (req, res) => {
       });
     }
 
+    if (req.user?.role === "teacher") {
+      const ownedSubjectIds = await resolveTeacherSubjectIds(req.user._id);
+      const ownsSubject = ownedSubjectIds
+        .map((id) => String(id))
+        .includes(String(subject));
+
+      if (!ownsSubject) {
+        return res.status(403).json({
+          message:
+            "You can only create papers for the subject assigned to you",
+        });
+      }
+    }
+
     const essayQuestion = await EssayQuestion.create({
       subject,
-      question,
-      maxMarks,
+      question: String(question).trim(),
+      maxMarks: resolvePaperMaxMarks(maxMarks),
       gradeLevel: resolvedGradeLevel,
+      createdBy: req.user?._id,
     });
 
     await createAuditLog({
@@ -61,6 +98,33 @@ export const createEssayQuestion = async (req, res) => {
 export const createMarkingScheme = async (req, res) => {
   try {
     const { question, keywords, modelAnswer } = req.body;
+
+    if (!question || !modelAnswer?.trim()) {
+      return res.status(400).json({
+        message: "question and modelAnswer are required",
+      });
+    }
+
+    if (!Array.isArray(keywords) || keywords.length === 0) {
+      return res.status(400).json({
+        message: "keywords must be a non-empty array",
+      });
+    }
+
+    if (req.user?.role === "teacher") {
+      // Shared papers are view/copy only — schemes are created on owned copies.
+      const paperFilter = await getOwnedPapersFilter(req.user._id);
+      const owned = await EssayQuestion.findOne({
+        _id: question,
+        ...paperFilter,
+      }).select("_id");
+
+      if (!owned) {
+        return res.status(403).json({
+          message: "You can only create marking schemes for your own papers",
+        });
+      }
+    }
 
     const markingScheme = await MarkingScheme.create({
       question,
@@ -84,15 +148,56 @@ export const createMarkingScheme = async (req, res) => {
   }
 };
 
-export const submitEssay = async (req, res) => {
+export const getMarkingSchemes = async (req, res) => {
   try {
-    const { studentId, questionId, answer } = req.body;
+    let schemes = await MarkingScheme.find()
+      .populate("question", "question maxMarks subject gradeLevel createdBy")
+      .sort({ createdAt: -1 });
 
-    if (!studentId || !questionId || !answer?.trim()) {
-      return res.status(400).json({
-        message: "studentId, questionId, and answer are required",
+    if (req.user?.role === "teacher") {
+      // View schemes for owned papers and papers explicitly shared with them.
+      const paperFilter = await getOwnedOrSharedPapersFilter(req.user._id);
+      const myQuestionIds = new Set(
+        (
+          await EssayQuestion.find(paperFilter).select("_id")
+        ).map((item) => item._id.toString())
+      );
+
+      schemes = schemes.filter((scheme) => {
+        const questionId =
+          scheme.question?._id?.toString() || scheme.question?.toString();
+        return questionId && myQuestionIds.has(questionId);
       });
     }
+
+    res.status(200).json(schemes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const submitEssay = async (req, res) => {
+  try {
+    const { questionId, answer } = req.body;
+
+    if (!questionId || !answer?.trim()) {
+      return res.status(400).json({
+        message: "questionId and answer are required",
+      });
+    }
+
+    // Always bind submission to the logged-in student's own profile (no IDOR).
+    const studentProfile = await StudentProfile.findOne({
+      user: req.user._id,
+    }).select("_id");
+
+    if (!studentProfile) {
+      return res.status(404).json({
+        message: "Student profile not found for the logged-in user",
+      });
+    }
+
+    const studentId = studentProfile._id;
 
     const essayQuestion = await EssayQuestion.findById(questionId);
 
@@ -247,13 +352,29 @@ export const approveEssaySubmission = async (req, res) => {
 
     const submission = await EssaySubmission.findById(submissionId).populate(
       "question",
-      "maxMarks question"
+      "maxMarks question createdBy subject"
     );
 
     if (!submission) {
       return res.status(404).json({
         message: "Essay submission not found",
       });
+    }
+
+    if (req.user?.role === "teacher") {
+      // Paper share alone is not enough — class/subject duty or paper ownership.
+      const reviewFilter = await getTeacherSubmissionMongoFilter(req.user._id);
+      const allowed = await EssaySubmission.findOne({
+        _id: submissionId,
+        ...reviewFilter,
+      }).select("_id");
+
+      if (!allowed) {
+        return res.status(403).json({
+          message:
+            "You can only review submissions for your papers or your assigned class and subject",
+        });
+      }
     }
 
     let nextBreakdown = submission.markBreakdown;
@@ -271,10 +392,23 @@ export const approveEssaySubmission = async (req, res) => {
         ? Number(finalMarks)
         : submission.marks;
 
-    submission.finalMarks = resolvedFinalMarks;
+    const maxMarks = Number(submission.question?.maxMarks) || 0;
+    if (Number.isNaN(Number(resolvedFinalMarks))) {
+      return res.status(400).json({
+        message: "finalMarks must be a valid number",
+      });
+    }
+
+    // Never allow scores above the paper maximum (or below zero).
+    const clampedFinalMarks = Math.min(
+      maxMarks,
+      Math.max(0, Number(resolvedFinalMarks))
+    );
+
+    submission.finalMarks = clampedFinalMarks;
     submission.teacherFeedback = teacherFeedback || submission.teacherFeedback;
     submission.status =
-      Number(resolvedFinalMarks) === Number(submission.marks)
+      Number(clampedFinalMarks) === Number(submission.marks)
         ? "Approved"
         : "Modified";
 
@@ -300,7 +434,12 @@ export const approveEssaySubmission = async (req, res) => {
 
 export const getAllEssaySubmissions = async (req, res) => {
   try {
-    const submissions = await EssaySubmission.find()
+    const filter =
+      req.user?.role === "teacher"
+        ? await getTeacherSubmissionMongoFilter(req.user._id)
+        : {};
+
+    const submissions = await EssaySubmission.find(filter)
       .populate({
         path: "student",
         populate: {
@@ -308,7 +447,7 @@ export const getAllEssaySubmissions = async (req, res) => {
           select: "fullName email",
         },
       })
-      .populate("question", "question maxMarks gradeLevel")
+      .populate("question", "question maxMarks gradeLevel createdBy subject")
       .sort({ createdAt: -1 });
 
     res.status(200).json(submissions);
@@ -322,6 +461,12 @@ export const getAllEssaySubmissions = async (req, res) => {
 export const getEssayQuestions = async (req, res) => {
   try {
     const filter = {};
+    const rawScope = String(req.query.scope || "").toLowerCase();
+    // Teachers default to "mine". Admins default to department-wide papers
+    // so oversight pages like Question Paper Details are not empty.
+    const scope =
+      rawScope ||
+      (isAdminRole(req.user?.role) ? "department" : "mine");
 
     if (req.query.gradeLevel) {
       const grade = Number(req.query.gradeLevel);
@@ -330,15 +475,281 @@ export const getEssayQuestions = async (req, res) => {
       }
     }
 
+    // Students still receive the full list for learning workflows.
+    // Teachers default to My Papers only; Shared / Department are explicit scopes.
+    if (req.user?.role === "teacher") {
+      if (scope === "shared") {
+        Object.assign(filter, getSharedPapersFilter(req.user._id));
+      } else if (scope === "department") {
+        // Department browse is admin-only; teachers cannot list all colleagues' papers.
+        return res.status(403).json({
+          message: "Department papers are available to administrators only",
+        });
+      } else {
+        // Default + unknown scopes → mine
+        Object.assign(filter, await getOwnedPapersFilter(req.user._id));
+      }
+    } else if (isAdminRole(req.user?.role) && scope === "shared") {
+      Object.assign(filter, { sharedWith: { $exists: true, $ne: [] } });
+    } else if (isAdminRole(req.user?.role) && scope === "mine") {
+      Object.assign(filter, { createdBy: req.user._id });
+    }
+    // Admin department (default): no creator filter — all school papers.
+
     const questions = await EssayQuestion.find(filter)
       .populate("subject", "subjectName subjectCode")
-      .sort({ gradeLevel: 1, createdAt: -1 });
+      .populate("createdBy", "fullName email teacherId")
+      .populate("sharedWith", "fullName email teacherId")
+      .sort({ createdAt: 1 });
 
-    res.status(200).json(questions);
+    const enriched = sortEssayPapersAscending(
+      questions.map((question) => {
+        const plain = question.toObject();
+        plain.canManage = canManagePaper(plain, req.user);
+        plain.isOwner = isPaperCreator(plain, req.user?._id);
+        return plain;
+      })
+    );
+
+    res.status(200).json(enriched);
   } catch (error) {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+export const shareEssayQuestion = async (req, res) => {
+  try {
+    const paper = await EssayQuestion.findById(req.params.id);
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    if (!canManagePaper(paper, req.user)) {
+      return res.status(403).json({
+        message: "Only the paper creator or an admin can share this paper",
+      });
+    }
+
+    const teacherIds = Array.isArray(req.body.teacherIds)
+      ? req.body.teacherIds.map(String)
+      : [];
+
+    if (!teacherIds.length) {
+      return res.status(400).json({
+        message: "teacherIds must be a non-empty array",
+      });
+    }
+
+    const teachers = await User.find({
+      _id: { $in: teacherIds },
+      role: "teacher",
+    }).select("_id");
+
+    if (!teachers.length) {
+      return res.status(400).json({
+        message: "No valid teacher accounts found to share with",
+      });
+    }
+
+    const creatorId = String(paper.createdBy || "");
+    const nextShared = new Set(
+      (paper.sharedWith || []).map((id) => String(id))
+    );
+
+    teachers.forEach((teacher) => {
+      const id = String(teacher._id);
+      if (id !== creatorId) nextShared.add(id);
+    });
+
+    paper.sharedWith = [...nextShared];
+    await paper.save();
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Essay Question",
+      description: `Paper shared with ${teachers.length} teacher(s)`,
+    });
+
+    const populated = await EssayQuestion.findById(paper._id)
+      .populate("subject", "subjectName subjectCode")
+      .populate("createdBy", "fullName email teacherId")
+      .populate("sharedWith", "fullName email teacherId");
+
+    res.status(200).json({
+      message: "Paper shared successfully",
+      essayQuestion: populated,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const copyEssayQuestion = async (req, res) => {
+  try {
+    const source = await EssayQuestion.findById(req.params.id);
+    if (!source) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    const isOwner = isPaperCreator(source, req.user?._id);
+    const isShared = (source.sharedWith || []).some(
+      (id) => String(id) === String(req.user?._id)
+    );
+
+    if (
+      req.user?.role === "teacher" &&
+      !isOwner &&
+      !isShared &&
+      !isAdminRole(req.user?.role)
+    ) {
+      // Allow copy only for owned or shared papers.
+      const owned = await EssayQuestion.findOne({
+        _id: source._id,
+        ...(await getOwnedPapersFilter(req.user._id)),
+      }).select("_id");
+
+      if (!owned) {
+        return res.status(403).json({
+          message: "You can only copy papers you own or that were shared with you",
+        });
+      }
+    }
+
+    const copy = await EssayQuestion.create({
+      subject: source.subject,
+      question: source.question,
+      maxMarks: source.maxMarks,
+      gradeLevel: source.gradeLevel,
+      createdBy: req.user?._id,
+      sharedWith: [],
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "CREATE",
+      module: "Essay Question",
+      description: `Copied essay paper from ${source._id}`,
+    });
+
+    const populated = await EssayQuestion.findById(copy._id)
+      .populate("subject", "subjectName subjectCode")
+      .populate("createdBy", "fullName email teacherId");
+
+    res.status(201).json({
+      message: "Paper copied to My Papers",
+      essayQuestion: populated,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateEssayQuestion = async (req, res) => {
+  try {
+    const paper = await EssayQuestion.findById(req.params.id);
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    if (!canManagePaper(paper, req.user)) {
+      return res.status(403).json({
+        message: "Only the paper creator or an admin can edit this paper",
+      });
+    }
+
+    const { subject, question, maxMarks, gradeLevel } = req.body;
+
+    if (gradeLevel !== undefined) {
+      const resolvedGradeLevel = Number(gradeLevel);
+      if (![12, 13].includes(resolvedGradeLevel)) {
+        return res.status(400).json({
+          message: "gradeLevel must be 12 or 13",
+        });
+      }
+      paper.gradeLevel = resolvedGradeLevel;
+    }
+
+    if (subject !== undefined) paper.subject = subject;
+    if (question !== undefined) {
+      if (!String(question).trim()) {
+        return res.status(400).json({ message: "question cannot be empty" });
+      }
+      paper.question = String(question).trim();
+    }
+    if (maxMarks !== undefined) {
+      paper.maxMarks = resolvePaperMaxMarks(maxMarks);
+    }
+
+    await paper.save();
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Essay Question",
+      description: `Essay paper updated: ${paper._id}`,
+    });
+
+    const populated = await EssayQuestion.findById(paper._id)
+      .populate("subject", "subjectName subjectCode")
+      .populate("createdBy", "fullName email teacherId")
+      .populate("sharedWith", "fullName email teacherId");
+
+    res.status(200).json({
+      message: "Paper updated successfully",
+      essayQuestion: populated,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteEssayQuestion = async (req, res) => {
+  try {
+    const paper = await EssayQuestion.findById(req.params.id);
+    if (!paper) {
+      return res.status(404).json({ message: "Paper not found" });
+    }
+
+    if (!canManagePaper(paper, req.user)) {
+      return res.status(403).json({
+        message: "Only the paper creator or an admin can delete this paper",
+      });
+    }
+
+    await MarkingScheme.deleteMany({ question: paper._id });
+    await EssayQuestion.deleteOne({ _id: paper._id });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "DELETE",
+      module: "Essay Question",
+      description: `Essay paper deleted: ${paper._id}`,
+    });
+
+    res.status(200).json({
+      message: "Paper deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getShareCandidates = async (req, res) => {
+  try {
+    const teachers = await User.find({
+      role: "teacher",
+      _id: { $ne: req.user._id },
+      isActive: { $ne: false },
+    })
+      .select("fullName email teacherId")
+      .sort({ fullName: 1 });
+
+    res.status(200).json(teachers);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 

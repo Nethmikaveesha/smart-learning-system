@@ -1,5 +1,9 @@
 import express from "express";
-import { createBackup, listBackups } from "../controllers/backupController.js";
+import {
+  createBackup,
+  listBackups,
+  restoreBackup,
+} from "../controllers/backupController.js";
 import {
   protect,
   authorizeRoles,
@@ -9,5 +13,6 @@ const router = express.Router();
 
 router.get("/", protect, authorizeRoles("admin"), listBackups);
 router.post("/", protect, authorizeRoles("admin"), createBackup);
+router.post("/restore", protect, authorizeRoles("admin"), restoreBackup);
 
 export default router;

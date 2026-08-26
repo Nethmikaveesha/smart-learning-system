@@ -14,6 +14,14 @@ import {
 import { createAuditLog } from "../utils/createAuditLog.js";
 import { validateRegistrationInput } from "../utils/registrationValidation.js";
 import { isEmailConfigured, sendEmail } from "../utils/sendEmail.js";
+import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
+import { resolveRegistrationIds } from "../utils/generateRoleIds.js";
+import {
+  isValidParentRelationship,
+  PARENT_RELATIONSHIPS,
+} from "../utils/parentLinks.js";
+import { verifyPassword } from "../utils/passwordUtils.js";
+import { syncTeacherClassSubjectAssignment } from "../utils/teacherAssignments.js";
 
 const RESET_TOKEN_HOURS = 1;
 
@@ -87,6 +95,13 @@ export const registerAdmin = async (req, res) => {
 };
 
 export const registerUser = async (req, res) => {
+  let createdUserId = null;
+  let createdProfileId = null;
+  let assignedSubjectId = null;
+  let assignedClassTeacherId = null;
+  let linkedParentStudentId = null;
+  let previousParentId = null;
+
   try {
     const {
       fullName,
@@ -108,7 +123,7 @@ export const registerUser = async (req, res) => {
       relationship,
     } = req.body;
 
-    if (role === "admin") {
+    if (role === "admin" || role === "superadmin") {
       return res.status(400).json({
         message: "Use the admin registration endpoint to create admin accounts",
       });
@@ -128,13 +143,60 @@ export const registerUser = async (req, res) => {
       });
     }
 
+    if (role === "parent") {
+      if (!childStudent) {
+        return res.status(400).json({
+          message:
+            "Select a student to link before creating the parent account",
+        });
+      }
+
+      if (!isValidParentRelationship(relationship)) {
+        return res.status(400).json({
+          message: `Relationship must be one of: ${PARENT_RELATIONSHIPS.join(", ")}`,
+        });
+      }
+    }
+
     const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (existingUser) {
       return res.status(400).json({ message: "This email is already registered" });
     }
 
+    const resolvedIds = await resolveRegistrationIds({
+      role,
+      studentId,
+      teacherId,
+      parentId,
+    });
+
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Resolve teacher assignments before create so User.assignedSubject /
+    // assignedClass are stored on the same write (list display source of truth).
+    let teacherSubjectId = null;
+    let teacherClassId = null;
+    if (role === "teacher") {
+      if (assignedSubject) {
+        const subject = await resolveSubject(assignedSubject);
+        if (!subject) {
+          const err = new Error(
+            `Subject not found for reference: ${assignedSubject}`
+          );
+          err.statusCode = 404;
+          throw err;
+        }
+        teacherSubjectId = subject._id;
+        assignedSubjectId = subject._id;
+      }
+
+      if (assignedClass) {
+        const classRecord = await resolveOrCreateClass(assignedClass);
+        teacherClassId = classRecord._id;
+        assignedClassTeacherId = classRecord._id;
+      }
+    }
 
     const user = await User.create({
       fullName: fullName.trim(),
@@ -143,49 +205,41 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
       role,
       isActive: status ? status === "Active" : true,
-      teacherId: role === "teacher" ? teacherId : undefined,
-      parentId: role === "parent" ? parentId : undefined,
+      teacherId: role === "teacher" ? resolvedIds.teacherId : undefined,
+      parentId: role === "parent" ? resolvedIds.parentId : undefined,
       relationship: role === "parent" ? relationship : "",
+      assignedSubject: teacherSubjectId || undefined,
+      assignedClass: teacherClassId || undefined,
     });
+    createdUserId = user._id;
 
     let profile = null;
 
     if (role === "teacher") {
-      if (assignedSubject) {
-        const subject = await resolveSubject(assignedSubject);
-
-        if (!subject) {
-          return res.status(404).json({
-            message: `Subject not found for reference: ${assignedSubject}`,
-          });
-        }
-
-        await Subject.findByIdAndUpdate(subject._id, {
-          assignedTeacher: user._id,
-        });
-      }
-
-      if (assignedClass) {
-        const classRecord = await resolveOrCreateClass(assignedClass);
-
-        await Class.findByIdAndUpdate(classRecord._id, {
-          assignedTeacher: user._id,
+      if (teacherSubjectId || teacherClassId) {
+        await syncTeacherClassSubjectAssignment({
+          teacherId: user._id,
+          classId: teacherClassId,
+          subjectId: teacherSubjectId,
         });
       }
     }
 
-    if (role === "student" && studentId) {
+    if (role === "student") {
       const classRecord = className
         ? await resolveOrCreateClass(className, academicYear)
         : null;
 
       profile = await StudentProfile.create({
         user: user._id,
-        studentId,
+        studentId: resolvedIds.studentId,
         class: classRecord?._id || undefined,
         parent: parent || undefined,
         academicYear,
+        // Commerce stream students always get ACC / BS / ECO linked.
+        subjects: await ensureCommerceSubjectIds(),
       });
+      createdProfileId = profile._id;
 
       if (classRecord) {
         await Class.findByIdAndUpdate(classRecord._id, {
@@ -194,18 +248,32 @@ export const registerUser = async (req, res) => {
       }
     }
 
-    if (role === "parent" && childStudent) {
+    if (role === "parent") {
       const studentProfile = await resolveStudentProfile(childStudent);
 
       if (!studentProfile) {
-        return res.status(404).json({
-          message: `Student profile not found for reference: ${childStudent}`,
-        });
+        const err = new Error(
+          `Student profile not found for reference: ${childStudent}`
+        );
+        err.statusCode = 404;
+        throw err;
+      }
+
+      previousParentId = studentProfile.parent || null;
+      linkedParentStudentId = studentProfile._id;
+
+      const linkUpdate = {
+        $addToSet: { parents: user._id },
+      };
+
+      // Keep legacy primary parent field populated for older queries.
+      if (!studentProfile.parent) {
+        linkUpdate.$set = { parent: user._id };
       }
 
       profile = await StudentProfile.findByIdAndUpdate(
         studentProfile._id,
-        { parent: user._id },
+        linkUpdate,
         { new: true }
       );
     }
@@ -219,11 +287,73 @@ export const registerUser = async (req, res) => {
         phoneNumber: user.phoneNumber,
         role: user.role,
         isActive: user.isActive,
+        teacherId: user.teacherId || undefined,
+        parentId: user.parentId || undefined,
       },
       profile,
+      generatedIds: {
+        studentId: role === "student" ? resolvedIds.studentId : undefined,
+        teacherId: role === "teacher" ? resolvedIds.teacherId : undefined,
+        parentId: role === "parent" ? resolvedIds.parentId : undefined,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Compensating cleanup — avoid orphan user/profile after mid-flow failure.
+    try {
+      if (createdProfileId) {
+        await StudentProfile.findByIdAndDelete(createdProfileId);
+      }
+      if (linkedParentStudentId) {
+        const revert = {
+          $pull: { parents: createdUserId },
+        };
+        if (
+          previousParentId === null ||
+          String(previousParentId) !== String(createdUserId)
+        ) {
+          revert.$set = { parent: previousParentId || null };
+        }
+        await StudentProfile.findByIdAndUpdate(linkedParentStudentId, revert);
+      }
+      if (assignedSubjectId) {
+        const subjectDoc = await Subject.findById(assignedSubjectId).select(
+          "assignedTeacher"
+        );
+        if (
+          subjectDoc &&
+          String(subjectDoc.assignedTeacher || "") === String(createdUserId)
+        ) {
+          await Subject.findByIdAndUpdate(assignedSubjectId, {
+            $unset: { assignedTeacher: 1 },
+          });
+        }
+      }
+      if (assignedClassTeacherId && createdUserId) {
+        // Only clear class teacher if this registration set it to the new user.
+        const classDoc = await Class.findById(assignedClassTeacherId).select(
+          "assignedTeacher"
+        );
+        if (
+          classDoc &&
+          String(classDoc.assignedTeacher || "") === String(createdUserId)
+        ) {
+          await Class.findByIdAndUpdate(assignedClassTeacherId, {
+            $unset: { assignedTeacher: 1 },
+          });
+        }
+      }
+      if (createdUserId) {
+        await Class.updateMany(
+          { students: createdUserId },
+          { $pull: { students: createdUserId } }
+        );
+        await User.findByIdAndDelete(createdUserId);
+      }
+    } catch (cleanupError) {
+      console.error("Registration cleanup failed:", cleanupError.message);
+    }
+
+    res.status(error.statusCode || 500).json({ message: error.message });
   }
 };
 export const loginUser = async (req, res) => {
@@ -252,7 +382,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await verifyPassword(user, password);
 
     if (!isMatch) {
       return res.status(400).json({
@@ -279,12 +409,35 @@ export const loginUser = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        teacherId: user.teacherId || undefined,
       },
     });
   } catch (error) {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+/** Return the authenticated user from the DB (keeps frontend role in sync). */
+export const getCurrentUser = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    res.status(200).json({
+      user: {
+        id: req.user._id,
+        fullName: req.user.fullName,
+        email: req.user.email,
+        role: req.user.role,
+        isActive: req.user.isActive,
+        teacherId: req.user.teacherId || undefined,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -465,7 +618,7 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    const isMatch = await verifyPassword(user, currentPassword);
 
     if (!isMatch) {
       return res.status(400).json({

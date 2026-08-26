@@ -78,7 +78,6 @@ function EssayGrader() {
       const res = await api.post(
         "/essays/submit",
         {
-          studentId: studentProfileId,
           questionId: selectedQuestion,
           answer,
         },

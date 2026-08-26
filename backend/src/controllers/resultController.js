@@ -7,47 +7,86 @@ import {
   isPassingMark,
   getPassMark,
 } from "../utils/grading.js";
-
-/**
- * Recalculate rank + Z-score for every result in one exam.
- * Rank 1 = highest marks. Single-student exams still get rank 1.
- */
-async function recalculateExamAnalytics(examId) {
-  const results = await Result.find({ exam: examId }).sort({ marks: -1 });
-
-  if (results.length === 0) {
-    return null;
-  }
-
-  const marksArray = results.map((result) => result.marks);
-  const mean =
-    marksArray.reduce((sum, mark) => sum + mark, 0) / marksArray.length;
-  const variance =
-    marksArray.reduce((sum, mark) => sum + Math.pow(mark - mean, 2), 0) /
-    marksArray.length;
-  const standardDeviation = Math.sqrt(variance);
-
-  for (let i = 0; i < results.length; i++) {
-    const zScore =
-      standardDeviation === 0
-        ? 0
-        : Number(((results[i].marks - mean) / standardDeviation).toFixed(2));
-
-    results[i].zScore = zScore;
-    results[i].rank = i + 1;
-    await results[i].save();
-  }
-
-  return {
-    mean: Number(mean.toFixed(2)),
-    standardDeviation: Number(standardDeviation.toFixed(2)),
-    count: results.length,
-  };
-}
+import { assertCanAccessStudentProfile } from "../utils/studentAccess.js";
+import { getTeacherScope, resolveClassTwinIds, resolveSubjectTwinIds } from "../utils/teacherScope.js";
+import { resolveTeacherTeachingContext } from "../utils/teacherTeachingContext.js";
+import Exam from "../models/Exam.js";
+import { recalculateExamAnalytics, healExamAnalytics } from "../utils/examAnalytics.js";
 
 export const addResult = async (req, res) => {
   try {
     const { student, exam, marks } = req.body;
+
+    if (!student || !exam || marks === undefined || marks === null || marks === "") {
+      return res.status(400).json({
+        message: "student, exam, and marks are required",
+      });
+    }
+
+    const numericMarks = Number(marks);
+    if (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > 100) {
+      return res.status(400).json({
+        message: "marks must be a number between 0 and 100",
+      });
+    }
+
+    const access = await assertCanAccessStudentProfile(req, student);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      const examRecord = await Exam.findById(exam).select("class subject");
+      const examAllowed =
+        examRecord &&
+        (scope.classIdStrings.includes(String(examRecord.class || "")) ||
+          scope.subjectIdStrings.includes(String(examRecord.subject || "")));
+
+      if (!examAllowed) {
+        return res.status(403).json({
+          message: "You can only add marks for exams in your assigned classes or subjects",
+        });
+      }
+
+      // Allow students on duplicate class rows (same name/grade) or with
+      // attendance already recorded for the exam class — matches Marks dropdown.
+      if (examRecord?.class) {
+        const twinIds = await resolveClassTwinIds(examRecord.class, {
+          ignoreYear: true,
+        });
+        const twinIdSet = new Set(twinIds.map((id) => String(id)));
+        const studentClassId = String(access.profile?.class || "");
+        const classMatched = studentClassId && twinIdSet.has(studentClassId);
+
+        let attendanceMatched = false;
+        if (!classMatched && twinIds.length > 0) {
+          const attendanceHit = await Attendance.exists({
+            student,
+            class: { $in: twinIds },
+          });
+          attendanceMatched = Boolean(attendanceHit);
+        }
+
+        if (!classMatched && !attendanceMatched) {
+          // Real-world fallback: teacher already passed exam+student scope checks.
+          // Allow save when the student takes this exam subject (class docs may drift).
+          const examSubjectId = String(examRecord.subject || "");
+          const takesSubject =
+            examSubjectId &&
+            (access.profile?.subjects || []).some(
+              (subjectId) => String(subjectId) === examSubjectId
+            );
+
+          if (!takesSubject) {
+            return res.status(403).json({
+              message:
+                "This student is not in the selected exam's class. Check the student's class assignment.",
+            });
+          }
+        }
+      }
+    }
 
     const existingResult = await Result.findOne({ student, exam });
 
@@ -63,8 +102,8 @@ export const addResult = async (req, res) => {
     await Result.create({
       student,
       exam,
-      marks,
-      grade: calculateGrade(marks, passMark),
+      marks: numericMarks,
+      grade: calculateGrade(numericMarks, passMark),
       rank: 0,
     });
 
@@ -81,31 +120,28 @@ export const addResult = async (req, res) => {
       })
       .populate("exam", "examName");
 
-    const studentProfile = await StudentProfile.findById(student);
-
-    let riskStatus = "Low";
-
-    if (marks < passMark || studentProfile.attendancePercentage < 60) {
-      riskStatus = "High";
-    } else if (marks < 50 || studentProfile.attendancePercentage < 75) {
-      riskStatus = "Medium";
-    }
-
+    // Do not overwrite Commerce Stream Model riskStatus with mark heuristics.
+    // Only refresh the student's current Z-score from this exam result.
     await StudentProfile.findByIdAndUpdate(student, {
-      riskStatus,
+      currentZScore: result.zScore,
     });
 
     await createAuditLog({
       userId: req.user?._id,
       action: "CREATE",
       module: "Results",
-      description: `Result added with ${marks} marks. Risk status updated to ${riskStatus}. Rank/Z-score recalculated.`,
+      description: `Result added for ${
+        result.student?.studentId || access.profile?.studentId || "student"
+      }${
+        result.student?.user?.fullName
+          ? ` (${result.student.user.fullName})`
+          : ""
+      } — ${numericMarks}/100. Rank and Z-score recalculated.`,
     });
 
     res.status(201).json({
       message: "Result added successfully",
       result,
-      riskStatus,
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -121,18 +157,166 @@ export const addResult = async (req, res) => {
   }
 };
 
+export const updateResult = async (req, res) => {
+  try {
+    const { marks } = req.body;
+
+    if (marks === undefined || marks === null || marks === "") {
+      return res.status(400).json({ message: "marks are required" });
+    }
+
+    const numericMarks = Number(marks);
+    if (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > 100) {
+      return res.status(400).json({
+        message: "marks must be a number between 0 and 100",
+      });
+    }
+
+    const existing = await Result.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ message: "Result not found" });
+    }
+
+    const access = await assertCanAccessStudentProfile(req, existing.student);
+    if (!access.ok) {
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    const passMark = await getPassMark();
+    existing.marks = numericMarks;
+    existing.grade = calculateGrade(numericMarks, passMark);
+    await existing.save();
+
+    await recalculateExamAnalytics(existing.exam);
+
+    const result = await Result.findById(existing._id)
+      .populate({
+        path: "student",
+        populate: { path: "user", select: "fullName" },
+      })
+      .populate("exam", "examName");
+
+    await StudentProfile.findByIdAndUpdate(result.student._id || result.student, {
+      currentZScore: result.zScore,
+    });
+
+    await createAuditLog({
+      userId: req.user?._id,
+      action: "UPDATE",
+      module: "Results",
+      description: `Result updated for ${
+        result.student?.studentId || "student"
+      }${
+        result.student?.user?.fullName
+          ? ` (${result.student.user.fullName})`
+          : ""
+      } — ${numericMarks}/100. Rank and Z-score recalculated.`,
+    });
+
+    res.status(200).json({
+      message: "Result updated successfully",
+      result,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getAllResults = async (req, res) => {
   try {
-    // Heal older records that were saved before auto-ranking existed.
+    // Heal older records that were saved before auto-ranking existed,
+    // and single-student exams that still show a misleading zScore of 0.
     const examsNeedingRank = await Result.distinct("exam", {
       $or: [{ rank: { $lte: 0 } }, { rank: null }],
     });
+    await healExamAnalytics(examsNeedingRank);
 
-    for (const examId of examsNeedingRank) {
-      await recalculateExamAnalytics(examId);
+    const singletonExams = await Result.aggregate([
+      { $group: { _id: "$exam", count: { $sum: 1 } } },
+      { $match: { count: 1 } },
+    ]);
+    await healExamAnalytics(singletonExams.map((row) => row._id));
+
+    const filter = {};
+
+    if (req.user?.role === "teacher") {
+      const ctx = await resolveTeacherTeachingContext(req.user._id);
+
+      if (
+        ctx.studentIds.length === 0 ||
+        (ctx.subjectIds.length === 0 && ctx.classIds.length === 0)
+      ) {
+        return res.status(200).json([]);
+      }
+
+      let allowedSubjectIds = [...ctx.subjectIds];
+      const requestedSubjectId = req.query.subjectId
+        ? String(req.query.subjectId)
+        : "";
+
+      if (requestedSubjectId) {
+        const requestedTwins = await resolveSubjectTwinIds([requestedSubjectId]);
+        const allowedSet = new Set(ctx.subjectIdStrings);
+        const requestedAllowed = requestedTwins.filter((id) =>
+          allowedSet.has(String(id))
+        );
+        if (ctx.subjectIds.length > 0 && requestedAllowed.length === 0) {
+          return res.status(200).json([]);
+        }
+        allowedSubjectIds =
+          requestedAllowed.length > 0 ? requestedAllowed : requestedTwins;
+      }
+
+      const examFilter = {};
+      if (allowedSubjectIds.length > 0) {
+        examFilter.subject = { $in: allowedSubjectIds };
+      }
+      if (ctx.classIds.length > 0) {
+        examFilter.class = { $in: ctx.classIds };
+      }
+
+      let examIds = await Exam.find(examFilter).distinct("_id");
+
+      if (
+        examIds.length === 0 &&
+        ctx.classIds.length > 0 &&
+        ctx.subjectLabels.length > 0
+      ) {
+        const classExams = await Exam.find({ class: { $in: ctx.classIds } })
+          .populate("subject", "subjectName")
+          .select("_id subject");
+        const labelSet = new Set(
+          ctx.subjectLabels.map((label) => String(label).trim().toLowerCase())
+        );
+        examIds = classExams
+          .filter((exam) =>
+            labelSet.has(
+              String(exam.subject?.subjectName || "")
+                .trim()
+                .toLowerCase()
+            )
+          )
+          .map((exam) => exam._id);
+      }
+
+      if (examIds.length === 0) {
+        return res.status(200).json([]);
+      }
+
+      filter.student = { $in: ctx.studentIds };
+      filter.exam = { $in: examIds };
+    } else if (req.query.subjectId) {
+      // Admin (and other roles with access) can also narrow by subject.
+      const examIds = await Exam.find({
+        subject: String(req.query.subjectId),
+      }).distinct("_id");
+      if (examIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter.exam = { $in: examIds };
     }
 
-    const results = await Result.find()
+    const results = await Result.find(filter)
       .populate({
         path: "student",
         populate: {
@@ -140,7 +324,15 @@ export const getAllResults = async (req, res) => {
           select: "fullName",
         },
       })
-      .populate("exam", "examName");
+      .populate({
+        path: "exam",
+        select: "examName examDate",
+        populate: {
+          path: "subject",
+          select: "subjectName subjectCode",
+        },
+      })
+      .sort({ createdAt: -1 });
 
     res.status(200).json(results);
   } catch (error) {
@@ -176,7 +368,13 @@ export const deleteResult = async (req, res) => {
       userId: req.user?._id,
       action: "DELETE",
       module: "Results",
-      description: `Deleted result for ${result.student?.user?.fullName || "student"}`,
+      description: `Deleted result for ${
+        result.student?.studentId || "student"
+      }${
+        result.student?.user?.fullName
+          ? ` (${result.student.user.fullName})`
+          : ""
+      }. Rank and Z-score recalculated for remaining students.`,
     });
 
     res.status(200).json({
@@ -291,9 +489,38 @@ export const detectWeakStudents = async (req, res) => {
 
 export const getAnalyticsSummary = async (req, res) => {
   try {
-    const totalStudents = await StudentProfile.countDocuments();
+    let studentFilter = {};
+    let resultFilter = {};
 
-    const results = await Result.find();
+    if (req.user?.role === "teacher") {
+      const ctx = await resolveTeacherTeachingContext(req.user._id);
+
+      if (!ctx.classIds.length || ctx.studentIds.length === 0) {
+        return res.status(200).json({
+          totalStudents: 0,
+          averageMarks: 0,
+          passCount: 0,
+          failCount: 0,
+          highRiskStudents: 0,
+          averageAttendance: 0,
+        });
+      }
+
+      studentFilter = { _id: { $in: ctx.studentIds } };
+      resultFilter = { student: { $in: ctx.studentIds } };
+
+      if (ctx.subjectIds.length > 0) {
+        const examIds = await Exam.find({
+          subject: { $in: ctx.subjectIds },
+          class: { $in: ctx.classIds },
+        }).distinct("_id");
+        resultFilter.exam = { $in: examIds };
+      }
+    }
+
+    const totalStudents = await StudentProfile.countDocuments(studentFilter);
+
+    const results = await Result.find(resultFilter);
 
     const totalResults = results.length;
 
@@ -315,10 +542,11 @@ export const getAnalyticsSummary = async (req, res) => {
     ).length;
 
     const highRiskStudents = await StudentProfile.countDocuments({
+      ...studentFilter,
       riskStatus: "High",
     });
 
-    const studentProfiles = await StudentProfile.find();
+    const studentProfiles = await StudentProfile.find(studentFilter);
 
     const averageAttendance =
       studentProfiles.length > 0

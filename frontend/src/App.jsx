@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
+import { roleAllowed } from "./utils/adminRoles";
 
 import DashboardLayout from "./components/DashboardLayout";
 import PublicLayout from "./components/PublicLayout";
@@ -24,12 +26,17 @@ import ContactPage from "./pages/public/ContactPage";
 import LegalPage from "./pages/public/LegalPage";
 import DashboardFeaturePage from "./pages/DashboardFeaturePage";
 import TeacherEssayReview from "./pages/TeacherEssayReview";
+import TeacherSubmissions from "./pages/TeacherSubmissions";
+import TeacherPapers from "./pages/TeacherPapers";
 import TeacherScoreTrends from "./pages/TeacherScoreTrends";
+import TeacherZScoresRankings from "./pages/TeacherZScoresRankings";
 import TeacherContentProvider from "./pages/TeacherContentProvider";
 import StudentAdaptiveLearning from "./pages/StudentAdaptiveLearning";
 import StudentFlashcards from "./pages/StudentFlashcards";
 import StudentPerformanceTracker from "./pages/StudentPerformanceTracker";
+import StudentCommerceRisk from "./pages/StudentCommerceRisk";
 import AdminSystemAnalytics from "./pages/AdminSystemAnalytics";
+import AdminAuditLogs from "./pages/AdminAuditLogs";
 
 // This component protects dashboard routes.
 // If the user is not logged in, it redirects to the login page.
@@ -41,7 +48,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
+  if (!roleAllowed(user.role, allowedRoles)) {
     return <Navigate to="/login" />;
   }
 
@@ -85,6 +92,7 @@ function AppRoutes() {
       >
         <Route index element={<AdminDashboard />} />
         <Route path="system-analytics" element={<AdminSystemAnalytics />} />
+        <Route path="audit-logs" element={<AdminAuditLogs />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
@@ -103,7 +111,10 @@ function AppRoutes() {
           element={<TeacherTopicErrorAnalysis />}
         />
         <Route path="essay-review" element={<TeacherEssayReview />} />
+        <Route path="submissions" element={<TeacherSubmissions />} />
+        <Route path="papers" element={<TeacherPapers />} />
         <Route path="score-trends" element={<TeacherScoreTrends />} />
+        <Route path="z-scores-rankings" element={<TeacherZScoresRankings />} />
         <Route path="content-provider" element={<TeacherContentProvider />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
@@ -122,6 +133,7 @@ function AppRoutes() {
         <Route path="adaptive-learning" element={<StudentAdaptiveLearning />} />
         <Route path="flashcards" element={<StudentFlashcards />} />
         <Route path="performance" element={<StudentPerformanceTracker />} />
+        <Route path="commerce-risk" element={<StudentCommerceRisk />} />
         <Route path="*" element={<DashboardFeaturePage />} />
       </Route>
 
@@ -160,8 +172,15 @@ function AppRoutes() {
         <Route path="/chatbot" element={<Chatbot />} />
       </Route>
 
-      {/* Standalone research/demo risk monitoring page */}
-      <Route path="/risk-dashboard" element={<RiskDashboard />} />
+      {/* Staff-only risk monitoring page */}
+      <Route
+        path="/risk-dashboard"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "teacher"]}>
+            <RiskDashboard />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Unknown routes redirect to public home */}
       <Route path="*" element={<Navigate to="/" />} />
@@ -172,9 +191,11 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

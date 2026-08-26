@@ -1,5 +1,11 @@
 import Exam from "../models/Exam.js";
 import { createAuditLog } from "../utils/createAuditLog.js";
+import {
+  assertTeacherOwnsSubject,
+  getTeacherScope,
+  resolvePrimaryAssignedClassTwinIds,
+  resolveSubjectTwinIds,
+} from "../utils/teacherScope.js";
 
 export const createExam = async (req, res) => {
   try {
@@ -10,6 +16,31 @@ export const createExam = async (req, res) => {
       examDate,
       totalMarks,
     } = req.body;
+
+    if (!examName?.trim() || !classId || !subjectId || !examDate) {
+      return res.status(400).json({
+        message: "examName, classId, subjectId, and examDate are required",
+      });
+    }
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+      const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+      const ownsClass = allowedClassIds
+        .map((id) => String(id))
+        .includes(String(classId));
+      const ownsSubject = await assertTeacherOwnsSubject(
+        req.user._id,
+        subjectId
+      );
+
+      if (!ownsClass || !ownsSubject) {
+        return res.status(403).json({
+          message:
+            "You can only create exams for the class and subject assigned to you",
+        });
+      }
+    }
 
     const exam = await Exam.create({
       examName,
@@ -39,9 +70,61 @@ export const createExam = async (req, res) => {
 
 export const getAllExams = async (req, res) => {
   try {
-    const exams = await Exam.find()
+    if (req.user?.role !== "teacher") {
+      const exams = await Exam.find()
+        .populate("class", "className gradeLevel academicYear")
+        .populate("subject", "subjectName subjectCode")
+        .sort({ examDate: -1, createdAt: -1 });
+      return res.status(200).json(exams);
+    }
+
+    const scope = await getTeacherScope(req.user._id);
+    const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+
+    // No admin-assigned class → empty list (do not leak other classes).
+    if (!allowedClassIds.length) {
+      return res.status(200).json([]);
+    }
+
+    const filter = {
+      class: { $in: allowedClassIds },
+    };
+
+    // Keep the list on the teacher's assigned subject (+ catalog twins).
+    if (scope.subjectIds.length > 0) {
+      const twinSubjectIds = await resolveSubjectTwinIds(scope.subjectIds);
+      filter.subject = { $in: twinSubjectIds };
+    }
+
+    const exams = await Exam.find(filter)
       .populate("class", "className gradeLevel academicYear")
-      .populate("subject", "subjectName subjectCode");
+      .populate("subject", "subjectName subjectCode")
+      .sort({ examDate: -1, createdAt: -1 });
+
+    // If subject ObjectIds drifted but class exams exist, fall back to class
+    // exams whose subject NAME matches the teacher's assigned subject.
+    if (exams.length === 0 && scope.subjectLabels.length > 0) {
+      const classExams = await Exam.find({
+        class: { $in: allowedClassIds },
+      })
+        .populate("class", "className gradeLevel academicYear")
+        .populate("subject", "subjectName subjectCode")
+        .sort({ examDate: -1, createdAt: -1 });
+
+      const labelSet = new Set(
+        scope.subjectLabels.map((label) => String(label).trim().toLowerCase())
+      );
+
+      return res.status(200).json(
+        classExams.filter((exam) =>
+          labelSet.has(
+            String(exam.subject?.subjectName || "")
+              .trim()
+              .toLowerCase()
+          )
+        )
+      );
+    }
 
     res.status(200).json(exams);
   } catch (error) {

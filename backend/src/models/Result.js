@@ -27,7 +27,7 @@ const resultSchema = new mongoose.Schema(
 
     zScore: {
       type: Number,
-      default: 0,
+      default: null,
     },
 
     rank: {

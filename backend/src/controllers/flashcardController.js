@@ -5,13 +5,13 @@ import { generateFlashcardsWithGemini } from "../services/geminiService.js";
 
 export const createFlashcard = async (req, res) => {
   try {
-    const {
-      subject,
-      topic,
-      question,
-      answer,
-      difficulty,
-    } = req.body;
+    const { subject, topic, question, answer, difficulty } = req.body;
+
+    if (!subject || !topic?.trim() || !question?.trim() || !answer?.trim()) {
+      return res.status(400).json({
+        message: "subject, topic, question, and answer are required",
+      });
+    }
 
     const flashcard = await Flashcard.create({
       subject,
@@ -19,6 +19,7 @@ export const createFlashcard = async (req, res) => {
       question,
       answer,
       difficulty,
+      createdBy: req.user?._id,
     });
 
     await createAuditLog({
@@ -45,6 +46,15 @@ export const getFlashcards = async (req, res) => {
     if (req.query.subject) filter.subject = req.query.subject;
     if (req.query.topic) {
       filter.topic = { $regex: req.query.topic, $options: "i" };
+    }
+
+    // Students only see cards they created (plus legacy cards with no owner).
+    if (req.user?.role === "student") {
+      filter.$or = [
+        { createdBy: req.user._id },
+        { createdBy: { $exists: false } },
+        { createdBy: null },
+      ];
     }
 
     const flashcards = await Flashcard.find(filter)
@@ -103,6 +113,7 @@ export const generateFlashcards = async (req, res) => {
           question: card.question,
           answer: card.answer,
           difficulty: card.difficulty || "Medium",
+          createdBy: req.user?._id,
         }))
       );
 

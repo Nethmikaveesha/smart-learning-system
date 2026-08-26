@@ -3,11 +3,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
-console.log("API Key Exists:", !!process.env.GEMINI_API_KEY);
-console.log(
-  "API Key Prefix:",
-  process.env.GEMINI_API_KEY?.substring(0, 5)
-);
+// Do not log GEMINI_API_KEY (or any prefix) — secrets must stay out of stdout/logs.
+if (!process.env.GEMINI_API_KEY) {
+  console.warn("GEMINI_API_KEY is not set; Gemini features will fail until configured.");
+}
 
 const genAI = new GoogleGenerativeAI(
   process.env.GEMINI_API_KEY
@@ -65,7 +64,11 @@ Return ONLY valid JSON:
       .replace(/```/g, "")
       .trim();
 
-    return JSON.parse(cleanText);
+    const parsed = JSON.parse(cleanText);
+    return {
+      ...parsed,
+      marks: clampEssayMarks(parsed.marks, maxMarks),
+    };
   } catch (error) {
     console.log("Gemini Error:", error.message);
 
@@ -77,6 +80,13 @@ Return ONLY valid JSON:
     };
   }
 };
+
+function clampEssayMarks(rawMarks, maxMarks) {
+  const numeric = Number(rawMarks);
+  const ceiling = Number(maxMarks);
+  if (Number.isNaN(numeric) || Number.isNaN(ceiling)) return 0;
+  return Math.min(ceiling, Math.max(0, numeric));
+}
 
 export const analyzeEssayTopicsWithGemini = async (
   question,
@@ -393,7 +403,8 @@ export const askCommerceChatbotWithGemini = async (question) => {
 You are a helpful Sri Lankan GCE A/L Commerce tutor.
 
 Answer the student's question clearly and briefly.
-Focus only on Accounting, Business Studies, Economics, study planning, attendance, marks, and exam preparation.
+Focus ONLY on Accounting, Business Studies, Economics, study planning, attendance, marks, and exam preparation.
+If the question is outside that scope or inappropriate, reply with a short refusal telling the student to ask a Commerce study question instead.
 
 Student Question:
 ${question}

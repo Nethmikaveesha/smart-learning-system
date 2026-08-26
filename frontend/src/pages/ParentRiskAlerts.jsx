@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import api from "../services/api";
+import api, {
+  generateCommerceRisk,
+  getStudentCommerceRiskHistory,
+  predictPassFailRisk,
+} from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-// These values are used only when the system does not have enough real data.
-// Real attendance and subject marks are taken from the parent dashboard API.
+// Pass/Fail secondary check still needs homework/study defaults when not collected.
 const DEFAULT_PASS_FAIL_INPUT = {
   homework_pct: 75,
   study_hours_per_week: 8,
@@ -21,6 +24,8 @@ function ParentRiskAlerts() {
   const [mlError, setMlError] = useState("");
   const [passFailPrediction, setPassFailPrediction] = useState(null);
   const [commercePrediction, setCommercePrediction] = useState(null);
+  const [commerceHistory, setCommerceHistory] = useState([]);
+
 
   useEffect(() => {
     const fetchParentDashboard = async () => {
@@ -57,17 +62,66 @@ function ParentRiskAlerts() {
   const studentCode = data?.student?.studentId || "--";
   const className = data?.student?.class?.className || "--";
   const attendanceValue = data?.attendancePercentage || 0;
-  const currentRisk = formatRiskLabel(data?.riskStatus);
+  const currentRisk = data?.commerceRiskAssessed
+    ? formatRiskLabel(data?.latestCommerceRiskLevel || data?.riskStatus)
+    : "Not Assessed";
 
   const subjectMarks = useMemo(() => data?.subjectPerformance || [], [data]);
 
-  const findSubjectMarks = (keyword, fallback) => {
+  const findSubjectMarks = (keyword) => {
     const matchedSubject = subjectMarks.find((item) =>
       item.subject?.toLowerCase().includes(keyword)
     );
 
-    return matchedSubject?.marks ?? fallback;
+    return matchedSubject?.marks ?? null;
   };
+
+  const loadCommerceHistory = async (profileId) => {
+    if (!profileId) {
+      setCommerceHistory([]);
+      return;
+    }
+
+    try {
+      const res = await getStudentCommerceRiskHistory(profileId);
+      const rows = res.data?.data || [];
+      setCommerceHistory(rows);
+      if (rows[0]) {
+        setCommercePrediction({
+          risk_level: rows[0].riskLevel,
+          saved_data: rows[0],
+        });
+      }
+    } catch {
+      setCommerceHistory([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!studentProfileObjectId) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getStudentCommerceRiskHistory(studentProfileObjectId);
+        if (cancelled) return;
+        const rows = res.data?.data || [];
+        setCommerceHistory(rows);
+        if (rows[0]) {
+          setCommercePrediction({
+            risk_level: rows[0].riskLevel,
+            saved_data: rows[0],
+          });
+        }
+      } catch {
+        if (!cancelled) setCommerceHistory([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [studentProfileObjectId]);
 
   const runPassFailPrediction = async () => {
     try {
@@ -79,13 +133,10 @@ function ParentRiskAlerts() {
         return;
       }
 
-      const res = await api.post(
-        `/risk/final-predict-auto/${studentProfileObjectId}`,
-        DEFAULT_PASS_FAIL_INPUT,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await predictPassFailRisk(studentProfileObjectId, {
+        ...DEFAULT_PASS_FAIL_INPUT,
+        attendance_pct: attendanceValue,
+      });
 
       setPassFailPrediction(res.data);
     } catch (error) {
@@ -107,26 +158,32 @@ function ParentRiskAlerts() {
         return;
       }
 
-      // Commerce model uses A/L Commerce subject marks and attendance.
-      const commerceInput = {
-        Accounting_Score: findSubjectMarks("account", 72),
-        Business_Studies_Score: findSubjectMarks("business", 68),
-        Economics_Score: findSubjectMarks("economic", 61),
-        Attendance_Percentage: attendanceValue || 78,
-      };
+      const accounting = findSubjectMarks("account");
+      const business = findSubjectMarks("business");
+      const economics = findSubjectMarks("economic");
 
-      const res = await api.post(
-        `/risk/multi-class-predict-auto/${studentProfileObjectId}`,
-        commerceInput,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      if (attendanceValue == null) {
+        setMlError(
+          "Attendance records are required before running a risk assessment"
+        );
+        return;
+      }
+
+      const payload = {
+        Attendance_Percentage: attendanceValue,
+      };
+      if (accounting != null) payload.Accounting_Score = accounting;
+      if (business != null) payload.Business_Studies_Score = business;
+      if (economics != null) payload.Economics_Score = economics;
+
+      const res = await generateCommerceRisk(studentProfileObjectId, payload);
 
       setCommercePrediction(res.data);
+      await loadCommerceHistory(studentProfileObjectId);
     } catch (error) {
       setMlError(
-        error.response?.data?.message || "Subject progress check failed"
+        error.response?.data?.message ||
+          "Risk assessment failed"
       );
     } finally {
       setMlLoading("");
@@ -228,10 +285,10 @@ function ParentRiskAlerts() {
           </PredictionCard>
 
           <PredictionCard
-            title="Subject Progress Check"
-            description="Estimates High, Medium, or Low support need for A/L Commerce subjects."
+            title="Commerce Risk Assessment"
+            description="Shows whether the student may need High, Medium, or Low academic support."
             meta="Uses Accounting, Business Studies, Economics, and attendance."
-            buttonText="Check Subject Progress"
+            buttonText="Check Progress Risk"
             loadingText="Checking..."
             color="emerald"
             isLoading={mlLoading === "commerce"}
@@ -240,7 +297,7 @@ function ParentRiskAlerts() {
           >
             {commercePrediction && (
               <PredictionResult
-                title="Subject Progress Result"
+                title="Risk Assessment Result"
                 rows={[
                   {
                     label: "Support Level",
@@ -256,6 +313,58 @@ function ParentRiskAlerts() {
         {mlError && (
           <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
             {mlError}
+          </div>
+        )}
+
+        {commerceHistory.length > 0 && (
+          <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+            <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Saved risk assessment history (this child only)
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-white text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2">Risk</th>
+                    <th className="px-3 py-2">ACC</th>
+                    <th className="px-3 py-2">BS</th>
+                    <th className="px-3 py-2">ECO</th>
+                    <th className="px-3 py-2">Attendance</th>
+                    <th className="px-3 py-2">Source</th>
+                    <th className="px-3 py-2">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commerceHistory.slice(0, 5).map((row) => (
+                    <tr key={row._id} className="border-t border-slate-100">
+                      <td className="px-3 py-2 font-semibold">{row.riskLevel}</td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.accountingScore ?? "--"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.businessStudiesScore ?? "--"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.economicsScore ?? "--"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.inputData?.attendancePercentage ?? "--"}%
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.predictionSource || "Automatic"}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.createdAt
+                          ? new Date(row.createdAt).toLocaleString("en-GB")
+                          : "--"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>
@@ -464,15 +573,20 @@ function InfoStat({ label, value }) {
 }
 
 function formatRiskLabel(status) {
-  if (!status) return "--";
-  if (status === "Low") return "Low Risk";
-  if (status === "Medium") return "Medium Risk";
-  if (status === "High") return "High Risk";
-  return status;
+  if (!status) return "Not Assessed";
+  const normalized = String(status).trim();
+  if (/^low(\s+risk)?$/i.test(normalized)) return "Low Risk";
+  if (/^medium(\s+risk)?$/i.test(normalized)) return "Medium Risk";
+  if (/^high(\s+risk)?$/i.test(normalized)) return "High Risk";
+  return normalized;
 }
 
 function getRiskBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus.includes("not assessed") || !normalizedStatus) {
+    return "bg-slate-100 text-slate-700";
+  }
 
   if (normalizedStatus.includes("high")) {
     return "bg-red-100 text-red-700";

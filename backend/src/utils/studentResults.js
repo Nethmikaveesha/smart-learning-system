@@ -1,17 +1,24 @@
+/**
+ * Keep the latest result per student + subject.
+ * Subject key prefers code/name so catalog twin ObjectIds do not split
+ * the same Commerce subject for one learner.
+ */
 export function dedupeResults(results) {
-  const bySubject = new Map();
+  const byKey = new Map();
 
   for (const result of results) {
-    const subjectKey =
-      result.exam?.subject?._id?.toString() ||
-      result.exam?.subject?.toString() ||
-      result.exam?.examName ||
-      result._id.toString();
+    const studentKey =
+      result.student?._id?.toString() ||
+      result.student?.toString() ||
+      result.studentId?.toString() ||
+      "self";
 
-    const existing = bySubject.get(subjectKey);
+    const subjectKey = resolveSubjectDedupeKey(result);
+    const key = `${studentKey}::${subjectKey}`;
+    const existing = byKey.get(key);
 
     if (!existing) {
-      bySubject.set(subjectKey, result);
+      byKey.set(key, result);
       continue;
     }
 
@@ -19,7 +26,7 @@ export function dedupeResults(results) {
     const currentSpecific = result.exam?.examName?.includes(" - ");
 
     if (currentSpecific && !existingSpecific) {
-      bySubject.set(subjectKey, result);
+      byKey.set(key, result);
       continue;
     }
 
@@ -33,11 +40,38 @@ export function dedupeResults(results) {
     const currentDate = new Date(result.exam?.examDate || result.createdAt || 0);
 
     if (currentDate >= existingDate) {
-      bySubject.set(subjectKey, result);
+      byKey.set(key, result);
     }
   }
 
-  return Array.from(bySubject.values());
+  return Array.from(byKey.values());
+}
+
+function resolveSubjectDedupeKey(result) {
+  const code = String(result.exam?.subject?.subjectCode || "")
+    .trim()
+    .toLowerCase();
+  if (code) return `code:${code}`;
+
+  const name = String(result.exam?.subject?.subjectName || "")
+    .trim()
+    .toLowerCase();
+  if (name) return `name:${name}`;
+
+  const fromExamName =
+    typeof result.exam?.examName === "string" &&
+    result.exam.examName.includes(" - ")
+      ? result.exam.examName.split(" - ").pop().trim().toLowerCase()
+      : "";
+  if (fromExamName) return `name:${fromExamName}`;
+
+  const id =
+    result.exam?.subject?._id?.toString() ||
+    result.exam?.subject?.toString() ||
+    "";
+  if (id) return `id:${id}`;
+
+  return result._id?.toString() || "unknown";
 }
 
 export function sortResultsByLatest(results) {

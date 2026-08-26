@@ -19,6 +19,7 @@ const QUICK_ACTIONS = [
   { label: "My Subjects", to: "/student/subjects" },
   { label: "Exam Papers", to: "/student/exam-papers" },
   { label: "Submit Answers", to: "/student/essay-grader" },
+  { label: "Risk Assessment", to: "/student/commerce-risk" },
   { label: "Study Help", to: "/chatbot" },
   { label: "Start Revision", to: "/student/revision-timetable" },
 ];
@@ -103,10 +104,22 @@ function StudentDashboard() {
       .slice(0, 4);
   }, [data]);
 
-  const subjectPerformance = useMemo(
-    () => getSubjectPerformance(data?.results || [], data?.student?.subjects || []),
-    [data]
-  );
+  const subjectPerformance = useMemo(() => {
+    if (Array.isArray(data?.subjectPerformance) && data.subjectPerformance.length > 0) {
+      return data.subjectPerformance
+        .filter((item) => item?.marks != null)
+        .slice(0, 3)
+        .map((item) => ({
+          subject: item.subject,
+          marks: Number(item.marks),
+        }));
+    }
+
+    return getSubjectPerformance(
+      data?.results || [],
+      data?.student?.subjects || []
+    );
+  }, [data]);
 
   const trendData = useMemo(
     () =>
@@ -187,14 +200,8 @@ function StudentDashboard() {
             />
             <MetricCard
               label="Risk Status"
-              value={
-                hasExamResults(data) ? formatRiskStatus(data.riskStatus) : "--"
-              }
-              badgeClass={
-                hasExamResults(data)
-                  ? getRiskBadgeClass(formatRiskStatus(data.riskStatus))
-                  : "bg-slate-100 text-slate-700"
-              }
+              value={getDashboardRiskLabel(data)}
+              badgeClass={getRiskBadgeClass(getDashboardRiskLabel(data))}
             />
             <MetricCard
               label="Latest Grade"
@@ -547,32 +554,51 @@ function hasExamResults(data) {
   return Array.isArray(data?.results) && data.results.length > 0;
 }
 
+function getDashboardRiskLabel(data) {
+  // Only show Low/Medium/High after a real Commerce Stream Model run.
+  // Profile default "Low" must not appear as "Low Risk".
+  if (!data?.commerceRiskAssessed) return "Not Assessed";
+  if (data.latestCommerceRiskLevel) {
+    return formatRiskStatus(data.latestCommerceRiskLevel);
+  }
+  return formatRiskStatus(data.riskStatus);
+}
+
 function formatSummaryValue(value, type = "text") {
   if (value === null || value === undefined || value === "") return "--";
 
   if (type === "percent") {
     const numericValue = Number(value);
-    return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
+    return Number.isFinite(numericValue) && numericValue > 0
+      ? `${formatMarks(numericValue)}%`
+      : "--";
   }
 
   if (type === "number") {
     const numericValue = Number(value);
-    return numericValue !== 0 ? formatMarks(numericValue) : "--";
+    // Z-score of 0 is valid (exactly at the class mean) — do not hide it.
+    if (!Number.isFinite(numericValue)) return "--";
+    return formatMarks(numericValue);
   }
 
   return value || "--";
 }
 
 function formatRiskStatus(status) {
-  if (!status) return "--";
-  if (status === "Low") return "Low Risk";
-  if (status === "Medium") return "Medium Risk";
-  if (status === "High") return "High Risk";
-  return status;
+  if (!status) return "Not Assessed";
+  const normalized = String(status).trim();
+  if (/^low(\s+risk)?$/i.test(normalized)) return "Low Risk";
+  if (/^medium(\s+risk)?$/i.test(normalized)) return "Medium Risk";
+  if (/^high(\s+risk)?$/i.test(normalized)) return "High Risk";
+  return normalized;
 }
 
 function getRiskBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus.includes("not assessed") || !normalizedStatus) {
+    return "bg-slate-100 text-slate-700";
+  }
 
   if (normalizedStatus.includes("high")) {
     return "bg-red-100 text-red-700";
@@ -656,7 +682,10 @@ function buildAlerts({ data, examTimetables, essayQuestions, adaptivePlan }) {
 
   if (adaptivePlan.length > 0) {
     alerts.push(`Additional revision is recommended for ${adaptivePlan[0].subject}.`);
-  } else if (data?.riskStatus === "High" || data?.riskStatus === "Medium") {
+  } else if (
+    data?.commerceRiskAssessed &&
+    (data?.riskStatus === "High" || data?.riskStatus === "Medium")
+  ) {
     alerts.push(`Your risk status is currently ${formatRiskStatus(data.riskStatus)}.`);
   }
 

@@ -54,7 +54,9 @@ function AdminDashboard() {
         // Some totals are calculated here as fallback values.
         const roleCounts = users.reduce(
           (counts, user) => {
-            if (user.role === "admin") counts.admins += 1;
+            if (user.role === "admin" || user.role === "superadmin") {
+              counts.admins += 1;
+            }
             if (user.role === "teacher") counts.teachers += 1;
             if (user.role === "parent") counts.parents += 1;
             return counts;

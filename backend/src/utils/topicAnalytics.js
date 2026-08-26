@@ -82,7 +82,7 @@ export async function buildTopicAnalytics(subjectIds = [], subjectId = null) {
       return questionSubjectId === subjectId.toString();
     }
 
-    if (subjectIdStrings.length === 0) return true;
+    if (subjectIdStrings.length === 0) return false;
 
     return subjectIdStrings.includes(questionSubjectId);
   });

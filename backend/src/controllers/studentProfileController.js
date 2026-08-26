@@ -1,11 +1,31 @@
 import StudentProfile from "../models/StudentProfile.js";
 import User from "../models/User.js";
+import Attendance from "../models/Attendance.js";
+import bcrypt from "bcryptjs";
 import { createAuditLog } from "../utils/createAuditLog.js";
-import { resolveClass, resolveOrCreateClass } from "../utils/resolveReference.js";
+import { resolveOrCreateClass } from "../utils/resolveReference.js";
+import { ensureCommerceSubjectIds } from "../utils/commerceSubjects.js";
+import { validateOptionalPasswordChange } from "../utils/registrationValidation.js";
+import {
+  getTeacherScope,
+  resolveClassTwinIds,
+} from "../utils/teacherScope.js";
+import { generateUniqueStudentId } from "../utils/generateRoleIds.js";
 
 export const createStudentProfile = async (req, res) => {
   try {
-    const { user, studentId, className, parent, subjects } = req.body;
+    const { user, className, parent, subjects } = req.body;
+    let { studentId } = req.body;
+
+    if (!user) {
+      return res.status(400).json({
+        message: "user is required",
+      });
+    }
+
+    if (!studentId?.trim()) {
+      studentId = await generateUniqueStudentId();
+    }
 
     const existingProfile = await StudentProfile.findOne({
       $or: [{ studentId }, { user }],
@@ -22,12 +42,17 @@ export const createStudentProfile = async (req, res) => {
       ? await resolveOrCreateClass(className)
       : null;
 
+    const subjectIds =
+      Array.isArray(subjects) && subjects.length > 0
+        ? subjects
+        : await ensureCommerceSubjectIds();
+
     const profile = await StudentProfile.create({
       user,
       studentId,
       class: classRecord?._id,
       parent,
-      subjects,
+      subjects: subjectIds,
     });
 
     await createAuditLog({
@@ -50,7 +75,71 @@ export const createStudentProfile = async (req, res) => {
 
 export const getAllStudentProfiles = async (req, res) => {
   try {
-    const profiles = await StudentProfile.find()
+    let filter = {};
+
+    if (req.user?.role === "teacher") {
+      const scope = await getTeacherScope(req.user._id);
+
+      if (scope.classIds.length === 0 && scope.subjectIds.length === 0) {
+        return res.status(200).json([]);
+      }
+
+      const scopeOrFilters = [];
+      if (scope.classIds.length > 0) {
+        scopeOrFilters.push({ class: { $in: scope.classIds } });
+      }
+      if (scope.subjectIds.length > 0) {
+        scopeOrFilters.push({ subjects: { $in: scope.subjectIds } });
+      }
+
+      // Attendance Management can list students via class-scoped attendance
+      // rows. Include those students so Marks Management can select them too.
+      if (scope.classIds.length > 0) {
+        const attendanceStudentIds = await Attendance.distinct("student", {
+          class: { $in: scope.classIds },
+        });
+        if (attendanceStudentIds.length > 0) {
+          scopeOrFilters.push({ _id: { $in: attendanceStudentIds } });
+        }
+      }
+
+      filter = { $or: scopeOrFilters };
+
+      // Optional class narrowing for Marks (exam class) / Attendance forms.
+      // Includes duplicate Class rows with the same name/grade, and students
+      // who already have attendance rows for those class ids.
+      if (req.query.classId) {
+        const twinIds = await resolveClassTwinIds(req.query.classId, {
+          ignoreYear: true,
+        });
+        if (twinIds.length === 0) {
+          return res.status(200).json([]);
+        }
+
+        const attendanceInClass = await Attendance.distinct("student", {
+          class: { $in: twinIds },
+        });
+
+        const classMatchOr = [{ class: { $in: twinIds } }];
+        if (attendanceInClass.length > 0) {
+          classMatchOr.push({ _id: { $in: attendanceInClass } });
+        }
+
+        filter = {
+          $and: [{ $or: scopeOrFilters }, { $or: classMatchOr }],
+        };
+      }
+    } else if (req.query.classId) {
+      const twinIds = await resolveClassTwinIds(req.query.classId, {
+        ignoreYear: true,
+      });
+      if (twinIds.length === 0) {
+        return res.status(200).json([]);
+      }
+      filter = { class: { $in: twinIds } };
+    }
+
+    const profiles = await StudentProfile.find(filter)
       .populate("user", "fullName email phoneNumber isActive role")
       .populate("class", "className academicYear gradeLevel")
       .populate("subjects", "subjectName")
@@ -66,14 +155,35 @@ export const getAllStudentProfiles = async (req, res) => {
 
 export const updateStudentProfile = async (req, res) => {
   try {
-    const { studentId, className, academicYear, fullName, email, phoneNumber, status } =
-      req.body;
+    const {
+      studentId,
+      className,
+      academicYear,
+      fullName,
+      email,
+      phoneNumber,
+      status,
+      subjects,
+      password,
+      confirmPassword,
+    } = req.body;
 
     const profile = await StudentProfile.findById(req.params.id);
 
     if (!profile) {
       return res.status(404).json({
         message: "Student profile not found",
+      });
+    }
+
+    const passwordError = validateOptionalPasswordChange({
+      password,
+      confirmPassword,
+    });
+
+    if (passwordError) {
+      return res.status(400).json({
+        message: passwordError,
       });
     }
 
@@ -87,6 +197,7 @@ export const updateStudentProfile = async (req, res) => {
         ...(studentId !== undefined ? { studentId } : {}),
         ...(classRecord ? { class: classRecord._id } : {}),
         ...(academicYear !== undefined ? { academicYear } : {}),
+        ...(subjects !== undefined ? { subjects } : {}),
       },
       { new: true }
     )
@@ -95,17 +206,25 @@ export const updateStudentProfile = async (req, res) => {
       .populate("subjects", "subjectName")
       .populate("parent", "fullName email");
 
-    if (fullName || email || phoneNumber || status) {
-      await User.findByIdAndUpdate(profile.user, {
+    if (fullName || email || phoneNumber || status || password) {
+      const userUpdates = {
         ...(fullName !== undefined ? { fullName } : {}),
         ...(email !== undefined ? { email } : {}),
         ...(phoneNumber !== undefined ? { phoneNumber } : {}),
         ...(status !== undefined ? { isActive: status === "Active" } : {}),
-      });
+      };
+
+      if (password) {
+        userUpdates.password = await bcrypt.hash(password, 10);
+      }
+
+      await User.findByIdAndUpdate(profile.user, userUpdates);
     }
 
     res.status(200).json({
-      message: "Student updated successfully",
+      message: password
+        ? "Student and password updated successfully"
+        : "Student updated successfully",
       profile: updatedProfile,
     });
   } catch (error) {

@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const examTimetableSchema = new mongoose.Schema(
   {
+    // Optional link to a Marks exam so schedule + marks stay aligned.
+    exam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+      default: null,
+    },
+
     examName: {
       type: String,
       required: true,
@@ -45,6 +52,14 @@ const examTimetableSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+examTimetableSchema.index(
+  { exam: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { exam: { $type: "objectId" } },
+  }
 );
 
 export default mongoose.model("ExamTimetable", examTimetableSchema);

@@ -12,7 +12,9 @@ export const getAdminDashboard = async (req, res) => {
     const totalStudentAccounts = await User.countDocuments({ role: "student" });
     const totalTeachers = await User.countDocuments({ role: "teacher" });
     const totalParents = await User.countDocuments({ role: "parent" });
-    const totalAdmins = await User.countDocuments({ role: "admin" });
+    const totalAdmins = await User.countDocuments({
+      role: { $in: ["admin", "superadmin"] },
+    });
     const totalSubjects = await Subject.countDocuments();
     const totalExams = await Exam.countDocuments();
     const passMark = await getPassMark();

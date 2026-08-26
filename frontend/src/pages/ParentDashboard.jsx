@@ -95,6 +95,7 @@ function ParentDashboard() {
     try {
       const res = await api.get("/reports/student-report", {
         headers: { Authorization: `Bearer ${token}` },
+        params: selectedStudentId ? { studentId: selectedStudentId } : {},
         responseType: "blob",
       });
 
@@ -104,7 +105,10 @@ function ParentDashboard() {
 
       const link = document.createElement("a");
       link.href = fileURL;
-      link.setAttribute("download", "student-progress-report.pdf");
+      link.setAttribute(
+        "download",
+        `${selectedStudentId || "student"}-progress-report.pdf`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -115,12 +119,12 @@ function ParentDashboard() {
     }
   };
 
-  const findSubjectMarks = (keyword, fallback) => {
+  const findSubjectMarks = (keyword) => {
     const matchedSubject = data?.subjectPerformance?.find((item) =>
       item.subject?.toLowerCase().includes(keyword)
     );
 
-    return matchedSubject?.marks ?? fallback;
+    return matchedSubject?.marks ?? null;
   };
 
   const runPassFailPrediction = async () => {
@@ -133,10 +137,10 @@ function ParentDashboard() {
         return;
       }
 
-      const res = await predictPassFailRisk(
-        studentProfileObjectId,
-        DEFAULT_PASS_FAIL_INPUT
-      );
+      const res = await predictPassFailRisk(studentProfileObjectId, {
+        ...DEFAULT_PASS_FAIL_INPUT,
+        attendance_pct: data?.attendancePercentage,
+      });
 
       setPassFailPrediction(res.data);
     } catch (predictionError) {
@@ -159,19 +163,31 @@ function ParentDashboard() {
         return;
       }
 
-      // Commerce model expects A/L Commerce marks and attendance percentage.
-      const res = await predictCommerceRisk(studentProfileObjectId, {
-        Accounting_Score: findSubjectMarks("account", 72),
-        Business_Studies_Score: findSubjectMarks("business", 68),
-        Economics_Score: findSubjectMarks("economic", 61),
-        Attendance_Percentage: data?.attendancePercentage || 78,
-      });
+      const accounting = findSubjectMarks("account");
+      const business = findSubjectMarks("business");
+      const economics = findSubjectMarks("economic");
+
+      if (data?.attendancePercentage == null) {
+        setMlError(
+          "Attendance records are required before running a risk assessment"
+        );
+        return;
+      }
+
+      const payload = {
+        Attendance_Percentage: data.attendancePercentage,
+      };
+      if (accounting != null) payload.Accounting_Score = accounting;
+      if (business != null) payload.Business_Studies_Score = business;
+      if (economics != null) payload.Economics_Score = economics;
+
+      const res = await predictCommerceRisk(studentProfileObjectId, payload);
 
       setCommercePrediction(res.data);
     } catch (predictionError) {
       setMlError(
         predictionError.response?.data?.message ||
-          "Failed to run subject progress check"
+          "Failed to run risk assessment"
       );
     } finally {
       setMlLoading("");
@@ -206,8 +222,8 @@ function ParentDashboard() {
             />
             <MetricCard
               label="Risk Status"
-              value={formatRiskStatus(data.riskStatus)}
-              badgeClass={getRiskBadgeClass(formatRiskStatus(data.riskStatus))}
+              value={getDashboardRiskLabel(data)}
+              badgeClass={getRiskBadgeClass(getDashboardRiskLabel(data))}
             />
             <MetricCard
               label="Latest Marks"
@@ -306,9 +322,9 @@ function ParentDashboard() {
               </PredictionCard>
 
               <PredictionCard
-                title="Subject Progress Check"
-                description="Estimates High, Medium, or Low support need for A/L Commerce subjects."
-                buttonText="Check Subject Progress"
+                title="Commerce Risk Assessment"
+                description="Shows whether the student may need High, Medium, or Low academic support."
+                buttonText="Check Progress Risk"
                 loadingText="Checking..."
                 color="emerald"
                 isLoading={mlLoading === "commerce"}
@@ -788,16 +804,29 @@ function formatPercent(value) {
   return numericValue > 0 ? `${formatMarks(numericValue)}%` : "--";
 }
 
+function getDashboardRiskLabel(data) {
+  if (!data?.commerceRiskAssessed) return "Not Assessed";
+  if (data.latestCommerceRiskLevel) {
+    return formatRiskStatus(data.latestCommerceRiskLevel);
+  }
+  return formatRiskStatus(data.riskStatus);
+}
+
 function formatRiskStatus(status) {
-  if (!status) return "--";
-  if (status === "Low") return "Low Risk";
-  if (status === "Medium") return "Medium Risk";
-  if (status === "High") return "High Risk";
-  return status;
+  if (!status) return "Not Assessed";
+  const normalized = String(status).trim();
+  if (/^low(\s+risk)?$/i.test(normalized)) return "Low Risk";
+  if (/^medium(\s+risk)?$/i.test(normalized)) return "Medium Risk";
+  if (/^high(\s+risk)?$/i.test(normalized)) return "High Risk";
+  return normalized;
 }
 
 function getRiskBadgeClass(status) {
   const normalizedStatus = String(status || "").toLowerCase();
+
+  if (normalizedStatus.includes("not assessed") || !normalizedStatus) {
+    return "bg-slate-100 text-slate-700";
+  }
 
   if (normalizedStatus.includes("high")) {
     return "bg-red-100 text-red-700";

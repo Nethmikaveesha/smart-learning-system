@@ -1,11 +1,9 @@
-import StudentProfile from "../models/StudentProfile.js";
 import Exam from "../models/Exam.js";
 import Result from "../models/Result.js";
-import Class from "../models/Class.js";
-import Subject from "../models/Subject.js";
 import EssaySubmission from "../models/EssaySubmission.js";
 import Attendance from "../models/Attendance.js";
-import User from "../models/User.js";
+import CommerceRisk from "../models/CommerceRisk.js";
+import StudentProfile from "../models/StudentProfile.js";
 import { isPassingMark, getPassMark } from "../utils/grading.js";
 import {
   dedupeResults,
@@ -13,46 +11,11 @@ import {
   sortResultsByLatest,
 } from "../utils/studentResults.js";
 import { buildTopicAnalytics } from "../utils/topicAnalytics.js";
-
-async function getTeacherScope(teacherId) {
-  const teacher = await User.findById(teacherId).select("fullName email");
-  const classes = await Class.find({ assignedTeacher: teacherId }).select(
-    "className academicYear"
-  );
-
-  const classIds = classes.map((item) => item._id);
-
-  const students = await StudentProfile.find({
-    class: { $in: classIds },
-  }).select("_id studentId riskStatus attendancePercentage class subjects");
-
-  const studentSubjectIds = [
-    ...new Set(
-      students.flatMap((student) =>
-        (student.subjects || []).map((subjectId) => subjectId.toString())
-      )
-    ),
-  ];
-
-  const subjects = await Subject.find({
-    $or: [{ assignedTeacher: teacherId }, { _id: { $in: studentSubjectIds } }],
-  }).select("subjectName subjectCode");
-
-  const subjectIds = subjects.map((item) => item._id);
-  const studentIds = students.map((student) => student._id);
-  const subjectIdStrings = subjectIds.map((id) => id.toString());
-
-  return {
-    teacher,
-    classes,
-    subjects,
-    classIds,
-    subjectIds,
-    subjectIdStrings,
-    students,
-    studentIds,
-  };
-}
+import { getTeacherSubmissionMongoFilter } from "../utils/essayPaperAccess.js";
+import {
+  resolveTeacherTeachingContext,
+  resultMatchesTeachingContext,
+} from "../utils/teacherTeachingContext.js";
 
 function buildClassPerformance(results, subjects) {
   return subjects
@@ -68,8 +31,10 @@ function buildClassPerformance(results, subjects) {
       }
 
       const average =
-        subjectResults.reduce((sum, result) => sum + Number(result.marks || 0), 0) /
-        subjectResults.length;
+        subjectResults.reduce(
+          (sum, result) => sum + Number(result.marks || 0),
+          0
+        ) / subjectResults.length;
 
       return {
         subject: subject.subjectName,
@@ -84,6 +49,7 @@ function buildAlerts({
   results,
   averageAttendance,
   incompleteAttendanceWeek,
+  passMark,
 }) {
   const alerts = [];
 
@@ -93,16 +59,18 @@ function buildAlerts({
     );
   }
 
-  const lowSubjects = new Set();
-
+  const lowBySubject = new Map();
   results.forEach((result) => {
-    if (Number(result.marks) < 50) {
-      lowSubjects.add(getSubjectName(result));
+    if (!isPassingMark(result.marks, passMark)) {
+      const subject = getSubjectName(result) || "Subject";
+      lowBySubject.set(subject, (lowBySubject.get(subject) || 0) + 1);
     }
   });
 
-  lowSubjects.forEach((subject) => {
-    alerts.push(`1 student has low ${subject} performance.`);
+  lowBySubject.forEach((count, subject) => {
+    alerts.push(
+      `${count} result${count > 1 ? "s are" : " is"} below the pass mark in ${subject}.`
+    );
   });
 
   if (incompleteAttendanceWeek) {
@@ -114,39 +82,88 @@ function buildAlerts({
   return alerts;
 }
 
+async function countHighRiskStudents(studentIds = []) {
+  if (!studentIds.length) return 0;
+
+  const latestRiskByStudent = await CommerceRisk.aggregate([
+    { $match: { studentProfile: { $in: studentIds } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: "$studentProfile",
+        riskLevel: { $first: "$riskLevel" },
+      },
+    },
+    {
+      $match: {
+        riskLevel: { $regex: /^High(\s+Risk)?$/i },
+      },
+    },
+  ]);
+
+  return latestRiskByStudent.length;
+}
+
 export const getTeacherDashboard = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
-    const { students, studentIds, subjects, classes, teacher } = scope;
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
+    const {
+      teacher,
+      subjects,
+      students,
+      studentIds,
+      classIds,
+      subjectIds,
+      assignedClassLabels,
+      assignedSubjectLabels,
+      hasAssignments,
+    } = ctx;
 
     const totalStudents = students.length;
-    const totalExams = await Exam.countDocuments({
-      class: { $in: scope.classIds },
-    });
 
-    const rawResults = await Result.find({
-      student: { $in: studentIds },
-    }).populate({
-      path: "exam",
-      select: "examName examDate",
-      populate: {
-        path: "subject",
-        select: "subjectName",
-      },
-    });
+    const examFilter = {};
+    if (classIds.length > 0) {
+      examFilter.class = { $in: classIds };
+    } else {
+      examFilter._id = { $in: [] };
+    }
+    if (subjectIds.length > 0) {
+      examFilter.subject = { $in: subjectIds };
+    }
 
-    const results = sortResultsByLatest(dedupeResults(rawResults));
+    const totalExams =
+      classIds.length === 0 ? 0 : await Exam.countDocuments(examFilter);
+
+    const rawResults =
+      studentIds.length === 0
+        ? []
+        : await Result.find({
+            student: { $in: studentIds },
+          }).populate({
+            path: "exam",
+            select: "examName examDate subject class",
+            populate: {
+              path: "subject",
+              select: "subjectName subjectCode",
+            },
+          });
+
+    const scopedRawResults = rawResults.filter((result) =>
+      resultMatchesTeachingContext(result, ctx)
+    );
+
+    const results = sortResultsByLatest(dedupeResults(scopedRawResults));
     const totalPublishedResults = results.length;
 
     const averageMarks =
       totalPublishedResults > 0
         ? Number(
             (
-              results.reduce((sum, item) => sum + item.marks, 0) /
+              results.reduce((sum, item) => sum + Number(item.marks || 0), 0) /
               totalPublishedResults
             ).toFixed(2)
           )
-        : 0;
+        : null;
 
     const passMark = await getPassMark();
     const passCount = results.filter((item) =>
@@ -155,11 +172,9 @@ export const getTeacherDashboard = async (req, res) => {
     const passRate =
       totalPublishedResults > 0
         ? Number(((passCount / totalPublishedResults) * 100).toFixed(2))
-        : 0;
+        : null;
 
-    const highRiskStudents = students.filter(
-      (student) => student.riskStatus === "High"
-    ).length;
+    const highRiskStudents = await countHighRiskStudents(studentIds);
 
     const attendanceValues = students
       .map((student) => Number(student.attendancePercentage) || 0)
@@ -175,22 +190,13 @@ export const getTeacherDashboard = async (req, res) => {
           )
         : 0;
 
-    const scopedSubmissions = await EssaySubmission.find()
-      .populate({
-        path: "question",
-        select: "subject",
-        populate: { path: "subject", select: "_id subjectName" },
-      })
+    // Same ownership rules as Student Submissions / Essay Review.
+    const submissionFilter = await getTeacherSubmissionMongoFilter(
+      req.user._id
+    );
+    const teacherSubmissions = await EssaySubmission.find(submissionFilter)
+      .select("status finalMarks marks nlpEvaluation")
       .lean();
-
-    const teacherSubmissions = scopedSubmissions.filter((submission) => {
-      const subjectId =
-        submission.question?.subject?._id?.toString() ||
-        submission.question?.subject?.toString();
-
-      if (scope.subjectIdStrings.length === 0) return true;
-      return scope.subjectIdStrings.includes(subjectId);
-    });
 
     const pendingSubmissions = teacherSubmissions.filter(
       (submission) => submission.status === "Pending"
@@ -212,15 +218,18 @@ export const getTeacherDashboard = async (req, res) => {
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - 7);
 
-    const recentAttendanceCount = await Attendance.countDocuments({
-      student: { $in: studentIds },
-      date: { $gte: weekStart },
-    });
+    const recentAttendanceCount =
+      studentIds.length === 0
+        ? 0
+        : await Attendance.countDocuments({
+            student: { $in: studentIds },
+            date: { $gte: weekStart },
+          });
 
     const incompleteAttendanceWeek =
       students.length > 0 && recentAttendanceCount < students.length;
 
-    const topicAnalytics = await buildTopicAnalytics(scope.subjectIds);
+    const topicAnalytics = await buildTopicAnalytics(subjectIds);
     const classPerformance = buildClassPerformance(results, subjects);
 
     const alerts = buildAlerts({
@@ -228,7 +237,14 @@ export const getTeacherDashboard = async (req, res) => {
       results,
       averageAttendance,
       incompleteAttendanceWeek,
+      passMark,
     });
+
+    if (!hasAssignments) {
+      alerts.unshift(
+        "No class or subject has been assigned to you yet. Ask an admin to assign your teaching load."
+      );
+    }
 
     const pendingWork = [
       pendingSubmissions > 0
@@ -240,23 +256,30 @@ export const getTeacherDashboard = async (req, res) => {
       incompleteAttendanceWeek ? "1 attendance sheet is incomplete" : null,
     ].filter(Boolean);
 
-    const recentResults = await Result.find({
-      student: { $in: studentIds },
-    })
-      .populate({
-        path: "student",
-        populate: { path: "user", select: "fullName" },
-      })
-      .populate({
-        path: "exam",
-        select: "examName examDate",
-        populate: { path: "subject", select: "subjectName" },
-      })
-      .sort({ createdAt: -1 })
-      .limit(10);
+    const recentResults =
+      studentIds.length === 0
+        ? []
+        : await Result.find({
+            student: { $in: studentIds },
+          })
+            .populate({
+              path: "student",
+              populate: { path: "user", select: "fullName" },
+            })
+            .populate({
+              path: "exam",
+              select: "examName examDate subject class",
+              populate: { path: "subject", select: "subjectName subjectCode" },
+            })
+            .sort({ createdAt: -1 })
+            .limit(40);
+
+    const scopedRecentResults = recentResults.filter((result) =>
+      resultMatchesTeachingContext(result, ctx)
+    );
 
     const previewResults = sortResultsByLatest(
-      dedupeResults(recentResults)
+      dedupeResults(scopedRecentResults)
     ).slice(0, 5);
 
     res.status(200).json({
@@ -264,8 +287,13 @@ export const getTeacherDashboard = async (req, res) => {
         fullName: teacher?.fullName,
         email: teacher?.email,
       },
-      classes: classes.map((item) => item.className),
-      subjects: subjects.map((item) => item.subjectName),
+      classes: assignedClassLabels,
+      subjects: assignedSubjectLabels,
+      assignmentSummary: {
+        classCount: assignedClassLabels.length,
+        subjectCount: assignedSubjectLabels.length,
+        hasAssignments,
+      },
       totalStudents,
       totalExams,
       pendingSubmissions,
@@ -291,13 +319,13 @@ export const getTeacherDashboard = async (req, res) => {
 
 export const getTeacherTopicErrorAnalytics = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
     const subjectId = req.query.subjectId || null;
-    const analytics = await buildTopicAnalytics(scope.subjectIds, subjectId);
+    const analytics = await buildTopicAnalytics(ctx.subjectIds, subjectId);
 
     res.status(200).json({
       success: true,
-      subjects: scope.subjects,
+      subjects: ctx.subjects,
       selectedSubjectId: subjectId,
       ...analytics,
     });
@@ -311,20 +339,58 @@ export const getTeacherTopicErrorAnalytics = async (req, res) => {
 };
 
 /**
- * Score trends across exams for the teacher's classes/subjects.
- * Supports optional subject + student filters for an interactive chart.
+ * Score trends across exams for the teacher's assigned class/subjects.
  */
 export const getTeacherScoreTrends = async (req, res) => {
   try {
-    const scope = await getTeacherScope(req.user._id);
+    const ctx = await resolveTeacherTeachingContext(req.user._id);
     const { subjectId, studentId } = req.query;
 
+    if (!ctx.classIds.length || !ctx.subjectIds.length) {
+      return res.status(200).json({
+        success: true,
+        subjects: ctx.subjects,
+        classes: [],
+        students: [],
+        selectedSubjectId: subjectId || "",
+        selectedStudentId: studentId || "",
+        examCount: 0,
+        resultCount: 0,
+        passMark: await getPassMark(),
+        classTrend: [],
+        chartPoints: [],
+        latestAverage: null,
+        overallAverage: null,
+      });
+    }
+
     const examFilter = {
-      class: { $in: scope.classIds },
-      subject: { $in: scope.subjectIds },
+      class: { $in: ctx.classIds },
+      subject: { $in: ctx.subjectIds },
     };
 
     if (subjectId) {
+      // Keep filter inside the teacher's assigned subject twins.
+      const allowed = new Set(ctx.subjectIdStrings);
+      if (!allowed.has(String(subjectId))) {
+        return res.status(200).json({
+          success: true,
+          subjects: ctx.subjects,
+          classes: ctx.scope.classes.filter((row) =>
+            ctx.classIdStrings.includes(String(row._id))
+          ),
+          students: [],
+          selectedSubjectId: subjectId || "",
+          selectedStudentId: studentId || "",
+          examCount: 0,
+          resultCount: 0,
+          passMark: await getPassMark(),
+          classTrend: [],
+          chartPoints: [],
+          latestAverage: null,
+          overallAverage: null,
+        });
+      }
       examFilter.subject = subjectId;
     }
 
@@ -337,7 +403,7 @@ export const getTeacherScoreTrends = async (req, res) => {
 
     const resultFilter = {
       exam: { $in: examIds },
-      student: { $in: scope.studentIds },
+      student: { $in: ctx.studentIds },
     };
 
     if (studentId) {
@@ -366,8 +432,10 @@ export const getTeacherScoreTrends = async (req, res) => {
         examResults.length > 0
           ? Number(
               (
-                examResults.reduce((sum, item) => sum + Number(item.marks || 0), 0) /
-                examResults.length
+                examResults.reduce(
+                  (sum, item) => sum + Number(item.marks || 0),
+                  0
+                ) / examResults.length
               ).toFixed(2)
             )
           : null;
@@ -402,7 +470,7 @@ export const getTeacherScoreTrends = async (req, res) => {
       }));
 
     const studentsWithNames = await StudentProfile.find({
-      _id: { $in: scope.studentIds },
+      _id: { $in: ctx.studentIds },
     })
       .populate("user", "fullName")
       .select("studentId user")
@@ -410,8 +478,10 @@ export const getTeacherScoreTrends = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      subjects: scope.subjects,
-      classes: scope.classes,
+      subjects: ctx.subjects,
+      classes: ctx.scope.classes.filter((row) =>
+        ctx.classIdStrings.includes(String(row._id))
+      ),
       students: studentsWithNames.map((student) => ({
         _id: student._id,
         studentId: student.studentId,
