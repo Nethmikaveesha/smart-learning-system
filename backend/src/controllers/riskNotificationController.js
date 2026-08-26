@@ -1,5 +1,8 @@
 import StudentProfile from "../models/StudentProfile.js";
-import { getTeacherScope } from "../utils/teacherScope.js";
+import {
+  getTeacherScope,
+  resolvePrimaryAssignedClassTwinIds,
+} from "../utils/teacherScope.js";
 import { linkedStudentsQuery } from "../utils/parentLinks.js";
 
 export const getRiskNotifications = async (req, res) => {
@@ -13,13 +16,16 @@ export const getRiskNotifications = async (req, res) => {
       Object.assign(filter, linkedStudentsQuery(req.user._id));
     }
 
-    // Teachers only see at-risk students in their assigned classes.
+    // Teachers only see at-risk students in their admin-assigned class.
     if (req.user?.role === "teacher") {
       const scope = await getTeacherScope(req.user._id);
-      if (scope.classIds.length === 0) {
+      const allowedClassIds = await resolvePrimaryAssignedClassTwinIds(scope);
+
+      if (!allowedClassIds.length) {
         return res.status(200).json([]);
       }
-      filter.class = { $in: scope.classIds };
+
+      filter.class = { $in: allowedClassIds };
     }
 
     const riskStudents = await StudentProfile.find(filter)

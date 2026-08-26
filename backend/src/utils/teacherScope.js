@@ -407,7 +407,8 @@ export async function getTeacherScope(teacherId) {
     classIdStrings: classIds.map((id) => id.toString()),
     classLabels: uniqueClassLabels(classes),
     // Strict admin class link (User.assignedClass / Class.assignedTeacher).
-    // Used by Create Exam so subject-linked Grade 12+13 rows do not leak in.
+    // Used by Create Exam / Weak Students so subject-linked Grade 12+13
+    // companions do not leak into teacher-facing lists.
     primaryAssignedClassIds: primaryAssignedClasses.map((item) => item._id),
     adminAssignedClasses,
     adminAssignedClassIds: adminAssignedClasses.map((item) => item._id),
@@ -425,6 +426,27 @@ export async function getTeacherScope(teacherId) {
     studentIds,
     studentIdStrings: studentIds.map((id) => id.toString()),
   };
+}
+
+/**
+ * Admin-assigned class ids plus same className/grade year twins.
+ * Does not include unrelated classes linked only through a shared subject.
+ */
+export async function resolvePrimaryAssignedClassTwinIds(scope) {
+  const seedClassIds =
+    scope?.primaryAssignedClassIds?.length > 0
+      ? scope.primaryAssignedClassIds
+      : [];
+
+  if (!seedClassIds.length) return [];
+
+  const classIdLists = await Promise.all(
+    seedClassIds.map((classId) =>
+      resolveClassTwinIds(classId, { ignoreYear: true })
+    )
+  );
+
+  return uniqueObjectIds(classIdLists.flat());
 }
 
 export async function assertTeacherOwnsClass(teacherId, classId) {
